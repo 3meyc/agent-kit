@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "type": "commonjs",
+  "description": "Marks the extensionless bin/ shims as CommonJS wherever the plugin sits; every module under hooks/ and src/ is .mjs."
+}

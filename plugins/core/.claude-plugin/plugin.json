@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "description": "Always-on chat-output and shell rules, check and sweep agents, edit and shell hooks",
+  "description": "Always-on chat-output and shell rules, check and sweep agents, /check and /dev, lint and shell hooks, CodeGraph sync, kit doctor, /kit-adopt and /kit-inventory",
   "author": {
     "name": "3meyc"
   },

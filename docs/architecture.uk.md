@@ -30,7 +30,7 @@ flowchart BT
 
 | ID | Плагін | Містить |
 | --- | --- | --- |
-| 1 | `core` | Постійні правила, агенти `check-runner` і `repo-sweep`, хуки редагування й оболонки, `kit doctor` _(заплановано)_, `/kit-inventory` _(заплановано)_, `/kit-adopt` _(заплановано)_ |
+| 1 | `core` | Постійні правила, агенти `check-runner` і `repo-sweep`, хуки редагування й оболонки, `kit doctor`, `/kit-inventory`, `/kit-adopt`, перевірка парності документації |
 | 2 | `sdlc` | П'ять скілів `/sdlc-*`, агенти `sdlc-simplifier` і `sdlc-verifier` |
 | 3 | `session` | Хуки й скрипти журналу сесій, `/handoff`, `/close-out`, `/close-siblings`, `/git` з агентом `git-ops`, підготовка й злиття worktree |
 | 4 | `svelte` | Домовленості для Svelte 5 |

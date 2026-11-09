@@ -1,0 +1,17 @@
+#!/usr/bin/env node
+// agent-kit core: `kit`, on the Bash tool's PATH while the plugin is enabled. The work is in
+// src/kit-cli.mjs; this CommonJS shim only loads it, so it runs under any parent package.json.
+const { join } = require("node:path");
+const { pathToFileURL } = require("node:url");
+
+import(pathToFileURL(join(__dirname, "..", "src", "kit-cli.mjs")).href)
+  .then((module) => module.main(process.argv.slice(2)))
+  .then(
+    (code) => {
+      process.exitCode = typeof code === "number" ? code : 0;
+    },
+    (error) => {
+      console.error(`kit: ${error instanceof Error ? error.message : error}`);
+      process.exitCode = 1;
+    },
+  );
