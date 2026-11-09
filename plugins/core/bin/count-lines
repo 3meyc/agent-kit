@@ -1,0 +1,17 @@
+#!/usr/bin/env node
+// agent-kit core: `count-lines`, on the Bash tool's PATH while the plugin is enabled. The work is in
+// src/count-lines.mjs; this CommonJS shim only loads it, so it runs under any parent package.json.
+const { join } = require("node:path");
+const { pathToFileURL } = require("node:url");
+
+import(pathToFileURL(join(__dirname, "..", "src", "count-lines.mjs")).href)
+  .then((module) => module.main(process.argv.slice(2)))
+  .then(
+    (code) => {
+      process.exitCode = typeof code === "number" ? code : 0;
+    },
+    (error) => {
+      console.error(`count-lines: ${error instanceof Error ? error.message : error}`);
+      process.exitCode = 1;
+    },
+  );

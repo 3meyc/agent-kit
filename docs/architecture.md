@@ -30,7 +30,7 @@ flowchart BT
 
 | ID | Plugin | Contains |
 | --- | --- | --- |
-| 1 | `core` | Always-on rules, `check-runner` and `repo-sweep` agents, edit and shell hooks, `kit doctor` _(planned)_, `/kit-inventory` _(planned)_, `/kit-adopt` _(planned)_ |
+| 1 | `core` | Always-on rules, `check-runner` and `repo-sweep` agents, edit and shell hooks, `kit doctor`, `/kit-inventory`, `/kit-adopt`, docs parity check |
 | 2 | `sdlc` | Five `/sdlc-*` skills, `sdlc-simplifier` and `sdlc-verifier` agents |
 | 3 | `session` | Ledger hooks and scripts, `/handoff`, `/close-out`, `/close-siblings`, `/git` with the `git-ops` agent, worktree set-up and landing |
 | 4 | `svelte` | Svelte 5 conventions |

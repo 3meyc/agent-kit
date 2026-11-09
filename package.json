@@ -8,11 +8,12 @@
     "node": ">=20"
   },
   "scripts": {
-    "check": "node scripts/check-schema.mjs && node scripts/vendor-shared.mjs --check && npm test && node scripts/naming-guard.mjs",
+    "check": "node scripts/check-schema.mjs && node scripts/vendor-shared.mjs --check && node scripts/vendor-schema.mjs --check && npm test && node plugins/core/bin/kit-docs-parity && node scripts/naming-guard.mjs",
     "check:schema": "node scripts/check-schema.mjs",
-    "vendor": "node scripts/vendor-shared.mjs",
+    "vendor": "node scripts/vendor-shared.mjs && node scripts/vendor-schema.mjs",
     "naming-guard": "node scripts/naming-guard.mjs",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "docs-parity": "node plugins/core/bin/kit-docs-parity"
   },
   "devDependencies": {
     "ajv": "8.20.0"
