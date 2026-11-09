@@ -68,11 +68,11 @@ _(тут не перевірено)_. Агенти: `check-runner` (запуск
 | ID | Поле | Хто читає |
 | --- | --- | --- |
 | 1 | `commands.check`, `lint`, `test`, `build` | `/core:check` (ніколи `commit`, `land` чи `commitAudit`) |
-| 2 | `devServer.port` | `/core:dev` |
+| 2 | `devServer.port`, `commands.dev` | `/core:dev` |
 | 3 | `hooks.off` | кожен хук (id вище) |
 | 4 | `ledger` | `shell-deletions` (працює лише при `true`); `kit doctor` (тоді чекає `session`) |
 | 5 | `baseBranch` | `git-branch-context` |
-| 6 | `lintOnEdit` _(запропоноване, немає у схемі v1)_ | `lint-edited-file` |
+| 6 | `lintOnEdit` | `lint-edited-file` |
 | 7 | увесь файл | `kit doctor` перевіряє його за схемою з `schema/` |
 
 `lintOnEdit` приймає команду й необов'язкові шаблони; `{file}` замінюється на шлях відносно

@@ -49,7 +49,7 @@ import {
   transcriptRoot,
 } from "../lib/hook-utils.mjs";
 import { createShellEditTracker, readCommitFacts, readShellDeletions } from "./ledger-utils.mjs";
-import { hookOff, inLedger, ledgerDir, ledgerHookOn, readKit, rootFor } from "./kit-config.mjs";
+import { hookOff, inLedger, ledgerDir, ledgerHookOn, readKit, rootFor } from "../lib/kit-config.mjs";
 
 /**
  * Session ledger — one Markdown record per Claude Code session in the ledger folder (`kit.json`

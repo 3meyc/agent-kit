@@ -4,7 +4,9 @@ import { join } from "node:path";
 import { describe, expect, it } from "./session/vitest-compat.mjs";
 import {
   doneLine,
+  installCommandFor,
   packageManagerFor,
+  PACKAGE_MANAGERS,
   planSetup,
   readFacts,
   rtkFilterState,
@@ -109,6 +111,13 @@ describe("install step and kit.json", () => {
     expect(packageManagerFor("/r", has("pnpm-lock.yaml", "package-lock.json"))?.name).toBe("pnpm");
     expect(packageManagerFor("/r", has("package-lock.json"))?.name).toBe("npm");
     expect(packageManagerFor("/r", has("Cargo.lock"))).toBeNull();
+  });
+
+  it("runs kit.json commands.install through the shell in place of the guessed package manager", () => {
+    const [pnpm] = PACKAGE_MANAGERS;
+    expect(installCommandFor(pnpm, { commands: { install: "make deps" } })).toEqual({ command: "make deps", args: [], shell: true });
+    expect(installCommandFor(pnpm, { commands: {} })).toEqual({ command: "pnpm", args: pnpm.args, shell: false });
+    expect(installCommandFor(null, { commands: {} })).toBeNull();
   });
 
   it("names the dev server port only when kit.json sets one", () => {

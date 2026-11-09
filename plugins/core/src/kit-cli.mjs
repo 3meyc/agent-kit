@@ -6,7 +6,7 @@ import { isDirectRun, projectRoot } from "../lib/hook-utils.mjs";
 import { runAdopt } from "./adopt.mjs";
 import { runDoctor } from "./doctor.mjs";
 import { runInventory } from "./inventory.mjs";
-import { readKitConfig } from "./kit-config.mjs";
+import { readKit } from "../lib/kit-config.mjs";
 import { checkUpdates, defaultCacheFile, updateCommands } from "./update-check.mjs";
 
 const USAGE = `Usage: kit <command>
@@ -32,12 +32,16 @@ function readJson(file) {
 }
 
 export function printCommands(root, print = console.log) {
-  const config = readKitConfig(root);
-  if (config === null) {
+  const kit = readKit(root);
+  if (kit.error) {
+    print(`${kit.error}: fix it before running project commands (\`kit doctor\` shows what is wrong).`);
+    return 0;
+  }
+  if (!kit.found) {
     print("No kit.json at the repo root: there are no project commands to run. `/kit-adopt` writes a starter.");
     return 0;
   }
-  const commands = Object.entries(config.commands ?? {}).filter(([, value]) => typeof value === "string");
+  const commands = Object.entries(kit.commands);
   if (commands.length === 0) {
     print("kit.json defines no commands.");
     return 0;
@@ -47,9 +51,11 @@ export function printCommands(root, print = console.log) {
 }
 
 export function printDev(root, print = console.log) {
-  const port = readKitConfig(root)?.devServer?.port;
+  const kit = readKit(root);
+  const port = kit.devServer?.port;
   const launch = readJson(join(root, ".claude", "launch.json"));
   const configurations = Array.isArray(launch?.configurations) ? launch.configurations : [];
+  if (kit.commands.dev) print(`commands.dev: \`${kit.commands.dev}\``);
   if (!Number.isInteger(port)) {
     print("kit.json sets no devServer.port.");
     if (configurations.length > 0) {

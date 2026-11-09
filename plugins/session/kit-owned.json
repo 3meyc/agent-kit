@@ -1,0 +1,35 @@
+{
+  "$comment": "Project files this plugin supplies, for `kit doctor` and `/kit-adopt` (core). Besides these, every agent in agents/ counts as kit-owned automatically; this plugin's slash commands live in commands/, so they are listed here under both project spellings. A project hook in .claude/settings.json that runs one of `hookScripts` duplicates a kit hook. git-branch-context, shell-edits and the shell-deletions hook are core's.",
+  "files": [
+    ".claude/commands/handoff.md",
+    ".claude/commands/close-out.md",
+    ".claude/commands/close-siblings.md",
+    ".claude/commands/git.md",
+    ".claude/skills/handoff",
+    ".claude/skills/close-out",
+    ".claude/skills/close-siblings",
+    ".claude/skills/git",
+    "scripts/git-commit-session.mjs",
+    "scripts/worktree-flow.mjs",
+    "scripts/worktree-setup.mjs",
+    "scripts/worktree-setup-hook.mjs",
+    "scripts/hooks/session-ledger.mjs",
+    "scripts/hooks/ledger-brief.mjs",
+    "scripts/hooks/ledger-claims.mjs",
+    "scripts/hooks/ledger-record.mjs",
+    "scripts/hooks/ledger-text.mjs",
+    "scripts/hooks/ledger-export.mjs",
+    "scripts/hooks/ledger-summarize.mjs",
+    "scripts/hooks/scan-ledger-secrets.mjs",
+    "scripts/hooks/hook-utils.mjs"
+  ],
+  "partial": {
+    "scripts/hooks/hook-utils.mjs": "The ledger helpers in it are the plugin's; other project hooks may still import the rest, so retire it only when nothing imports it.",
+    "scripts/hooks/scan-ledger-secrets.mjs": "A git hook manager (lefthook, husky) may still call it; point that at the plugin's `scan-ledger-secrets` command first."
+  },
+  "hookScripts": [
+    "session-ledger.mjs",
+    "ledger-brief.mjs",
+    "worktree-setup-hook.mjs"
+  ]
+}

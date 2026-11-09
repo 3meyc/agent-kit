@@ -20,12 +20,12 @@ import { spawnSync } from "node:child_process";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { SHELL_TOOLS, isDirectRun, readHookInput } from "../lib/hook-utils.mjs";
-import { ledgerHookOn, readKit, rootFor } from "./kit-config.mjs";
+import { ledgerHookOn, readKit, rootFor } from "../lib/kit-config.mjs";
 import { shellDeletionsLog } from "./ledger-utils.mjs";
 
 /** This plugin's hook id, as `kit.json` `hooks.off` names it. */
 export const HOOK_ID = "ledger-shell-deletions";
-import { shellWriteTargets } from "./shell-edits.mjs";
+import { shellWriteTargets } from "../lib/shell-edits.mjs";
 
 const PHASES = { PreToolUse: "pre", PostToolUse: "post" };
 

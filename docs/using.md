@@ -33,14 +33,24 @@ Repeat the install for each plugin you want (`core`, `session`, `svelte`, `pytho
 
 ## 3. Take updates
 
-Auto-update is **off by default** for third-party marketplaces.
+Update explicitly. A new `stable` takes two commands, then a new session:
 
-1. Turn it on once per machine: `/plugin` → Marketplaces → `agent-kit` → enable auto-update.
-2. With it on, a new `stable` arrives at the next session start.
-3. Without it: `claude plugin marketplace update agent-kit`.
-4. Auto-update can't be relied on (the desktop app turns it off, headless runs never update), so
-   the `core` plugin says at session start when an installed kit plugin lags its channel, with the
-   two commands that update it.
+```bash
+claude plugin marketplace update agent-kit
+```
+
+```bash
+claude plugin update core@agent-kit
+```
+
+1. Run the second command for each kit plugin you installed (`sdlc`, `session`, …). The first one
+   only moves the catalog; the installed plugin stays where it was until the second
+   ([spikes](spikes.md) S8).
+2. The `core` plugin checks for you: at session start it says when an installed kit plugin lags its
+   channel, and prints these two commands for it. `/core:kit-doctor` reports the same.
+3. Auto-update can't be relied on: the desktop app turns it off, headless runs never update, and an
+   interactive session applies an update only at the next launch (S8). Turning it on
+   (`/plugin` → Marketplaces → `agent-kit`) is optional and doesn't replace the commands above.
 
 ## 4. Private overlay kits
 
@@ -62,5 +72,5 @@ the one git uses for it.
 | ID | Symptom | Check |
 | --- | --- | --- |
 | 1 | A skill or command is missing | `/plugin` lists the plugin as enabled for this project |
-| 2 | An old behaviour persists | `claude plugin marketplace update agent-kit`, then a new session |
+| 2 | An old behaviour persists | `claude plugin marketplace update agent-kit`, `claude plugin update <plugin>@agent-kit`, then a new session |
 | 3 | A rule seems ignored | `/core:kit-doctor`; a project copy of a kit file shadows the kit |

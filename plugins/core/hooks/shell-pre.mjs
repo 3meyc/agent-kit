@@ -12,7 +12,7 @@
  * never skips the other, and neither ever blocks the tool call (one stderr line, exit 0).
  */
 import { isDirectRun, projectRoot, readHookInput } from "../lib/hook-utils.mjs";
-import { readKitConfig } from "../src/kit-config.mjs";
+import { readKit } from "../lib/kit-config.mjs";
 import { run as runSync } from "./codegraph-sync.mjs";
 import { run as runDeletions } from "./shell-deletions.mjs";
 
@@ -25,10 +25,10 @@ export const DUTIES = [
 /**
  * Run every duty on one parsed payload, in order, each isolated from the others' failures.
  * @param {Record<string, unknown>} input
- * @param {Array<[string, (input: Record<string, unknown>, config: Record<string, any> | null) => Promise<void> | void]>} [duties]
- * @param {Record<string, any> | null} [config]
+ * @param {Array<[string, (input: Record<string, unknown>, config: import("../lib/kit-config.mjs").Kit) => Promise<void> | void]>} [duties]
+ * @param {import("../lib/kit-config.mjs").Kit} [config]
  */
-export async function dispatch(input, duties = DUTIES, config = readKitConfig(projectRoot())) {
+export async function dispatch(input, duties = DUTIES, config = readKit(projectRoot())) {
   for (const [name, duty] of duties) {
     try {
       await duty(input, config);

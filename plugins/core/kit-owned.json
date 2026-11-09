@@ -14,7 +14,7 @@
   ],
   "partial": {
     ".claude/rules/tooling-limits.md": "The generic rows and the rules above the table come from the kit; keep only project-specific rows, in a file with another name.",
-    "scripts/hooks/shell-edits.mjs": "The session ledger may still import it until the session plugin ships its own copy."
+    "scripts/hooks/shell-edits.mjs": "A project's own ledger scripts import it; retire it together with them (the session plugin lists those)."
   },
   "hookScripts": [
     "lint-edited-file.mjs",

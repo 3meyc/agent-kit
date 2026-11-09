@@ -22,8 +22,8 @@ import { spawnSync } from "node:child_process";
 import { existsSync, statSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { SHELL_TOOLS, isDirectRun, projectRoot, readHookInput } from "../lib/hook-utils.mjs";
-import { hookOff, readKitConfig } from "../src/kit-config.mjs";
-import { stripHeredocs } from "../src/shell-edits.mjs";
+import { hookOff, readKit } from "../lib/kit-config.mjs";
+import { stripHeredocs } from "../lib/shell-edits.mjs";
 
 export const HOOK_ID = "codegraph-sync";
 const isWindows = process.platform === "win32";
@@ -70,12 +70,12 @@ function worktreeWithIndex(dir) {
 /**
  * Sync the worktree index a reading call is about to query; returns at once for any other call.
  * @param {{ tool_name?: string, tool_input?: { command?: unknown, projectPath?: unknown }, cwd?: string }} input
- * @param {Record<string, any> | null} [config]
+ * @param {import("../lib/kit-config.mjs").Kit} [config]
  */
 export async function run(input, config) {
   const dir = codegraphQueryDir(input);
   if (dir === null || !isAbsolute(dir) || !existsSync(dir)) return;
-  if (hookOff(config === undefined ? readKitConfig(projectRoot()) : config, HOOK_ID)) return;
+  if (hookOff(HOOK_ID, config === undefined ? readKit(projectRoot()) : config)) return;
   const top = worktreeWithIndex(dir);
   if (top === null) return;
   let result = syncIndex(top);

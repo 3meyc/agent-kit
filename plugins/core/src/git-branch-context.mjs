@@ -2,7 +2,7 @@
 // to git as argv, so `@{upstream}` needs no quoting on any shell. With a kit.json, its
 // `baseBranch` is reported as well.
 import { execFileSync } from "node:child_process";
-import { readKitConfig } from "./kit-config.mjs";
+import { readKit } from "../lib/kit-config.mjs";
 
 /** @param {string[]} args @returns {string | null} */
 function git(...args) {
@@ -26,7 +26,7 @@ export function main() {
   const remoteHead = git("symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD");
   const hasMain = refExists("refs/remotes/origin/main") || refExists("refs/heads/main");
   const hasMaster = refExists("refs/remotes/origin/master") || refExists("refs/heads/master");
-  const kitBase = top ? readKitConfig(top)?.baseBranch : undefined;
+  const kitBase = top ? readKit(top).raw?.baseBranch : undefined;
   let defaultBase = null;
   if (typeof kitBase === "string" && kitBase) defaultBase = kitBase;
   else if (remoteHead) defaultBase = remoteHead.replace(/^origin\//, "");
