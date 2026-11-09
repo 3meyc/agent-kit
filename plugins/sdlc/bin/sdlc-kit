@@ -1,0 +1,16 @@
+#!/usr/bin/env node
+// Entry point on the Bash PATH (plugin bin/). Node may load this extensionless file as CommonJS or
+// as ESM, depending on the nearest package.json, so it uses only what works in both: dynamic
+// import() and process.argv. The logic lives in ../scripts/sdlc-kit.mjs.
+Promise.all([import("node:fs"), import("node:path"), import("node:url")])
+  .then(([fs, path, url]) => {
+    const here = path.dirname(fs.realpathSync(process.argv[1]));
+    return import(url.pathToFileURL(path.join(here, "..", "scripts", "sdlc-kit.mjs")).href);
+  })
+  .then((m) => {
+    process.exitCode = m.main(process.argv.slice(2));
+  })
+  .catch((err) => {
+    console.error(`sdlc-kit: ${err && err.message ? err.message : err}`);
+    process.exitCode = 1;
+  });
