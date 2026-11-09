@@ -22,8 +22,12 @@ jobs:
         run: node scripts/check-schema.mjs
       - name: Vendored shared files are current
         run: node scripts/vendor-shared.mjs --check
+      - name: Schema copy in the core plugin is current
+        run: node scripts/vendor-schema.mjs --check
       - name: Unit tests
         run: npm test
+      - name: Docs parity (name.md / name.uk.md)
+        run: node plugins/core/bin/kit-docs-parity
       - name: No version field in plugin manifests
         run: |
           if grep -l '"version"' plugins/*/.claude-plugin/plugin.json; then
