@@ -1,0 +1,32 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: kit.json schema
+        run: node scripts/check-schema.mjs
+      - name: Vendored shared files are current
+        run: node scripts/vendor-shared.mjs --check
+      - name: Unit tests
+        run: npm test
+      - name: No version field in plugin manifests
+        run: |
+          if grep -l '"version"' plugins/*/.claude-plugin/plugin.json; then
+            echo "plugin.json must not set version: the stable tag is the release" >&2
+            exit 1
+          fi

@@ -1,0 +1,20 @@
+{
+  "name": "agent-kit",
+  "private": true,
+  "description": "Repo tooling for the agent-kit plugin marketplace. The plugins themselves need none of it.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "check": "node scripts/check-schema.mjs && node scripts/vendor-shared.mjs --check && npm test && node scripts/naming-guard.mjs",
+    "check:schema": "node scripts/check-schema.mjs",
+    "vendor": "node scripts/vendor-shared.mjs",
+    "naming-guard": "node scripts/naming-guard.mjs",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "ajv": "8.20.0"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "core",
+  "description": "Always-on chat-output and shell rules, check and sweep agents, edit and shell hooks",
+  "author": {
+    "name": "3meyc"
+  },
+  "homepage": "https://github.com/3meyc/agent-kit",
+  "repository": "https://github.com/3meyc/agent-kit",
+  "license": "MIT"
+}

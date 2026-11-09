@@ -1,0 +1,45 @@
+name: naming-guard
+
+# Fails when a banned term (private project or employer names) appears in a tracked file, a
+# commit message or author line, or the branch name. The term list lives only in the
+# NAMING_GUARD_WORDS secret (newline-separated); it is never committed. Pull requests from forks
+# get no secrets, so the guard fails there until a maintainer re-runs it from a branch here.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  naming-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Pick the commits to check
+        id: range
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          if [ "$EVENT" = "pull_request" ]; then
+            echo "range=$PR_BASE..$PR_HEAD" >> "$GITHUB_OUTPUT"
+          elif [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            echo "range=$BEFORE..$AFTER" >> "$GITHUB_OUTPUT"
+          else
+            echo "range=$AFTER~1..$AFTER" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Run the naming guard
+        env:
+          NAMING_GUARD_WORDS: ${{ secrets.NAMING_GUARD_WORDS }}
+        run: node scripts/naming-guard.mjs --commits "${{ steps.range.outputs.range }}"

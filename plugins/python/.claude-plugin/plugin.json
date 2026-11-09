@@ -1,0 +1,13 @@
+{
+  "name": "python",
+  "description": "Python conventions",
+  "author": {
+    "name": "3meyc"
+  },
+  "homepage": "https://github.com/3meyc/agent-kit",
+  "repository": "https://github.com/3meyc/agent-kit",
+  "license": "MIT",
+  "dependencies": [
+    "core"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "sdlc",
+  "description": "Spec-first SDLC work items: intent, plan, build, finish and status skills with simplifier and verifier agents",
+  "author": {
+    "name": "3meyc"
+  },
+  "homepage": "https://github.com/3meyc/agent-kit",
+  "repository": "https://github.com/3meyc/agent-kit",
+  "license": "MIT",
+  "dependencies": [
+    "core"
+  ]
+}

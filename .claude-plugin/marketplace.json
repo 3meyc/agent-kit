@@ -1,0 +1,34 @@
+{
+  "name": "agent-kit",
+  "description": "Claude Code plugins for a spec-first development workflow",
+  "owner": {
+    "name": "3meyc"
+  },
+  "plugins": [
+    {
+      "name": "core",
+      "source": "./plugins/core",
+      "description": "Always-on chat-output and shell rules, check and sweep agents, edit and shell hooks"
+    },
+    {
+      "name": "sdlc",
+      "source": "./plugins/sdlc",
+      "description": "Spec-first SDLC work items: intent, plan, build, finish and status skills with simplifier and verifier agents"
+    },
+    {
+      "name": "session",
+      "source": "./plugins/session",
+      "description": "Session ledger, hand-off and close-out, git operations and the worktree flow"
+    },
+    {
+      "name": "svelte",
+      "source": "./plugins/svelte",
+      "description": "Svelte 5 runes, Vitest and accessibility conventions"
+    },
+    {
+      "name": "python",
+      "source": "./plugins/python",
+      "description": "Python conventions"
+    }
+  ]
+}

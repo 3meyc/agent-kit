@@ -1,0 +1,13 @@
+{
+  "name": "session",
+  "description": "Session ledger, hand-off and close-out, git operations and the worktree flow",
+  "author": {
+    "name": "3meyc"
+  },
+  "homepage": "https://github.com/3meyc/agent-kit",
+  "repository": "https://github.com/3meyc/agent-kit",
+  "license": "MIT",
+  "dependencies": [
+    "core"
+  ]
+}

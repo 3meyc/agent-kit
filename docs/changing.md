@@ -86,4 +86,4 @@ ones. Agents follow these rules; the `sdlc` skills apply them during planning an
 
 This repo is public. Plugin text, examples, docs, commits and issues carry no names, links or
 notes from private projects or employers. Examples use neutral names (`my-app`, `APP-123`).
-A naming check in CI _(planned)_ rejects a change that does.
+A naming check in CI (`scripts/naming-guard.mjs`) rejects a change that does.
