@@ -14,7 +14,7 @@ import {
   repoRelativePath,
 } from "../lib/hook-utils.mjs";
 import { parseCommitLog } from "./ledger-claims.mjs";
-import { globToRegExp, shellWriteTargets } from "./shell-edits.mjs";
+import { globToRegExp, shellWriteTargets } from "../lib/shell-edits.mjs";
 
 /**
  * Slack around a shell command's run window when matching file mtimes: the transcript stamps

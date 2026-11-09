@@ -8,22 +8,18 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { projectRoot } from "../lib/hook-utils.mjs";
+import { KIT_COMMANDS, KIT_DEFAULTS, KIT_FILE } from "../lib/kit-config.mjs";
 
-export const DEFAULT_PATHS = {
-  docs: "docs",
-  decisions: "docs/decisions",
-  sdlc: "docs/sdlc",
-  glossary: "docs/glossary.md",
-  recipes: "docs/recipes",
-  ledger: ".claude/ledger",
-};
-export const COMMANDS = ["check", "lint", "test", "build", "commit", "land", "commitAudit"];
+// The schema defaults and command names, from the shared kit.json reader. The stages never set up
+// a checkout or start a dev server, so `install` and `dev` are not listed.
+export const DEFAULT_PATHS = KIT_DEFAULTS.paths;
+export const COMMANDS = KIT_COMMANDS.filter((name) => name !== "install" && name !== "dev");
 export const ARCHIVE_DIR = "archive";
 const LIFECYCLE_DOCS = ["intent.md", "spec.md", "plan.md"];
 
 /** kit.json at the root: `{ found, data, error }`. A missing file is not an error. */
 export function readKit(root) {
-  const file = join(root, "kit.json");
+  const file = join(root, KIT_FILE);
   if (!existsSync(file)) return { found: false, data: {}, error: null };
   try {
     const data = JSON.parse(readFileSync(file, "utf8"));

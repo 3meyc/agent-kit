@@ -11,7 +11,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { BASE_MARKETPLACE } from "./doctor.mjs";
-import { KIT_FILE } from "./kit-config.mjs";
+import { KIT_FILE } from "../lib/kit-config.mjs";
 import { findKitCopies } from "./kit-owned.mjs";
 
 export const SCHEMA_URL = "https://raw.githubusercontent.com/3meyc/agent-kit/stable/schema/kit.schema.json";

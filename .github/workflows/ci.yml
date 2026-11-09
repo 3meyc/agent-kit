@@ -20,10 +20,8 @@ jobs:
       - run: npm ci
       - name: kit.json schema
         run: node scripts/check-schema.mjs
-      - name: Vendored shared files are current
+      - name: Vendored shared files and schema copy are current
         run: node scripts/vendor-shared.mjs --check
-      - name: Schema copy in the core plugin is current
-        run: node scripts/vendor-schema.mjs --check
       - name: Unit tests
         run: npm test
       - name: Docs parity (name.md / name.uk.md)

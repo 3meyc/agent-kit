@@ -7,7 +7,7 @@
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 import { isDirectRun } from "../lib/hook-utils.mjs";
-import { readKit, rootFor } from "./kit-config.mjs";
+import { readKit, rootFor } from "../lib/kit-config.mjs";
 
 /** @param {string[]} args @returns {string | null} */
 function git(...args) {

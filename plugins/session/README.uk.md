@@ -31,7 +31,7 @@ Claude Code не вміє вимкнути один хук плагіна, то�
 | 2 | `ledger-brief` | SessionStart | так | Виводить огляд недавніх записів у контекст сесії |
 | 3 | `ledger-shell-deletions` | PreToolUse, PostToolUse (Bash, PowerShell) | так | Знімає стан відстежуваних файлів, які видаляє скрипт, щоб запис зарахував видалення |
 | 4 | `ledger-summarize` | (запускає `ledger-stop`) | так | Заповнює запис, який ніхто не написав, дешевою моделлю через `claude -p`. Витрачає токени; додайте його до списку, щоб вимкнути, або задайте `LEDGER_NO_SUMMARY=1` |
-| 5 | `worktree-setup` | SessionStart | ні | У новому linked worktree: ставить залежності (pnpm або npm, за lock-файлом), будує індекс CodeGraph, коли він є в основному checkout, довіряє фільтрам RTK, яким уже довіряють деінде. Кожен крок пропускається, коли його інструмент не встановлено |
+| 5 | `worktree-setup` | SessionStart | ні | У новому linked worktree: ставить залежності (`commands.install`, інакше pnpm або npm за lock-файлом), будує індекс CodeGraph, коли він є в основному checkout, довіряє фільтрам RTK, яким уже довіряють деінде. Кожен крок пропускається, коли його інструмент не встановлено |
 
 ```json
 { "hooks": { "off": ["ledger-summarize", "worktree-setup"] } }
@@ -51,6 +51,7 @@ Claude Code не вміє вимкнути один хук плагіна, то�
 | 8 | `commands.check`, `lint`, `test`, `build` | немає | Перевірки, які `/close-out` і `/close-siblings` запускають перед злиттям |
 | 9 | `devServer.port` | немає | Завершальний рядок підготовки worktree |
 | 10 | `hooks.off` | `[]` | Ідентифікатори хуків вище |
+| 11 | `commands.install` | здогад за lock-файлом | Крок встановлення під час підготовки worktree; запускається через shell, коли відомий lock-файл новіший за останнє встановлення |
 
 Checkout визначається з `cwd` у даних хука (або з робочої теки shell), тож сесія у worktree
 працює з власними `kit.json`, журналом і файлами цього worktree.

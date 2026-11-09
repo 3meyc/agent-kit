@@ -1,10 +1,10 @@
-// Parser tests for plugins/core/src/shell-edits.mjs, ported from the source copies' vitest suite
+// Parser tests for shared/shell-edits.mjs, ported from the source copies' vitest suite
 // (the ledger tracker's tests stay with the session plugin). `expect` is a small shim over
 // node:assert so the cases read as they did.
 import assert from "node:assert/strict";
 import { resolve } from "node:path";
 import { describe, it } from "node:test";
-import { globToRegExp, shellWriteTargets, stripHeredocs, tokenizeShell } from "../plugins/core/src/shell-edits.mjs";
+import { globToRegExp, shellWriteTargets, stripHeredocs, tokenizeShell } from "../shared/shell-edits.mjs";
 
 function expect(actual) {
   return {

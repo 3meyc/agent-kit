@@ -14,7 +14,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDirectRun, projectRoot, readHookInput } from "../lib/hook-utils.mjs";
-import { hookOff, readKitConfig } from "../src/kit-config.mjs";
+import { hookOff, readKit } from "../lib/kit-config.mjs";
 import { checkUpdates, defaultCacheFile, updateCommands } from "../src/update-check.mjs";
 
 const pluginRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -41,16 +41,16 @@ export function updateText(lagging) {
 
 export async function main(input) {
   const root = projectRoot();
-  const config = readKitConfig(root);
+  const config = readKit(root);
   const parts = [];
-  if (!hookOff(config, "rules")) {
+  if (!hookOff("rules", config)) {
     try {
       parts.push(rulesText());
     } catch (error) {
       console.error(`core rules: ${error instanceof Error ? error.message : error}`);
     }
   }
-  if (!hookOff(config, "update-check") && input?.source !== "compact") {
+  if (!hookOff("update-check", config) && input?.source !== "compact") {
     try {
       parts.push(updateText(checkUpdates({ root, cacheFile: defaultCacheFile() }).lagging));
     } catch (error) {

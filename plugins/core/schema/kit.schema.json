@@ -52,6 +52,8 @@
       "description": "Shell commands the plugins run, from the repo root. Leave one out when the project has no such step.",
       "additionalProperties": false,
       "properties": {
+        "install": { "$ref": "#/$defs/command", "description": "Installs dependencies in a fresh checkout or worktree. Left out: the session plugin guesses from the lockfile." },
+        "dev": { "$ref": "#/$defs/command", "description": "Starts the dev server (on devServer.port), for a session without the desktop app's Browser pane." },
         "check": { "$ref": "#/$defs/command", "description": "Fast whole-project check (types, format)." },
         "lint": { "$ref": "#/$defs/command" },
         "test": { "$ref": "#/$defs/command" },
@@ -59,6 +61,21 @@
         "commit": { "$ref": "#/$defs/command", "description": "Commit helper, when the project has its own." },
         "land": { "$ref": "#/$defs/command", "description": "Lands a finished branch on baseBranch." },
         "commitAudit": { "$ref": "#/$defs/command", "description": "Run after each commit that holds code; its output is shown to the agent. Leave out for none." }
+      }
+    },
+    "lintOnEdit": {
+      "type": "object",
+      "description": "Lints each file an Edit or Write call changes (core's lint-edited-file hook). A failure is shown to the agent; the edit stays.",
+      "required": ["command"],
+      "additionalProperties": false,
+      "properties": {
+        "command": { "$ref": "#/$defs/command", "description": "Run from the repo root. {file} is replaced by the quoted repo-relative path; without it the path is appended." },
+        "match": {
+          "type": "array",
+          "description": "Globs over the repo-relative path; one without a slash matches the file name anywhere. Left out: every edited file.",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
       }
     },
     "hooks": {

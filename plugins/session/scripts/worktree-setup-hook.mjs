@@ -25,7 +25,7 @@ import { appendFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDirectRun, readHookInput } from "../lib/hook-utils.mjs";
-import { hookOff, readKit } from "./kit-config.mjs";
+import { hookOff, readKit } from "../lib/kit-config.mjs";
 import { codegraphStatus, planSetup, readFacts } from "./worktree-setup.mjs";
 
 /** This plugin's hook id, as `kit.json` `hooks.off` names it. */

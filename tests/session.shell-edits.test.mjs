@@ -6,7 +6,7 @@ import { projectRoot } from "../shared/hook-utils.mjs";
 import { createShellEditTracker } from "../plugins/session/scripts/ledger-utils.mjs";
 
 const REPO_ROOT = projectRoot();
-import { globToRegExp, shellWriteTargets, stripHeredocs, tokenizeShell } from "../plugins/session/scripts/shell-edits.mjs";
+import { globToRegExp, shellWriteTargets, stripHeredocs, tokenizeShell } from "../shared/shell-edits.mjs";
 
 const cwd = resolve("/repo");
 const abs = (...parts) => resolve(cwd, ...parts);

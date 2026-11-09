@@ -22,7 +22,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { isDirectRun, transcriptDirs } from "../lib/hook-utils.mjs";
-import { ledgerDir as kitLedgerDir, readKit, rootFor } from "./kit-config.mjs";
+import { ledgerDir as kitLedgerDir, readKit, rootFor } from "../lib/kit-config.mjs";
 import { RECAP_MARKER, filePaths, listRecords } from "./ledger-record.mjs";
 import { conversationText, findSecrets, redactSecrets, sentenceTitle } from "./ledger-text.mjs";
 

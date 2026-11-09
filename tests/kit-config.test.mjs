@@ -1,18 +1,25 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "./session/vitest-compat.mjs";
 import {
+  KIT_COMMANDS,
   KIT_DEFAULTS,
   checkoutRoot,
   hookOff,
   inLedger,
+  kitCommand,
   ledgerDir,
   ledgerHookOn,
+  lintOnEdit,
+  normalizeKit,
   readKit,
   rootFor,
-} from "../plugins/session/scripts/kit-config.mjs";
+} from "../shared/kit-config.mjs";
+
+// The shared kit.json reader every plugin vendors into its lib/.
+const schema = JSON.parse(readFileSync(new URL("../schema/kit.schema.json", import.meta.url), "utf8"));
 
 let dir;
 beforeEach(() => {
@@ -104,5 +111,46 @@ describe("checkoutRoot and rootFor", () => {
     expect(rootFor(join(dir, "src"))).toBe(dir);
     expect(checkoutRoot(join(dir, "missing"))).toBeNull();
     expect(checkoutRoot(undefined)).toBeNull();
+  });
+});
+
+describe("schema agreement", () => {
+  it("knows every command and path the schema defines, with the same defaults", () => {
+    expect([...KIT_COMMANDS].sort()).toEqual(Object.keys(schema.properties.commands.properties).sort());
+    const pathDefaults = Object.fromEntries(
+      Object.entries(schema.properties.paths.properties).map(([key, value]) => [key, value.default]),
+    );
+    expect({ ...KIT_DEFAULTS.paths }).toEqual(pathDefaults);
+    expect(KIT_DEFAULTS.baseBranch).toBe(schema.properties.baseBranch.default);
+  });
+});
+
+describe("lintOnEdit, kitCommand and raw", () => {
+  it("reads lintOnEdit only with a command, and keeps string globs", () => {
+    expect(lintOnEdit({ lintOnEdit: { match: ["*.ts"] } })).toBeNull();
+    expect(lintOnEdit({ lintOnEdit: { command: "eslint", match: ["*.ts", 3] } })).toEqual({ command: "eslint", match: ["*.ts"] });
+    expect(normalizeKit({ lintOnEdit: { command: "eslint" } }).lintOnEdit).toEqual({ command: "eslint", match: [] });
+    // Idempotent: a read kit gives the same answer as the raw one.
+    expect(lintOnEdit(normalizeKit({ lintOnEdit: { command: "eslint" } }))).toEqual({ command: "eslint", match: [] });
+  });
+
+  it("gives a command only when it is a non-empty string", () => {
+    const kit = normalizeKit({ commands: { dev: "npm run dev", install: " " } });
+    expect(kitCommand(kit, "dev")).toBe("npm run dev");
+    expect(kitCommand(kit, "install")).toBeNull();
+    expect(kitCommand(null, "dev")).toBeNull();
+  });
+
+  it("keeps the parsed file, so a caller can tell a set value from a default", () => {
+    expect(normalizeKit({ project: "x" }).raw).toEqual({ project: "x" });
+    expect(normalizeKit({ project: "x" }).baseBranch).toBe("main");
+    expect(normalizeKit(null).raw).toBeNull();
+  });
+
+  it("takes a raw kit in hookOff and ledgerHookOn too", () => {
+    expect(hookOff("rules", { hooks: { off: ["rules"] } })).toBe(true);
+    expect(hookOff("rules", null)).toBe(false);
+    expect(ledgerHookOn("ledger-stop", { ledger: true })).toBe(true);
+    expect(ledgerHookOn("ledger-stop", undefined)).toBe(false);
   });
 });

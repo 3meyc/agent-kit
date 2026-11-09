@@ -11,7 +11,7 @@
  * the path and kind of each match, never the match itself, so the log does not leak it either.
  */
 import { execFileSync } from "node:child_process";
-import { rootFor } from "./kit-config.mjs";
+import { rootFor } from "../lib/kit-config.mjs";
 
 const REPO_ROOT = rootFor(process.cwd());
 import { findSecrets } from "./ledger-text.mjs";

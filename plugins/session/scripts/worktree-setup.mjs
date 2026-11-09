@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { isDirectRun } from "../lib/hook-utils.mjs";
-import { readKit } from "./kit-config.mjs";
+import { readKit } from "../lib/kit-config.mjs";
 
 /**
  * Prepare a fresh git worktree for a writing session:
@@ -12,8 +12,8 @@ import { readKit } from "./kit-config.mjs";
  *                           # `worktree-setup` runs it in every new linked worktree
  *
  * A worktree shares the repository but not its untracked state: no `node_modules`, no codegraph
- * index. This installs dependencies with the package manager the lockfile names (`PACKAGE_MANAGERS`;
- * pnpm's store is shared, so it is fast) and builds the index where the main checkout has one and
+ * index. This installs dependencies with `kit.json` `commands.install`, else the package manager the
+ * lockfile names (`PACKAGE_MANAGERS`; pnpm's store is shared, so it is fast) and builds the index where the main checkout has one and
  * the tool is installed. RTK trusts filter files by path, so it also
  * trusts this worktree's `.rtk/filters.toml` when the user already trusted the same content
  * elsewhere (the main checkout). A second run does nothing. It never creates a
@@ -53,6 +53,18 @@ export const PACKAGE_MANAGERS = [
  */
 export function packageManagerFor(top, exists = existsSync) {
   return PACKAGE_MANAGERS.find((pm) => exists(join(top, pm.lockfile))) ?? null;
+}
+
+/**
+ * The install command: `kit.json` `commands.install` (run through the shell) when set, else the
+ * lockfile's package manager, else null. Either way the step runs only when a known lockfile is
+ * newer than the last install (`planSetup`).
+ * @param {{ name: string, args: string[] } | null} pm @param {{ commands: Record<string, string> }} kit
+ * @returns {{ command: string, args: string[], shell: boolean } | null}
+ */
+export function installCommandFor(pm, kit) {
+  if (kit.commands.install) return { command: kit.commands.install, args: [], shell: true };
+  return pm ? { command: pm.name, args: pm.args, shell: false } : null;
 }
 
 /**
@@ -122,9 +134,10 @@ function git(args, cwd) {
  * array with `shell: true` is deprecated (DEP0190), so Windows gets one joined string. Safe: every
  * argument here is a literal.
  */
-function run(command, args, cwd) {
-  console.log(`worktree-setup: ${command} ${args.join(" ")}`);
-  const result = isWindows
+function run(command, args, cwd, shell = false) {
+  console.log(`worktree-setup: ${[command, ...args].join(" ")}`);
+  const result =
+    isWindows || shell
     ? spawnSync([command, ...args].join(" "), { cwd, stdio: "inherit", shell: true })
     : spawnSync(command, args, { cwd, stdio: "inherit" });
   if (result.status !== 0) {
@@ -170,7 +183,8 @@ export function readFacts(cwd) {
     linked: gitDir !== commonDir,
     hasLockfile: pm !== null,
     packageManager: pm?.name ?? null,
-    packageManagerOnPath: pm ? onPath(pm.name) : false,
+    // A project's own `commands.install` is its business; only the guessed manager is looked up.
+    packageManagerOnPath: pm ? Boolean(readKit(top).commands.install) || onPath(pm.name) : false,
     hasNodeModules: existsSync(modulesMarker),
     lockfileNewer:
       existsSync(modulesMarker) && existsSync(lockfile) && statSync(lockfile).mtimeMs > statSync(modulesMarker).mtimeMs,
@@ -201,12 +215,13 @@ function main() {
     process.exit(1);
   }
   const { top, facts } = read;
+  const kit = readKit(top);
   const steps = planSetup(facts);
   for (const step of steps) {
     if (step === "not-linked") console.log("worktree-setup: this is the main checkout, not a linked worktree");
     if (step === "install") {
-      const pm = packageManagerFor(top);
-      if (pm) run(pm.name, pm.args, top);
+      const install = installCommandFor(packageManagerFor(top), kit);
+      if (install) run(install.command, install.args, top, install.shell);
     }
     if (step === "install-hint") {
       console.log(`worktree-setup: ${facts.packageManager} is not installed here; dependencies were not installed`);
@@ -223,7 +238,7 @@ function main() {
     }
   }
   if (steps.every((step) => step === "not-linked")) console.log("worktree-setup: already set up, nothing to do");
-  console.log(doneLine(readKit(top)));
+  console.log(doneLine(kit));
 }
 
 if (isDirectRun(import.meta.url)) main();

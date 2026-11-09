@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { isDirectRun, parseWorktrees } from "../lib/hook-utils.mjs";
-import { escapeRegExp, inLedger, readKit } from "./kit-config.mjs";
+import { escapeRegExp, inLedger, readKit } from "../lib/kit-config.mjs";
 
 /**
  * The branch-and-worktree side of a session, from start to close-out (`worktree-flow` on the Bash
