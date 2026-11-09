@@ -12,7 +12,7 @@
     "scripts/git-commit-session.mjs",
     "scripts/worktree-flow.mjs",
     "scripts/worktree-setup.mjs",
-    "scripts/worktree-setup-hook.mjs",
+    "scripts/hooks/worktree-setup-hook.mjs",
     "scripts/hooks/session-ledger.mjs",
     "scripts/hooks/ledger-brief.mjs",
     "scripts/hooks/ledger-claims.mjs",
@@ -25,7 +25,7 @@
   ],
   "partial": {
     "scripts/hooks/hook-utils.mjs": "The ledger helpers in it are the plugin's; other project hooks may still import the rest, so retire it only when nothing imports it.",
-    "scripts/hooks/scan-ledger-secrets.mjs": "A git hook manager (lefthook, husky) may still call it; point that at the plugin's `scan-ledger-secrets` command first."
+    "scripts/hooks/scan-ledger-secrets.mjs": "A git hook manager (lefthook, husky) may still call it, and plugin commands are not on PATH there: add this repo as a dev dependency (`github:3meyc/agent-kit#<ref>`) and call `agent-kit ledger-scan-secrets` first."
   },
   "hookScripts": [
     "session-ledger.mjs",

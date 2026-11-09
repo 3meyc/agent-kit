@@ -11,7 +11,7 @@ import { projectRoot } from "./hook-utils.mjs";
 /** The file name at the repo root. */
 export const KIT_FILE = "kit.json";
 
-/** The `commands` keys schema v1 defines, in the order tools list them. */
+/** The `commands` keys schema v1 defines, in the order tools list them. A `checks` suite may not reuse one. */
 export const KIT_COMMANDS = Object.freeze(["install", "dev", "check", "lint", "test", "build", "commit", "land", "commitAudit"]);
 
 /** Defaults for the fields the plugins read; they match `schema/kit.schema.json`. */
@@ -28,7 +28,9 @@ export const KIT_DEFAULTS = Object.freeze({
     ledger: ".claude/ledger",
   }),
   commands: Object.freeze({}),
-  lintOnEdit: null,
+  lintOnEdit: Object.freeze([]),
+  checks: Object.freeze({}),
+  preflight: Object.freeze({}),
   hooks: Object.freeze({ off: Object.freeze([]) }),
   devServer: null,
 });
@@ -65,24 +67,70 @@ function relPath(value, fallback) {
   return value.replace(/\/+$/, "");
 }
 
+/** String items of a list, or an empty list. @param {unknown} list */
+function strings(list) {
+  return Array.isArray(list) ? list.filter((item) => typeof item === "string" && item !== "") : [];
+}
+
 /**
- * `lintOnEdit` as `{ command, match }`, or null when there is no usable command. `match` holds globs
- * over the repo-relative path; empty means every file. Takes a raw or a read kit.
+ * `lintOnEdit` as a list of `{ command, match }` rules, empty when there is none. The file may hold
+ * one rule object or a list of them; a rule without a usable command is dropped. `match` holds
+ * globs over the repo-relative path; empty means every file. Takes a raw or a read kit.
  * @param {unknown} kit
- * @returns {{ command: string, match: string[] } | null}
+ * @returns {Array<{ command: string, match: string[] }>}
  */
 export function lintOnEdit(kit) {
   const entry = /** @type {any} */ (kit)?.lintOnEdit;
-  if (!entry || typeof entry !== "object") return null;
-  if (typeof entry.command !== "string" || entry.command.trim() === "") return null;
-  const match = Array.isArray(entry.match) ? entry.match.filter((item) => typeof item === "string") : [];
-  return { command: entry.command, match };
+  const rules = Array.isArray(entry) ? entry : entry && typeof entry === "object" ? [entry] : [];
+  return rules
+    .filter((rule) => rule && typeof rule === "object" && typeof rule.command === "string" && rule.command.trim() !== "")
+    .map((rule) => ({ command: rule.command, match: strings(rule.match) }));
+}
+
+/**
+ * `checks`: named suites of commands for `/core:check <name>`, each a non-empty list of command
+ * lines. Takes a raw or a read kit.
+ * @param {unknown} kit
+ * @returns {Record<string, string[]>}
+ */
+export function checkSuites(kit) {
+  const entry = /** @type {any} */ (kit)?.checks;
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) return {};
+  return Object.fromEntries(
+    Object.entries(entry)
+      .map(([name, list]) => [name, strings(list).filter((command) => command.trim() !== "")])
+      .filter(([, list]) => list.length > 0),
+  );
+}
+
+/**
+ * `preflight`: optional steps whose skips the session plugin counts, as
+ * `{ id: { description, command, match, remindAfter } }`. A step without a description is dropped.
+ * Takes a raw or a read kit.
+ * @param {unknown} kit
+ * @returns {Record<string, { description: string, command: string | null, match: string[], remindAfter: number }>}
+ */
+export function preflightSteps(kit) {
+  const entry = /** @type {any} */ (kit)?.preflight;
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) return {};
+  const steps = {};
+  for (const [id, step] of Object.entries(entry)) {
+    if (!step || typeof step !== "object" || typeof step.description !== "string" || step.description === "") continue;
+    steps[id] = {
+      description: step.description,
+      command: typeof step.command === "string" && step.command.trim() !== "" ? step.command : null,
+      match: strings(step.match),
+      remindAfter: Number.isInteger(step.remindAfter) && step.remindAfter >= 1 ? step.remindAfter : 1,
+    };
+  }
+  return steps;
 }
 
 /**
  * @typedef {{ found: boolean, error: string | null, project: string | null, baseBranch: string,
  *   itemPrefix: string | null, ledger: boolean, paths: Record<string, string>,
- *   commands: Record<string, string>, lintOnEdit: { command: string, match: string[] } | null,
+ *   commands: Record<string, string>, lintOnEdit: Array<{ command: string, match: string[] }>,
+ *   checks: Record<string, string[]>, preflight: ReturnType<typeof preflightSteps>,
  *   hooks: { off: string[] }, devServer: { port?: number } | null, raw: Record<string, any> | null }} Kit
  */
 
@@ -113,6 +161,8 @@ export function normalizeKit(raw, error = null) {
     paths,
     commands,
     lintOnEdit: lintOnEdit(kit),
+    checks: checkSuites(kit),
+    preflight: preflightSteps(kit),
     hooks: { off },
     devServer: kit.devServer && typeof kit.devServer === "object" ? kit.devServer : null,
     // The parsed file as written, for a caller that must tell "set" from "defaulted".

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "./session/vitest-co
 import {
   KIT_COMMANDS,
   KIT_DEFAULTS,
+  checkSuites,
   checkoutRoot,
   hookOff,
   inLedger,
@@ -14,6 +15,7 @@ import {
   ledgerHookOn,
   lintOnEdit,
   normalizeKit,
+  preflightSteps,
   readKit,
   rootFor,
 } from "../shared/kit-config.mjs";
@@ -123,15 +125,46 @@ describe("schema agreement", () => {
     expect({ ...KIT_DEFAULTS.paths }).toEqual(pathDefaults);
     expect(KIT_DEFAULTS.baseBranch).toBe(schema.properties.baseBranch.default);
   });
+
+  it("keeps check suite names apart from every command name and `all`", () => {
+    expect([...schema.properties.checks.propertyNames.not.enum].sort()).toEqual([...KIT_COMMANDS, "all"].sort());
+  });
 });
 
 describe("lintOnEdit, kitCommand and raw", () => {
-  it("reads lintOnEdit only with a command, and keeps string globs", () => {
-    expect(lintOnEdit({ lintOnEdit: { match: ["*.ts"] } })).toBeNull();
-    expect(lintOnEdit({ lintOnEdit: { command: "eslint", match: ["*.ts", 3] } })).toEqual({ command: "eslint", match: ["*.ts"] });
-    expect(normalizeKit({ lintOnEdit: { command: "eslint" } }).lintOnEdit).toEqual({ command: "eslint", match: [] });
+  it("reads lintOnEdit as a list of rules with a command, and keeps string globs", () => {
+    expect(lintOnEdit({ lintOnEdit: { match: ["*.ts"] } })).toEqual([]);
+    expect(lintOnEdit({})).toEqual([]);
+    expect(lintOnEdit({ lintOnEdit: { command: "eslint", match: ["*.ts", 3] } })).toEqual([{ command: "eslint", match: ["*.ts"] }]);
+    expect(normalizeKit({ lintOnEdit: { command: "eslint" } }).lintOnEdit).toEqual([{ command: "eslint", match: [] }]);
     // Idempotent: a read kit gives the same answer as the raw one.
-    expect(lintOnEdit(normalizeKit({ lintOnEdit: { command: "eslint" } }))).toEqual({ command: "eslint", match: [] });
+    expect(lintOnEdit(normalizeKit({ lintOnEdit: { command: "eslint" } }))).toEqual([{ command: "eslint", match: [] }]);
+  });
+
+  it("reads a list of lintOnEdit rules in order, dropping the ones without a command", () => {
+    const rules = lintOnEdit({
+      lintOnEdit: [{ command: "eslint {file}", match: ["*.ts"] }, { match: ["*.json"] }, { command: "pnpm run i18n:check", match: ["locales/*.json"] }],
+    });
+    expect(rules).toEqual([
+      { command: "eslint {file}", match: ["*.ts"] },
+      { command: "pnpm run i18n:check", match: ["locales/*.json"] },
+    ]);
+  });
+
+  it("reads check suites, dropping empty ones and non-string commands", () => {
+    expect(checkSuites({ checks: { i18n: ["a", "b"], docs: [], bad: "x", mixed: ["c", 3, ""] } })).toEqual({ i18n: ["a", "b"], mixed: ["c"] });
+    expect(normalizeKit({}).checks).toEqual({});
+  });
+
+  it("reads preflight steps with their defaults", () => {
+    expect(
+      preflightSteps({
+        preflight: { docs: { description: "Docs review", match: ["docs/**"] }, audit: { description: "Audit", command: "npm run audit", remindAfter: 3 }, bad: { command: "x" } },
+      }),
+    ).toEqual({
+      docs: { description: "Docs review", command: null, match: ["docs/**"], remindAfter: 1 },
+      audit: { description: "Audit", command: "npm run audit", match: [], remindAfter: 3 },
+    });
   });
 
   it("gives a command only when it is a non-empty string", () => {

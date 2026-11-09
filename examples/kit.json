@@ -21,11 +21,19 @@
     "build": "pnpm run build",
     "commit": "node scripts/commit.mjs",
     "land": "node scripts/land.mjs",
-    "commitAudit": "npx some-audit --base HEAD~1"
+    "commitAudit": "npx some-audit --base HEAD~1 --only {files}"
   },
-  "lintOnEdit": {
-    "command": "pnpm exec eslint --no-warn-ignored {file}",
-    "match": ["*.ts", "*.svelte"]
+  "lintOnEdit": [
+    { "command": "pnpm exec eslint --no-warn-ignored {file}", "match": ["*.ts", "*.svelte"] },
+    { "command": "pnpm run i18n:check", "match": ["src/locales/*.json"] }
+  ],
+  "checks": {
+    "i18n": ["pnpm run i18n:check", "pnpm run i18n:parity"],
+    "docs": ["pnpm run docs:check"]
+  },
+  "preflight": {
+    "docs-review": { "description": "Docs review: the project's docs-review skill", "match": ["docs/**", "*.md"], "remindAfter": 3 },
+    "audit": { "description": "Dead-code and dependency audit", "command": "pnpm run audit" }
   },
   "hooks": {
     "off": [

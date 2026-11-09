@@ -3,15 +3,17 @@
 // 1. kit.json against the schema shipped with this plugin.
 // 2. The plugins the project needs are enabled, and the marketplaces they come from are declared
 //    in the project's `extraKnownMarketplaces`: an overlay's dependencies on the base kit resolve
-//    only when both are declared (docs/spikes.md S3a).
-// 3. Copies of kit-owned files in the repo, which shadow or duplicate the kit.
+//    only when both are declared (docs/spikes.md S3a). Plugins this session loaded with
+//    `--plugin-dir` are listed, and every enabled or loaded plugin's `dependencies` are checked.
+// 3. Copies of kit-owned files in the repo, which shadow or duplicate the kit, and tests of
+//    kit-owned scripts, which go with them.
 // 4. Installed kit plugins against their marketplace ref (S8), with the update commands.
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { CORE_ROOT, findKitCopies } from "./kit-owned.mjs";
+import { CORE_ROOT, findKitCopies, pluginDependencies, pluginRoots, sessionPluginDirs } from "./kit-owned.mjs";
 import { KIT_FILE } from "../lib/kit-config.mjs";
 import { validate } from "./schema-check.mjs";
-import { checkUpdates, claudeDir, defaultCacheFile, updateCommands } from "./update-check.mjs";
+import { checkUpdates, claudeDir, defaultCacheFile, readPluginState, updateCommands } from "./update-check.mjs";
 
 export const BASE_MARKETPLACE = "agent-kit";
 
@@ -90,8 +92,46 @@ export function checkSettings(projectDir, config, userDir = claudeDir()) {
   return findings;
 }
 
-export function checkCopies(projectDir) {
-  const copies = findKitCopies(projectDir);
+/**
+ * Findings for plugins this session loaded with `--plugin-dir`, and for the `dependencies` of every
+ * plugin that is enabled in some settings file or loaded that way. A dependency is met by an
+ * enabled plugin of that name (and marketplace, when the entry or the depending install names one)
+ * or by a loaded one.
+ * @param {string} projectDir @param {Array<{ root: string, name: string, source: string, id?: string }>} plugins
+ * @param {string} [userDir]
+ */
+export function checkLoadedPlugins(projectDir, plugins, userDir = claudeDir()) {
+  const findings = [];
+  const settings = [
+    readJson(join(projectDir, ".claude", "settings.json")).value ?? {},
+    readJson(join(projectDir, ".claude", "settings.local.json")).value ?? {},
+    readJson(join(userDir, "settings.json")).value ?? {},
+  ];
+  const enabled = new Set();
+  for (const file of settings) {
+    for (const [id, on] of Object.entries(file.enabledPlugins ?? {})) if (on === true) enabled.add(id);
+  }
+  const loaded = plugins.filter((plugin) => plugin.source === "session");
+  for (const plugin of loaded) findings.push({ level: "ok", text: `${plugin.name} loaded for this session with --plugin-dir (${plugin.root})` });
+  // The core plugin running this check is loaded too, however it got here.
+  const loadedNames = new Set(plugins.filter((plugin) => plugin.source === "session" || plugin.source === "self").map((plugin) => plugin.name));
+  const active = plugins.filter((plugin) => plugin.source === "session" || (plugin.id && enabled.has(plugin.id)));
+  for (const plugin of active) {
+    const ownMarketplace = plugin.id ? plugin.id.slice(plugin.id.lastIndexOf("@") + 1) : null;
+    for (const dep of pluginDependencies(plugin.root)) {
+      const marketplace = dep.marketplace ?? ownMarketplace;
+      const met =
+        loadedNames.has(dep.name) ||
+        [...enabled].some((id) => id.slice(0, id.lastIndexOf("@")) === dep.name && (!marketplace || id.endsWith(`@${marketplace}`)));
+      const want = marketplace ? `${dep.name}@${marketplace}` : dep.name;
+      if (!met) findings.push({ level: "warn", text: `${plugin.name} needs ${want}, which is neither enabled nor loaded with --plugin-dir` });
+    }
+  }
+  return findings;
+}
+
+export function checkCopies(projectDir, plugins = pluginRoots(projectDir)) {
+  const copies = findKitCopies(projectDir, plugins);
   if (copies.length === 0) return [{ level: "ok", text: "no copies of kit-owned files" }];
   return copies.map((copy) => ({
     level: "warn",
@@ -119,12 +159,13 @@ export function checkVersions(projectDir, options = {}) {
 const MARK = { ok: "ok  ", warn: "WARN", fail: "FAIL" };
 
 /** Run every check and print the report; exit code 1 when anything failed. */
-export function runDoctor(projectDir, { offline = false, print = console.log } = {}) {
+export function runDoctor(projectDir, { offline = false, pluginDirs = [], print = console.log } = {}) {
   const { config, findings: kit } = checkKitJson(projectDir);
+  const plugins = pluginRoots(projectDir, readPluginState(), sessionPluginDirs({ extra: pluginDirs, cwd: projectDir }));
   const sections = [
     ["kit.json", kit],
-    ["Plugins and marketplaces", checkSettings(projectDir, config)],
-    ["Kit-owned files in the repo", checkCopies(projectDir)],
+    ["Plugins and marketplaces", [...checkSettings(projectDir, config), ...checkLoadedPlugins(projectDir, plugins)]],
+    ["Kit-owned files in the repo", checkCopies(projectDir, plugins)],
     ["Installed versions", offline ? [{ level: "ok", text: "skipped (--offline)" }] : checkVersions(projectDir)],
   ];
   let failed = false;

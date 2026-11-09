@@ -9,16 +9,17 @@ import { after, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import Ajv2020 from "ajv/dist/2020.js";
 import { codegraphQueryDir } from "../plugins/core/hooks/codegraph-sync.mjs";
-import { lintCommandFor } from "../plugins/core/hooks/lint-edited-file.mjs";
+import { lintCommandsFor } from "../plugins/core/hooks/lint-edited-file.mjs";
 import { updateText } from "../plugins/core/hooks/session-start.mjs";
 import { dispatch } from "../plugins/core/hooks/shell-pre.mjs";
 import { mergeSettings, parseAdoptArgs, starterKitJson } from "../plugins/core/src/adopt.mjs";
 import { compare, outline } from "../plugins/core/src/docs-parity.mjs";
-import { checkKitJson, checkSettings } from "../plugins/core/src/doctor.mjs";
+import { checkKitJson, checkLoadedPlugins, checkSettings } from "../plugins/core/src/doctor.mjs";
 import { collectInventory, groupOf, measureDrift, summarize } from "../plugins/core/src/inventory.mjs";
 import { hookOff, lintOnEdit } from "../plugins/core/lib/kit-config.mjs";
 import { globMatcher, matchesAny, withFile } from "../plugins/core/src/lint-match.mjs";
-import { findKitCopies, ownedBy } from "../plugins/core/src/kit-owned.mjs";
+import { findKitCopies, isClaudeProcess, ownedBy, pluginDirArgs, pluginRoots, relativeImports, sessionPluginDirs, testsOfOwned } from "../plugins/core/src/kit-owned.mjs";
+import { optionValues, printCommands } from "../plugins/core/src/kit-cli.mjs";
 import { validate } from "../plugins/core/src/schema-check.mjs";
 import { checkUpdates, pickRemoteSha, updateCommands } from "../plugins/core/src/update-check.mjs";
 
@@ -70,8 +71,8 @@ describe("kit-config", () => {
   });
 
   it("reads lintOnEdit only when it has a command", () => {
-    assert.equal(lintOnEdit({ lintOnEdit: { match: ["*.ts"] } }), null);
-    assert.deepEqual(lintOnEdit({ lintOnEdit: { command: "eslint" } }), { command: "eslint", match: [] });
+    assert.deepEqual(lintOnEdit({ lintOnEdit: { match: ["*.ts"] } }), []);
+    assert.deepEqual(lintOnEdit({ lintOnEdit: { command: "eslint" } }), [{ command: "eslint", match: [] }]);
   });
 });
 
@@ -85,13 +86,22 @@ describe("lint-edited-file", () => {
     process.env.CLAUDE_PROJECT_DIR = root;
     try {
       // projectRoot() is memoized per process: this must be the first test that asks for it.
-      const target = lintCommandFor(edit("src/a.ts"), config, root);
-      assert.notEqual(target, null);
-      assert.equal(target.command, "eslint src/a.ts");
-      assert.equal(lintCommandFor(edit("docs/a.md"), config, root), null);
-      assert.equal(lintCommandFor(edit("src/a.ts"), { ...config, hooks: { off: ["lint-edited-file"] } }, root), null);
-      assert.equal(lintCommandFor(edit("src/a.ts"), {}, root), null);
-      assert.equal(lintCommandFor({ ...edit("src/a.ts"), tool_name: "Read" }, config, root), null);
+      const targets = lintCommandsFor(edit("src/a.ts"), config, root);
+      assert.deepEqual(targets.map((target) => target.command), ["eslint src/a.ts"]);
+      assert.deepEqual(lintCommandsFor(edit("docs/a.md"), config, root), []);
+      assert.deepEqual(lintCommandsFor(edit("src/a.ts"), { ...config, hooks: { off: ["lint-edited-file"] } }, root), []);
+      assert.deepEqual(lintCommandsFor(edit("src/a.ts"), {}, root), []);
+      assert.deepEqual(lintCommandsFor({ ...edit("src/a.ts"), tool_name: "Read" }, config, root), []);
+      // A list of rules: every rule whose globs fit runs, in order.
+      const rules = {
+        lintOnEdit: [
+          { command: "eslint {file}", match: ["*.ts"] },
+          { command: "check-docs", match: ["docs/**"] },
+          { command: "typos {file}" },
+        ],
+      };
+      assert.deepEqual(lintCommandsFor(edit("src/a.ts"), rules, root).map((target) => target.command), ["eslint src/a.ts", "typos src/a.ts"]);
+      assert.deepEqual(lintCommandsFor(edit("docs/a.md"), rules, root).map((target) => target.command), ["check-docs docs/a.md", "typos docs/a.md"]);
     } finally {
       if (previous === undefined) delete process.env.CLAUDE_PROJECT_DIR;
       else process.env.CLAUDE_PROJECT_DIR = previous;
@@ -111,6 +121,27 @@ describe("lint-edited-file", () => {
     const skipped = runHook("lint-edited-file.mjs", { tool_name: "Write", tool_input: { file_path: join(project, "src/b.md") }, cwd: project }, env);
     assert.equal(skipped.status, 0);
     assert.equal(skipped.stderr, "");
+  });
+
+  it("runs every matching rule and reports each failure, as a process", () => {
+    const fail = (word) => `node -e "console.error('${word}'); process.exit(1)" --`;
+    const project = tempProject("lint-rules", {
+      "kit.json": {
+        project: "my-app",
+        lintOnEdit: [
+          { command: fail("style broken"), match: ["*.json"] },
+          { command: `node -e "process.exit(0)" --`, match: ["*.json"] },
+          { command: fail("i18n keys missing"), match: ["locales/*.json"] },
+          { command: fail("never"), match: ["*.ts"] },
+        ],
+      },
+      "locales/en.json": "{}",
+    });
+    const result = runHook("lint-edited-file.mjs", { tool_name: "Edit", tool_input: { file_path: join(project, "locales/en.json") }, cwd: project }, { CLAUDE_PROJECT_DIR: project });
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, /style broken/);
+    assert.match(result.stderr, /i18n keys missing/);
+    assert.doesNotMatch(result.stderr, /never/);
   });
 });
 
@@ -307,6 +338,22 @@ describe("schema-check", () => {
     "lintOnEdit without a command": { ...minimal, lintOnEdit: { match: ["*.ts"] } },
     "lintOnEdit empty glob": { ...minimal, lintOnEdit: { command: "eslint", match: [""] } },
     "dev and install commands": { ...minimal, commands: { dev: "npm run dev", install: "npm ci" } },
+    "lintOnEdit list": { ...minimal, lintOnEdit: [{ command: "eslint {file}", match: ["*.ts"] }, { command: "i18n-check", match: ["locales/*.json"] }] },
+    "lintOnEdit empty list": { ...minimal, lintOnEdit: [] },
+    "lintOnEdit list with a bad rule": { ...minimal, lintOnEdit: [{ command: "eslint" }, { match: ["*.ts"] }] },
+    "lintOnEdit list with an unknown key": { ...minimal, lintOnEdit: [{ command: "eslint", files: ["*.ts"] }] },
+    "lintOnEdit a string": { ...minimal, lintOnEdit: "eslint" },
+    "checks ok": { ...minimal, checks: { i18n: ["a", "b"], docs: ["c"] } },
+    "checks empty suite": { ...minimal, checks: { i18n: [] } },
+    "checks named like a command": { ...minimal, checks: { test: ["a"] } },
+    "checks named all": { ...minimal, checks: { all: ["a"] } },
+    "checks bad name": { ...minimal, checks: { "I18N!": ["a"] } },
+    "checks not a list": { ...minimal, checks: { i18n: "a" } },
+    "preflight ok": { ...minimal, preflight: { docs: { description: "Docs review", match: ["docs/**"], remindAfter: 3 }, audit: { description: "Audit", command: "npm run audit" } } },
+    "preflight without description": { ...minimal, preflight: { docs: { command: "x" } } },
+    "preflight remindAfter zero": { ...minimal, preflight: { docs: { description: "x", remindAfter: 0 } } },
+    "preflight unknown key": { ...minimal, preflight: { docs: { description: "x", every: 3 } } },
+    "preflight bad id": { ...minimal, preflight: { "Docs Review": { description: "x" } } },
   };
   for (const [name, manifest] of Object.entries(cases)) {
     it(`agrees with Ajv: ${name}`, () => {
@@ -319,6 +366,22 @@ describe("schema-check", () => {
     const project = tempProject("doctor-kit", { "kit.json": kit });
     const { findings } = checkKitJson(project, schema);
     assert.deepEqual(findings.map((finding) => finding.level), ["ok"]);
+  });
+
+  it("accepts a list of lintOnEdit rules, check suites and preflight steps", () => {
+    const kit = {
+      project: "my-app",
+      lintOnEdit: [{ command: "eslint {file}", match: ["*.ts"] }, { command: "i18n-check", match: ["locales/*.json"] }],
+      checks: { i18n: ["pnpm run i18n:check"] },
+      preflight: { docs: { description: "Docs review" } },
+    };
+    const { findings } = checkKitJson(tempProject("doctor-kit-lists", { "kit.json": kit }), schema);
+    assert.deepEqual(findings.map((finding) => finding.level), ["ok"]);
+  });
+
+  it("fails a check suite named like a command", () => {
+    const { findings } = checkKitJson(tempProject("doctor-kit-suite", { "kit.json": { project: "my-app", checks: { build: ["x"] } } }), schema);
+    assert.ok(findings.some((finding) => finding.level === "fail" && finding.text.includes('"build"')));
   });
 
   it("fails a lintOnEdit without a command", () => {
@@ -479,5 +542,93 @@ describe("docs parity", () => {
   it("passes on this repo's own docs, as a process", () => {
     const result = spawnSync(process.execPath, [join(core, "bin", "kit-docs-parity")], { cwd: repo, encoding: "utf8" });
     assert.equal(result.status, 0, result.stderr);
+  });
+});
+
+describe("kit-owned tests and ownership fixes", () => {
+  it("finds a test beside a kit-owned script and one importing it, even after the script is gone", () => {
+    const owned = ["scripts/hooks/ledger-brief.mjs", "scripts/git-commit-session.mjs", ".claude/rules/x.md"];
+    const texts = {
+      "tests/commit.test.ts": `import { a } from "../scripts/git-commit-session.js";`,
+      "tests/other.test.ts": `import { b } from "../src/other";`,
+    };
+    const found = testsOfOwned(owned, ["scripts/hooks/ledger-brief.test.ts", "tests/commit.test.ts", "tests/other.test.ts"], (path) => texts[path] ?? "");
+    assert.deepEqual(found, [
+      { test: "scripts/hooks/ledger-brief.test.ts", of: "scripts/hooks/ledger-brief.mjs" },
+      { test: "tests/commit.test.ts", of: "scripts/git-commit-session.mjs" },
+    ]);
+    assert.deepEqual(relativeImports(`import x from "./a.mjs"; export * from "../b"; await import('./c.js'); require("./d"); import "node:fs";`), ["./a.mjs", "../b", "./c.js", "./d"]);
+  });
+
+  it("lists those tests in a project, through git", () => {
+    const session = join(repo, "plugins", "session");
+    const project = tempProject("owned-tests", {
+      "scripts/hooks/session-ledger.test.ts": "x",
+      "scripts/hooks/my-own-hook.test.ts": "x",
+      "test/flow.test.mjs": `import { flow } from "../scripts/worktree-flow.mjs";`,
+    });
+    spawnSync("git", ["init", "-q"], { cwd: project });
+    const copies = findKitCopies(project, [{ root: session, name: "session" }]);
+    assert.deepEqual(copies.map((copy) => copy.path).sort(), ["scripts/hooks/session-ledger.test.ts", "test/flow.test.mjs"]);
+    assert.ok(copies.every((copy) => copy.note.includes("already gone")));
+  });
+
+  it("names the worktree set-up hook where projects keep it, and leaves design-language rules to an overlay", () => {
+    const session = JSON.parse(readFileSync(join(repo, "plugins", "session", "kit-owned.json"), "utf8"));
+    assert.ok(session.files.includes("scripts/hooks/worktree-setup-hook.mjs"));
+    assert.ok(!session.files.includes("scripts/worktree-setup-hook.mjs"));
+    const svelte = JSON.parse(readFileSync(join(repo, "plugins", "svelte", "kit-owned.json"), "utf8"));
+    assert.ok(!svelte.files.includes(".claude/rules/ui-styling.md"));
+    for (const path of Object.keys(svelte.partial)) assert.ok(svelte.files.includes(path), `partial names a listed file: ${path}`);
+  });
+});
+
+describe("plugins loaded with --plugin-dir", () => {
+  const plugins = join(repo, "plugins");
+
+  it("reads --plugin-dir from the claude process, a path with spaces included", () => {
+    const spaced = tempProject("my plugins/overlay", { ".claude-plugin/plugin.json": { name: "overlay" } });
+    const command = `/opt/Some Folder/claude -p x --plugin-dir ${spaced} --plugin-dir=plugins/sdlc --model sonnet`;
+    assert.deepEqual(pluginDirArgs(command.split(/\s+/), repo), [spaced, join(plugins, "sdlc")]);
+    assert.equal(isClaudeProcess({ exe: "/opt/Some Folder/claude", command }), true);
+    assert.equal(isClaudeProcess({ exe: "/bin/zsh", command: "zsh -c claude --plugin-dir x" }), false);
+    const dirs = sessionPluginDirs({
+      env: { KIT_PLUGIN_DIRS: join(plugins, "python") },
+      extra: ["plugins/svelte", "plugins/missing"],
+      processes: [{ exe: "/bin/zsh", command: "zsh -c 'claude --plugin-dir plugins/session'" }, { exe: "/opt/Some Folder/claude", command }],
+      cwd: repo,
+    });
+    assert.deepEqual(dirs, [join(plugins, "svelte"), join(plugins, "python"), spaced, join(plugins, "sdlc")]);
+  });
+
+  it("puts session plugins before installed copies of the same name", () => {
+    const overlay = tempProject("overlay-plugin", { ".claude-plugin/plugin.json": { name: "overlay", dependencies: ["core", "missing@other"] } });
+    const roots = pluginRoots("/nowhere", { installed: {}, marketplaces: {} }, [overlay]);
+    assert.deepEqual(roots.slice(0, 2).map((root) => [root.name, root.source]), [["core", "self"], ["overlay", "session"]]);
+    const userDir = tempProject("loaded-user", { "settings.json": {} });
+    const findings = checkLoadedPlugins(tempProject("loaded-project"), roots, userDir);
+    assert.ok(findings.some((finding) => finding.level === "ok" && finding.text.startsWith("overlay loaded for this session")));
+    const warns = findings.filter((finding) => finding.level === "warn").map((finding) => finding.text);
+    assert.deepEqual(warns, ["overlay needs missing@other, which is neither enabled nor loaded with --plugin-dir"]);
+  });
+
+  it("takes repeated --plugin-dir arguments", () => {
+    assert.deepEqual(optionValues(["--offline", "--plugin-dir", "a", "--plugin-dir=b"], "--plugin-dir"), ["a", "b"]);
+  });
+});
+
+describe("kit commands", () => {
+  it("lists check suites after the commands", () => {
+    const project = tempProject("suites", { "kit.json": { project: "my-app", commands: { test: "npm test" }, checks: { i18n: ["a", "b"] } } });
+    const lines = [];
+    printCommands(project, (line) => lines.push(line));
+    assert.deepEqual(lines, [
+      "1. test: `npm test`",
+      "",
+      "Check suites (kit.json checks), each run in order by `/core:check <suite>`:",
+      "1. i18n:",
+      "   1.1. `a`",
+      "   1.2. `b`",
+    ]);
   });
 });

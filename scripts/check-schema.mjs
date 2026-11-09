@@ -33,6 +33,11 @@ const broken = {
   "port out of range": { ...minimal, devServer: { port: 70000 } },
   "lintOnEdit without a command": { ...minimal, lintOnEdit: { match: ["*.ts"] } },
   "lintOnEdit with an unknown key": { ...minimal, lintOnEdit: { command: "eslint", files: ["*.ts"] } },
+  "lintOnEdit list with a rule without a command": { ...minimal, lintOnEdit: [{ command: "eslint" }, { match: ["*.ts"] }] },
+  "empty lintOnEdit list": { ...minimal, lintOnEdit: [] },
+  "check suite named like a command": { ...minimal, checks: { test: ["npm test"] } },
+  "empty check suite": { ...minimal, checks: { i18n: [] } },
+  "preflight step without a description": { ...minimal, preflight: { audit: { command: "npm run audit" } } },
 };
 if (!validate(minimal)) {
   failed = true;

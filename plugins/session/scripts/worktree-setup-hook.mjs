@@ -36,6 +36,9 @@ const SETUP_SCRIPT = join(dirname(fileURLToPath(import.meta.url)), "worktree-set
 // of being killed without a word.
 const SETUP_TIMEOUT_MS = 170_000;
 const TAIL_LINES = 5;
+// Session-start output over Claude Code's cap is cut to a short preview (docs/spikes.md S10); a
+// failing install can print very long lines, so the tail is clipped by length as well.
+const MAX_TAIL_CHARS = 1500;
 export const RUN_LOG_NAME = "worktree-setup-hook.log";
 
 /**
@@ -143,12 +146,20 @@ async function main() {
     // The setup may have built the index: read the facts again rather than reuse the pre-setup ones.
     return printStatusLine(readFacts(session.dir) ?? read);
   }
-  const tail = `${result.stdout ?? ""}${result.stderr ?? ""}`.trim().split("\n").slice(-TAIL_LINES).join("\n");
   const reason = result.error ? result.error.message : `exit ${result.status}`;
   log(`failed:${reason}`, steps);
-  console.log(
-    `worktree-setup failed (${steps.join(", ")}, ${reason}); run \`worktree-setup\` in this worktree:\n${tail}`,
-  );
+  console.log(failureText(steps, reason, `${result.stdout ?? ""}${result.stderr ?? ""}`));
+}
+
+/**
+ * The SessionStart line for a failed set-up: the steps, the reason, and the last `TAIL_LINES`
+ * lines of its output, at most `MAX_TAIL_CHARS` of them. Pure.
+ * @param {string[]} steps @param {string} reason @param {string} output
+ */
+export function failureText(steps, reason, output) {
+  let tail = output.trim().split("\n").slice(-TAIL_LINES).join("\n");
+  if (tail.length > MAX_TAIL_CHARS) tail = `…${tail.slice(-MAX_TAIL_CHARS)}`;
+  return `worktree-setup failed (${steps.join(", ")}, ${reason}); run \`worktree-setup\` in this worktree:\n${tail}`;
 }
 
 if (isDirectRun(import.meta.url)) await main();

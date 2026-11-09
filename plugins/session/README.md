@@ -11,9 +11,9 @@ flow from set-up to landing. Depends on `core`.
 | ID | Part | What it does |
 | --- | --- | --- |
 | 1 | Session ledger | At every Stop, writes one Markdown record per session (intent, decisions, next, files touched) into the ledger folder and rebuilds its `INDEX.md`. At session start, puts a short brief of recent records and owed work into context |
-| 2 | Commit script | `git-commit-session` commits only this session's paths with `git commit --only`, stops when another session claims a path, adds a `Session-Id` trailer, and runs the project's commit audit |
+| 2 | Commit script | `git-commit-session` commits only this session's paths with `git commit --only`, stops when another session claims a path, adds a `Session-Id` trailer, runs the project's commit audit on the committed paths, and counts the project's skipped optional steps (`preflight`) |
 | 3 | Worktree flow | `worktree-flow` shows every worktree's base and verdict, predicts conflicts, lands a branch on its base by fast-forward only, and removes merged worktrees. A SessionStart hook prepares each new linked worktree |
-| 4 | Commands | `/handoff` writes the record mid-task; `/close-out` sorts the work, lands it and writes the session resume; `/close-siblings` lands the side sessions' work; `/git` runs git chores in the `git-ops` agent |
+| 4 | Commands | `/handoff` writes the record mid-task; `/close-out` sorts the work, lands it and writes the session resume; `/close-siblings` lands the side sessions' work; `/git` runs git chores in the `git-ops` agent, and `/git commit --review` reviews the diff before committing |
 
 Commands are namespaced by Claude Code as `/session:handoff`, `/session:close-out`,
 `/session:close-siblings` and `/session:git`; the agent is `session:git-ops`. The short form
@@ -47,11 +47,28 @@ quiet unless `kit.json` sets `"ledger": true`.
 | 4 | `paths.recipes` | `docs/recipes` | `/close-out` and `/handoff` name areas by recipe |
 | 5 | `baseBranch` | `main` | `worktree-flow` prefers it when guessing a base; `/git branch` cuts from it |
 | 6 | `itemPrefix` | none | `/git branch <ITEM-ID>` and commit footers |
-| 7 | `commands.commitAudit` | none | Run after each commit that holds code; its output is shown, never its exit code |
+| 7 | `commands.commitAudit` | none | Run after each commit that holds code; its output is shown, never its exit code. `{files}` in it becomes the committed paths, quoted; they are also in `KIT_COMMIT_PATHS`, one per line, so the audit can report only findings in them |
 | 8 | `commands.check`, `lint`, `test`, `build` | none | The checks `/close-out` and `/close-siblings` run before landing |
 | 9 | `devServer.port` | none | The closing line of the worktree set-up |
 | 10 | `hooks.off` | `[]` | The hook ids above |
 | 11 | `commands.install` | lockfile guess | The worktree set-up's install step, run through the shell when a known lockfile is newer than the last install |
+| 12 | `preflight` | none | Optional steps to run now and then before committing; each commit they touch counts a skip, shown once it reaches `remindAfter` |
+
+`preflight` names a project's optional steps, never a tool the kit knows: each has a
+`description`, an optional `command`, optional `match` globs (left out: any commit outside the
+ledger) and `remindAfter` (default 1). The counts live in the repository's common git folder, shared
+by its worktrees. `preflight run <id>` runs the command and clears the count on success;
+`preflight done <id>` clears a step that ran another way, such as a skill.
+
+```json
+{
+  "commands": { "commitAudit": "npx some-audit --base HEAD~1 --only {files}" },
+  "preflight": {
+    "docs-review": { "description": "Docs review: the project's docs-review skill", "match": ["docs/**", "*.md"], "remindAfter": 3 },
+    "audit": { "description": "Dead-code and dependency audit", "command": "pnpm run audit" }
+  }
+}
+```
 
 The checkout comes from the hook payload's `cwd` (or the shell's working directory), so a worktree
 session works on the worktree's own `kit.json`, ledger and files.
@@ -69,7 +86,10 @@ a project may allow them in `.claude/settings.json` (`Bash(session-ledger --file
 | 4 | `worktree-setup` | The set-up the `worktree-setup` hook runs |
 | 5 | `git-branch-context` | Branch, upstream, base branch and item prefix as JSON, for `/git` |
 | 6 | `ledger-export` | Renders a record as a hand-off file outside the repo (`/handoff --export`) |
-| 7 | `scan-ledger-secrets` | Pre-commit backstop: fails on secret-shaped text in staged records |
+| 7 | `scan-ledger-secrets` | Pre-commit backstop: fails on secret-shaped text in staged records (without paths: the staged files in the ledger folder) |
+| 8 | `preflight` | `status`, `run <id>`, `done <id>` for the `kit.json` `preflight` steps |
 
-Outside a session (a shell, a git hook), run the script directly:
-`node <plugin>/scripts/<name>.mjs`.
+Outside a session (a shell, a git hook), plugin commands are not on PATH. For the secret scan in a
+git hook, add this repo as a dev dependency (`github:3meyc/agent-kit#<ref>`) and call
+`agent-kit ledger-scan-secrets` (for example from lefthook's `pre-commit`); anything else runs
+directly as `node <plugin>/scripts/<name>.mjs`.
