@@ -1,8 +1,10 @@
+// GENERATED from shared/shell-edits.mjs by scripts/vendor-shared.mjs. Edit shared/shell-edits.mjs and run `npm run vendor`.
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, resolve } from "node:path";
 
 /**
- * Write targets of a shell command, for the session ledger and the Stop hooks.
+ * Write targets of a shell command, for the shell hooks (`shell-deletions`), the CodeGraph sync
+ * (`stripHeredocs`) and the session ledger's Stop hooks.
  *
  * An Edit/Write tool call names its file; a Bash or PowerShell call does not. This module reads
  * a command the way a reviewer would and reports three things:

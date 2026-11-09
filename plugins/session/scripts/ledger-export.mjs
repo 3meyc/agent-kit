@@ -17,7 +17,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { isDirectRun } from "../lib/hook-utils.mjs";
-import { rootFor } from "./kit-config.mjs";
+import { rootFor } from "../lib/kit-config.mjs";
 import { readCommitFacts } from "./ledger-utils.mjs";
 
 // The checkout the record belongs to: the one the command runs in.

@@ -68,11 +68,11 @@ Skills call `node "${CLAUDE_PLUGIN_ROOT}/src/kit-cli.mjs" …`, which needs no P
 | ID | Field | Read by |
 | --- | --- | --- |
 | 1 | `commands.check`, `lint`, `test`, `build` | `/core:check` (never `commit`, `land` or `commitAudit`) |
-| 2 | `devServer.port` | `/core:dev` |
+| 2 | `devServer.port`, `commands.dev` | `/core:dev` |
 | 3 | `hooks.off` | every hook (ids above) |
 | 4 | `ledger` | `shell-deletions` (runs only when `true`); `kit doctor` (then expects `session`) |
 | 5 | `baseBranch` | `git-branch-context` |
-| 6 | `lintOnEdit` _(proposed, not in schema v1)_ | `lint-edited-file` |
+| 6 | `lintOnEdit` | `lint-edited-file` |
 | 7 | the whole file | `kit doctor` validates it against the schema shipped in `schema/` |
 
 `lintOnEdit` takes a command and optional globs; `{file}` is replaced by the quoted repo-relative

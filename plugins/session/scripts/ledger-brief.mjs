@@ -20,7 +20,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { gitDirtyFiles, isDirectRun, parseWorktrees, readHookInput } from "../lib/hook-utils.mjs";
-import { ledgerDir, ledgerHookOn, readKit, rootFor } from "./kit-config.mjs";
+import { ledgerDir, ledgerHookOn, readKit, rootFor } from "../lib/kit-config.mjs";
 import { UNCOMMITTED_RECORD_DAYS, openPaths } from "./ledger-claims.mjs";
 import { filePaths, listRecords, parseFileLines, parseNextItems } from "./ledger-record.mjs";
 import { clip } from "./ledger-text.mjs";

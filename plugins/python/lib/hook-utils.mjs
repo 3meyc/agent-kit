@@ -290,7 +290,12 @@ export const PROCESS_PATHS = [
   ".mcp.json",
 ];
 
-/** @param {string} path repo-relative POSIX path @param {readonly string[]} [extra] project-specific additions */
+/**
+ * @param {string} path repo-relative POSIX path
+ * @param {readonly string[]} [extra] project-specific additions; anything but an array is ignored,
+ *   so `paths.some(isProcessPath)` (which passes the index here) works.
+ */
 export function isProcessPath(path, extra = []) {
-  return [...PROCESS_PATHS, ...extra].some((root) => path === root || path.startsWith(`${root}/`));
+  const roots = Array.isArray(extra) ? [...PROCESS_PATHS, ...extra] : PROCESS_PATHS;
+  return roots.some((root) => path === root || path.startsWith(`${root}/`));
 }

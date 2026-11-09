@@ -9,16 +9,11 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { CORE_ROOT, findKitCopies } from "./kit-owned.mjs";
-import { KIT_FILE } from "./kit-config.mjs";
+import { KIT_FILE } from "../lib/kit-config.mjs";
 import { validate } from "./schema-check.mjs";
 import { checkUpdates, claudeDir, defaultCacheFile, updateCommands } from "./update-check.mjs";
 
 export const BASE_MARKETPLACE = "agent-kit";
-
-/** kit.json fields the core plugin reads that schema v1 does not define yet. */
-export const PROPOSED_FIELDS = {
-  lintOnEdit: "read by the lint-edited-file hook; proposed for the schema",
-};
 
 function readJson(file) {
   if (!existsSync(file)) return { missing: true };
@@ -40,9 +35,7 @@ export function checkKitJson(projectDir, schema = loadSchema()) {
   if (file.error) return { config: null, findings: [{ level: "fail", text: `${KIT_FILE} does not parse: ${file.error}` }] };
   const findings = [];
   for (const error of validate(file.value, schema)) {
-    if (error.keyword === "additionalProperties" && error.path === "/" && error.key in PROPOSED_FIELDS) {
-      findings.push({ level: "warn", text: `${KIT_FILE}: "${error.key}" is not in schema v1 yet (${PROPOSED_FIELDS[error.key]})` });
-    } else findings.push({ level: "fail", text: `${KIT_FILE} ${error.path}: ${error.message}` });
+    findings.push({ level: "fail", text: `${KIT_FILE} ${error.path}: ${error.message}` });
   }
   if (findings.every((finding) => finding.level !== "fail")) findings.unshift({ level: "ok", text: `${KIT_FILE} matches the schema` });
   return { config: file.value, findings };

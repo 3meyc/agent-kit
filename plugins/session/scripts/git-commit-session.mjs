@@ -4,7 +4,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { isatty } from "node:tty";
 import { fileURLToPath } from "node:url";
 import { isDirectRun } from "../lib/hook-utils.mjs";
-import { escapeRegExp, readKit } from "./kit-config.mjs";
+import { escapeRegExp, readKit } from "../lib/kit-config.mjs";
 import { doneMarks } from "./ledger-record.mjs";
 
 /**

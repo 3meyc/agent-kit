@@ -81,19 +81,28 @@ commands the plugins use. Draft v1; the final shape lives in `schema/kit.schema.
     "ledger": ".claude/ledger"
   },
   "commands": {
+    "install": "pnpm install --frozen-lockfile",
+    "dev": "pnpm run dev",
     "check": "pnpm run check",
     "test": "pnpm test",
     "build": "pnpm run build",
     "commitAudit": "npx some-audit --base HEAD~1"
   },
+  "lintOnEdit": { "command": "pnpm exec eslint --no-warn-ignored {file}", "match": ["*.ts", "*.svelte"] },
   "hooks": { "off": ["ledger-stop"] },
   "devServer": { "port": 5173 }
 }
 ```
 
 `commands.commitAudit` runs after each commit that holds code, so the commit script names no
-specific tool. `hooks.off` lists kit hooks this project skips: a plugin can't be switched off
-hook by hook, so each kit hook reads this list and exits quietly when named.
+specific tool. `commands.install` sets up a fresh worktree (without it, `session` guesses pnpm or
+npm from the lockfile), and `commands.dev` starts the dev server where the desktop app's Browser
+pane is not available. `lintOnEdit` lints each edited file: `{file}` is the quoted repo-relative
+path, and `match` limits it to some globs. `hooks.off` lists kit hooks this project skips: a plugin
+can't be switched off hook by hook, so each kit hook reads this list and exits quietly when named.
+
+Every plugin reads `kit.json` through the same module, `shared/kit-config.mjs`, vendored into each
+plugin's `lib/`: it fills in the schema defaults and answers `hooks.off`.
 
 ## Release channels
 

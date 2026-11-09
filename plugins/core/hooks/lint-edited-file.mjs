@@ -1,7 +1,7 @@
 /**
  * PostToolUse hook `lint-edited-file`: lint the file an Edit/Write/MultiEdit call just changed.
  *
- * The command comes from `kit.json` `lintOnEdit` (proposed field, not yet in schema v1):
+ * The command comes from `kit.json` `lintOnEdit`:
  *
  *   "lintOnEdit": { "command": "pnpm exec eslint --no-warn-ignored {file}", "match": ["*.ts", "*.svelte"] }
  *
@@ -16,17 +16,18 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { EDIT_TOOLS, editedFilePath, isDirectRun, projectRoot, readHookInput } from "../lib/hook-utils.mjs";
-import { hookOff, lintOnEdit, matchesAny, readKitConfig, withFile } from "../src/kit-config.mjs";
+import { hookOff, lintOnEdit, readKit } from "../lib/kit-config.mjs";
+import { matchesAny, withFile } from "../src/lint-match.mjs";
 
 export const HOOK_ID = "lint-edited-file";
 const MAX_OUTPUT = 4000;
 
 /**
  * The shell command to run for this payload, or null when there is nothing to lint.
- * @param {Record<string, any>} input @param {Record<string, any> | null} config @param {string} root
+ * @param {Record<string, any>} input @param {import("../lib/kit-config.mjs").Kit | Record<string, any>} config @param {string} root
  */
 export function lintCommandFor(input, config, root) {
-  if (hookOff(config, HOOK_ID)) return null;
+  if (hookOff(HOOK_ID, config)) return null;
   if (!EDIT_TOOLS.has(input?.tool_name ?? "")) return null;
   const lint = lintOnEdit(config);
   if (lint === null) return null;
@@ -38,7 +39,7 @@ export function lintCommandFor(input, config, root) {
 
 export async function main(input) {
   const root = projectRoot();
-  const target = lintCommandFor(input, readKitConfig(root), root);
+  const target = lintCommandFor(input, readKit(root), root);
   if (target === null) return;
   const result = spawnSync(target.command, { cwd: root, encoding: "utf8", shell: true });
   if (result.status === 0) return;

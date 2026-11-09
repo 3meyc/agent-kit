@@ -31,6 +31,8 @@ const broken = {
   "path leaving the repo": { ...minimal, paths: { ledger: "../ledger" } },
   "unknown command": { ...minimal, commands: { deploy: "make deploy" } },
   "port out of range": { ...minimal, devServer: { port: 70000 } },
+  "lintOnEdit without a command": { ...minimal, lintOnEdit: { match: ["*.ts"] } },
+  "lintOnEdit with an unknown key": { ...minimal, lintOnEdit: { command: "eslint", files: ["*.ts"] } },
 };
 if (!validate(minimal)) {
   failed = true;

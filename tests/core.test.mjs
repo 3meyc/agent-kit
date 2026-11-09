@@ -16,7 +16,8 @@ import { mergeSettings, parseAdoptArgs, starterKitJson } from "../plugins/core/s
 import { compare, outline } from "../plugins/core/src/docs-parity.mjs";
 import { checkKitJson, checkSettings } from "../plugins/core/src/doctor.mjs";
 import { collectInventory, groupOf, measureDrift, summarize } from "../plugins/core/src/inventory.mjs";
-import { globMatcher, hookOff, lintOnEdit, matchesAny, withFile } from "../plugins/core/src/kit-config.mjs";
+import { hookOff, lintOnEdit } from "../plugins/core/lib/kit-config.mjs";
+import { globMatcher, matchesAny, withFile } from "../plugins/core/src/lint-match.mjs";
 import { findKitCopies, ownedBy } from "../plugins/core/src/kit-owned.mjs";
 import { validate } from "../plugins/core/src/schema-check.mjs";
 import { checkUpdates, pickRemoteSha, updateCommands } from "../plugins/core/src/update-check.mjs";
@@ -46,9 +47,9 @@ function runHook(script, payload, env = {}) {
 
 describe("kit-config", () => {
   it("reads hooks.off", () => {
-    assert.equal(hookOff({ hooks: { off: ["rules"] } }, "rules"), true);
-    assert.equal(hookOff({ hooks: { off: ["rules"] } }, "update-check"), false);
-    assert.equal(hookOff(null, "rules"), false);
+    assert.equal(hookOff("rules", { hooks: { off: ["rules"] } }), true);
+    assert.equal(hookOff("update-check", { hooks: { off: ["rules"] } }), false);
+    assert.equal(hookOff("rules", null), false);
   });
 
   it("matches globs over repo-relative paths", () => {
@@ -302,6 +303,10 @@ describe("schema-check", () => {
     "bad hook id": { ...minimal, hooks: { off: ["Rules!"] } },
     "empty command": { ...minimal, commands: { test: "" } },
     "ledger not boolean": { ...minimal, ledger: "yes" },
+    "lintOnEdit ok": { ...minimal, lintOnEdit: { command: "eslint {file}", match: ["*.ts"] } },
+    "lintOnEdit without a command": { ...minimal, lintOnEdit: { match: ["*.ts"] } },
+    "lintOnEdit empty glob": { ...minimal, lintOnEdit: { command: "eslint", match: [""] } },
+    "dev and install commands": { ...minimal, commands: { dev: "npm run dev", install: "npm ci" } },
   };
   for (const [name, manifest] of Object.entries(cases)) {
     it(`agrees with Ajv: ${name}`, () => {
@@ -309,10 +314,17 @@ describe("schema-check", () => {
     });
   }
 
-  it("warns, not fails, on a proposed field", () => {
-    const project = tempProject("doctor-kit", { "kit.json": { project: "my-app", lintOnEdit: { command: "eslint" } } });
+  it("accepts lintOnEdit, commands.dev and commands.install", () => {
+    const kit = { project: "my-app", lintOnEdit: { command: "eslint {file}", match: ["*.ts"] }, commands: { dev: "npm run dev", install: "npm ci" } };
+    const project = tempProject("doctor-kit", { "kit.json": kit });
     const { findings } = checkKitJson(project, schema);
-    assert.deepEqual(findings.map((finding) => finding.level), ["ok", "warn"]);
+    assert.deepEqual(findings.map((finding) => finding.level), ["ok"]);
+  });
+
+  it("fails a lintOnEdit without a command", () => {
+    const project = tempProject("doctor-kit-bad", { "kit.json": { project: "my-app", lintOnEdit: { match: ["*.ts"] } } });
+    const { findings } = checkKitJson(project, schema);
+    assert.ok(findings.some((finding) => finding.level === "fail"));
   });
 });
 
@@ -357,6 +369,26 @@ describe("kit-owned files", () => {
       ".claude/commands/dev.md",
       ".claude/rules/agent-output-rules.md",
       ".claude/settings.json (PostToolUse hook: lint-edited-file.mjs)",
+    ]);
+  });
+
+  it("lists session's ledger scripts, commands and agent, and its duplicate hook entries", () => {
+    const session = join(repo, "plugins", "session");
+    const manifest = JSON.parse(readFileSync(join(session, "kit-owned.json"), "utf8"));
+    for (const path of Object.keys(manifest.partial)) assert.ok(manifest.files.includes(path), `partial names a listed file: ${path}`);
+    const owned = ownedBy({ root: session, name: "session" }).files.map((file) => file.path);
+    assert.ok(owned.includes(".claude/agents/git-ops.md"));
+    assert.ok(owned.includes(".claude/commands/close-out.md"));
+    const project = tempProject("owned-session", {
+      "scripts/hooks/session-ledger.mjs": "x",
+      ".claude/commands/handoff.md": "x",
+      ".claude/settings.json": { hooks: { Stop: [{ hooks: [{ type: "command", command: "node scripts/hooks/session-ledger.mjs" }] }] } },
+    });
+    const copies = findKitCopies(project, [{ root: session, name: "session" }]).map((copy) => copy.path);
+    assert.deepEqual(copies.sort(), [
+      ".claude/commands/handoff.md",
+      ".claude/settings.json (Stop hook: session-ledger.mjs)",
+      "scripts/hooks/session-ledger.mjs",
     ]);
   });
 });

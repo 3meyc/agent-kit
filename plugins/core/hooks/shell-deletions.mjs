@@ -24,8 +24,8 @@ import { spawnSync } from "node:child_process";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { SHELL_TOOLS, isDirectRun, projectRoot, readHookInput } from "../lib/hook-utils.mjs";
-import { hookOff, readKitConfig } from "../src/kit-config.mjs";
-import { shellWriteTargets } from "../src/shell-edits.mjs";
+import { ledgerHookOn, readKit } from "../lib/kit-config.mjs";
+import { shellWriteTargets } from "../lib/shell-edits.mjs";
 
 export const HOOK_ID = "shell-deletions";
 const PHASES = { PreToolUse: "pre", PostToolUse: "post" };
@@ -70,10 +70,10 @@ function deletedTracked(cwd) {
  * Snapshot the deletions for one hook payload; returns without touching the log when the hook is
  * off, the call is not an opaque shell call, or it has no transcript to log beside.
  * @param {{ hook_event_name?: string, tool_name?: string, tool_input?: { command?: unknown }, tool_use_id?: unknown, transcript_path?: unknown, cwd?: string }} input
- * @param {Record<string, any> | null} [config]
+ * @param {import("../lib/kit-config.mjs").Kit} [config]
  */
-export async function run(input, config = readKitConfig(projectRoot())) {
-  if (config?.ledger !== true || hookOff(config, HOOK_ID)) return;
+export async function run(input, config = readKit(projectRoot())) {
+  if (!ledgerHookOn(HOOK_ID, config)) return;
   const phase = PHASES[input.hook_event_name];
   const command = input.tool_input?.command;
   if (!phase || !SHELL_TOOLS.has(input.tool_name ?? "") || typeof command !== "string") return;

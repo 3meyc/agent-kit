@@ -31,7 +31,7 @@ quiet unless `kit.json` sets `"ledger": true`.
 | 2 | `ledger-brief` | SessionStart | yes | Prints the brief of recent records into the session's context |
 | 3 | `ledger-shell-deletions` | PreToolUse, PostToolUse (Bash, PowerShell) | yes | Snapshots tracked files a script deletes, so the record credits the deletion |
 | 4 | `ledger-summarize` | (spawned by `ledger-stop`) | yes | Fills a record nobody wrote with a cheap model through `claude -p`. Spends tokens; list it to turn it off, or set `LEDGER_NO_SUMMARY=1` |
-| 5 | `worktree-setup` | SessionStart | no | In a new linked worktree: installs dependencies (pnpm or npm, from the lockfile), builds a CodeGraph index when the main checkout has one, trusts RTK filters already trusted elsewhere. Each step is skipped when its tool is not installed |
+| 5 | `worktree-setup` | SessionStart | no | In a new linked worktree: installs dependencies (`commands.install`, else pnpm or npm from the lockfile), builds a CodeGraph index when the main checkout has one, trusts RTK filters already trusted elsewhere. Each step is skipped when its tool is not installed |
 
 ```json
 { "hooks": { "off": ["ledger-summarize", "worktree-setup"] } }
@@ -51,6 +51,7 @@ quiet unless `kit.json` sets `"ledger": true`.
 | 8 | `commands.check`, `lint`, `test`, `build` | none | The checks `/close-out` and `/close-siblings` run before landing |
 | 9 | `devServer.port` | none | The closing line of the worktree set-up |
 | 10 | `hooks.off` | `[]` | The hook ids above |
+| 11 | `commands.install` | lockfile guess | The worktree set-up's install step, run through the shell when a known lockfile is newer than the last install |
 
 The checkout comes from the hook payload's `cwd` (or the shell's working directory), so a worktree
 session works on the worktree's own `kit.json`, ledger and files.

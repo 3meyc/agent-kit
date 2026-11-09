@@ -13,6 +13,8 @@
     "ledger": ".claude/ledger"
   },
   "commands": {
+    "install": "pnpm install --frozen-lockfile",
+    "dev": "pnpm run dev",
     "check": "pnpm run check",
     "lint": "pnpm run lint",
     "test": "pnpm test",
@@ -20,6 +22,10 @@
     "commit": "node scripts/commit.mjs",
     "land": "node scripts/land.mjs",
     "commitAudit": "npx some-audit --base HEAD~1"
+  },
+  "lintOnEdit": {
+    "command": "pnpm exec eslint --no-warn-ignored {file}",
+    "match": ["*.ts", "*.svelte"]
   },
   "hooks": {
     "off": [
