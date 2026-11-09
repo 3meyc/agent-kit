@@ -1,9 +1,12 @@
 {
   "name": "agent-kit",
   "private": true,
-  "description": "Repo tooling for the agent-kit plugin marketplace. The plugins themselves need none of it.",
+  "description": "Repo tooling for the agent-kit plugin marketplace, and the agent-kit command for git hooks (see docs/using.md). The plugins themselves need none of it.",
   "license": "MIT",
   "type": "module",
+  "bin": {
+    "agent-kit": "bin/agent-kit.mjs"
+  },
   "engines": {
     "node": ">=20"
   },

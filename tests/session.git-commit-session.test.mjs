@@ -14,8 +14,10 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "./session/vitest-compat.mjs";
 import {
+  auditCommand,
   auditTail,
   holdsCode,
+  quotePath,
   splitLedgerStatus,
   unattributedFiles,
 } from "../plugins/session/scripts/git-commit-session.mjs";
@@ -166,6 +168,49 @@ describe("git-commit-session", () => {
     const docs = commitSession(["notes.md"], "docs: notes");
     expect(docs.status).toBe(0);
     expect(docs.stdout).not.toContain("commit-audit:");
+  });
+
+  it("puts the committed paths, quoted, where commitAudit says {files}", () => {
+    expect(auditCommand("audit --only {files}", ["src/a.ts", "src/my file.ts"], "linux")).toBe("audit --only src/a.ts 'src/my file.ts'");
+    expect(auditCommand("audit {files}", ["it's.ts"], "linux")).toBe(`audit 'it'\\''s.ts'`);
+    expect(auditCommand("audit {files}", ["a b.ts"], "win32")).toBe('audit "a b.ts"');
+    expect(auditCommand("audit --base HEAD~1", ["a.ts"], "linux")).toBe("audit --base HEAD~1");
+    expect(quotePath("src/a.ts", "linux")).toBe("src/a.ts");
+
+    writeFileSync(
+      join(repo, "kit.json"),
+      JSON.stringify({ project: "t", commands: { commitAudit: 'node -e "console.log(process.argv.slice(1).join(\'|\'))" {files}' } }),
+    );
+    writeFileSync(join(repo, "code.mjs"), "export {};\n");
+    writeFileSync(join(repo, "two words.mjs"), "export {};\n");
+    const result = commitSession(["code.mjs", "two words.mjs"], "test: code");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("  code.mjs|two words.mjs");
+  });
+
+  it("counts a skip for each kit.json preflight step a commit touches, and names the due ones", () => {
+    writeFileSync(
+      join(repo, "kit.json"),
+      JSON.stringify({
+        project: "t",
+        preflight: {
+          docs: { description: "Docs review", match: ["docs/**"] },
+          audit: { description: "Audit", command: "node -e 0", remindAfter: 2 },
+        },
+      }),
+    );
+    writeFileSync(join(repo, "code.mjs"), "export {};\n");
+    const first = commitSession(["code.mjs", "kit.json"], "test: code");
+    expect(first.status).toBe(0);
+    expect(first.stdout).not.toContain("preflight:");
+    writeFileSync(join(repo, "code.mjs"), "export const a = 1;\n");
+    const second = commitSession(["code.mjs"], "test: more");
+    expect(second.stdout).toContain("preflight: audit skipped in 2 commit(s) since its last run; `preflight run audit`");
+    expect(second.stdout).not.toContain("preflight: docs");
+    mkdirSync(join(repo, "docs"), { recursive: true });
+    writeFileSync(join(repo, "docs", "a.md"), "a\n");
+    const third = commitSession(["docs/a.md"], "docs: a");
+    expect(third.stdout).toContain("preflight: docs skipped in 1 commit(s) since its last run; Docs review, then `preflight done docs`");
   });
 
   it("says when the audit command is not installed, and still exits 0", () => {

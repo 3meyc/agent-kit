@@ -87,21 +87,30 @@ SDLC читають глосарій, коли робочий елемент з�
     "check": "pnpm run check",
     "test": "pnpm test",
     "build": "pnpm run build",
-    "commitAudit": "npx some-audit --base HEAD~1"
+    "commitAudit": "npx some-audit --base HEAD~1 --only {files}"
   },
-  "lintOnEdit": { "command": "pnpm exec eslint --no-warn-ignored {file}", "match": ["*.ts", "*.svelte"] },
+  "lintOnEdit": [
+    { "command": "pnpm exec eslint --no-warn-ignored {file}", "match": ["*.ts", "*.svelte"] },
+    { "command": "pnpm run i18n:check", "match": ["src/locales/*.json"] }
+  ],
+  "checks": { "i18n": ["pnpm run i18n:check", "pnpm run i18n:parity"] },
+  "preflight": { "docs-review": { "description": "Docs review skill", "match": ["docs/**"], "remindAfter": 3 } },
   "hooks": { "off": ["ledger-stop"] },
   "devServer": { "port": 5173 }
 }
 ```
 
 `commands.commitAudit` запускається після кожного коміту з кодом, тож скрипт коміту не називає
-конкретного інструмента. `commands.install` готує новий worktree (без нього `session` вгадує pnpm
-чи npm за lock-файлом), а `commands.dev` запускає dev-сервер там, де немає панелі Browser
-настільного застосунку. `lintOnEdit` перевіряє лінтером кожен змінений файл: `{file}` — шлях
-відносно репозиторію в лапках, а `match` обмежує перевірку шаблонами. `hooks.off` перелічує хуки
-набору, які цей проєкт пропускає: плагін не можна вимкнути по одному хуку, тож кожен хук набору
-читає цей список і тихо завершується, якщо його названо.
+конкретного інструмента; `{files}` у ній стає закоміченими шляхами (вони також є в
+`KIT_COMMIT_PATHS`), тож аудит може показати лише те, що зачепив коміт. `commands.install` готує
+новий worktree (без нього `session` вгадує pnpm чи npm за lock-файлом), а `commands.dev` запускає
+dev-сервер там, де немає панелі Browser настільного застосунку. `lintOnEdit` перевіряє лінтером
+кожен змінений файл: одне правило або список правил, кожне з командою, де `{file}` — шлях відносно
+репозиторію в лапках, і шаблонами `match`, що вибирають її файли; запускається кожне правило, що
+збіглося. `checks` називає набори команд для `/core:check <набір>`, а `preflight` — необов'язкові
+кроки, пропущені коміти яких рахує `session`. `hooks.off` перелічує хуки набору, які цей проєкт
+пропускає: плагін не можна вимкнути по одному хуку, тож кожен хук набору читає цей список і тихо
+завершується, якщо його названо.
 
 Усі плагіни читають `kit.json` одним модулем, `shared/kit-config.mjs`, скопійованим у `lib/`
 кожного плагіна: він підставляє типові значення зі схеми й відповідає на `hooks.off`.

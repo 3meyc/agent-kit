@@ -28,8 +28,15 @@ Repeat the install for each plugin you want (`core`, `session`, `svelte`, `pytho
    local files the kit now supplies (it deletes nothing).
 2. Set `ledger: false` if the project keeps no session ledger; `session` then skips its ledger hooks.
 3. Run `/core:kit-doctor` (or `kit doctor` from a Claude session's shell): it checks `kit.json`,
-   the enabled plugins and declared marketplaces, that no kit-owned file is copied into the repo,
-   and whether an installed plugin lags its channel.
+   the enabled plugins and declared marketplaces, that no kit-owned file (or a test of one) is
+   copied into the repo, and whether an installed plugin lags its channel.
+4. For git hooks outside Claude, where plugin commands are not on PATH, add the kit as a dev
+   dependency and call its `agent-kit` command, for example `agent-kit ledger-scan-secrets` in the
+   pre-commit hook:
+
+```bash
+pnpm add -D github:3meyc/agent-kit#stable
+```
 
 ## 3. Take updates
 

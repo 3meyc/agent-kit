@@ -1,7 +1,8 @@
 // Which project files a kit plugin supplies, and which of them a project still keeps a copy of.
 // Used by `kit doctor` (a copy shadows or duplicates the kit) and `kit adopt` (what to retire).
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { basename, dirname, join } from "node:path";
+import { basename, delimiter, dirname, join, posix, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readPluginState } from "./update-check.mjs";
 
@@ -15,38 +16,129 @@ function readJson(file) {
   }
 }
 
-function pluginName(root) {
-  return readJson(join(root, ".claude-plugin", "plugin.json"))?.name ?? basename(root);
+/** The plugin's name: its manifest's, else the install id's, else the folder's. */
+function pluginName(root, id = null) {
+  return readJson(join(root, ".claude-plugin", "plugin.json"))?.name ?? (id ? id.slice(0, id.lastIndexOf("@")) : null) ?? basename(root);
+}
+
+/** Whether a folder is a plugin: it has `.claude-plugin/plugin.json`. @param {string} dir */
+function isPluginDir(dir) {
+  return existsSync(join(dir, ".claude-plugin", "plugin.json"));
 }
 
 /**
- * Plugin folders to read ownership from: this plugin, every plugin installed for the project
- * (overlays may ship a `kit-owned.json` too), and, when this plugin runs from a kit checkout
- * (`--plugin-dir`), its sibling plugins.
- * @param {string | null} projectDir
+ * The `--plugin-dir` values in one command line. `ps` joins arguments with spaces, so a value is
+ * grown token by token until it names a plugin folder (a path with spaces); `cwd` resolves a
+ * relative one. Pure apart from the existence check.
+ * @param {string[]} tokens @param {string} cwd @param {(dir: string) => boolean} [isPlugin]
  */
-export function pluginRoots(projectDir, state = readPluginState()) {
-  const roots = new Map([[CORE_ROOT, pluginName(CORE_ROOT)]]);
-  for (const entries of Object.values(state.installed)) {
+export function pluginDirArgs(tokens, cwd, isPlugin = isPluginDir) {
+  const dirs = [];
+  for (let i = 0; i < tokens.length; i += 1) {
+    let value = null;
+    if (tokens[i] === "--plugin-dir") {
+      let candidate = "";
+      for (let j = i + 1; j < tokens.length && !(j > i + 1 && tokens[j].startsWith("--")); j += 1) {
+        candidate = candidate ? `${candidate} ${tokens[j]}` : tokens[j];
+        if (isPlugin(resolve(cwd, candidate))) {
+          value = candidate;
+          i = j;
+          break;
+        }
+      }
+      if (value === null && tokens[i + 1]) value = tokens[i + 1];
+    } else if (tokens[i].startsWith("--plugin-dir=")) value = tokens[i].slice("--plugin-dir=".length);
+    if (value) dirs.push(resolve(cwd, value));
+  }
+  return dirs;
+}
+
+/**
+ * This process's ancestors, nearest first, up to `max` levels, as `{ exe, command }`: a `kit` run
+ * from a Claude Code session has the `claude` process somewhere above it. POSIX `ps` only; empty
+ * on Windows or when `ps` is missing.
+ * @returns {Array<{ exe: string, command: string }>}
+ */
+export function ancestorProcesses(max = 12, pid = process.ppid) {
+  if (process.platform === "win32") return [];
+  const ps = (field) => spawnSync("ps", ["-ww", "-o", `${field}=`, "-p", String(pid)], { encoding: "utf8" });
+  const found = [];
+  for (let level = 0; level < max && pid > 1; level += 1) {
+    const parent = ps("ppid");
+    if (parent.status !== 0 || !parent.stdout.trim()) break;
+    found.push({ exe: ps("comm").stdout.trim(), command: ps("command").stdout.trim() });
+    pid = Number(parent.stdout.trim());
+  }
+  return found;
+}
+
+/** Whether a process is Claude Code: its executable is `claude`, or node running the CLI package. */
+export function isClaudeProcess({ exe, command }) {
+  return /(^|[\\/])claude(\.exe)?$/.test(exe) || /@anthropic-ai[\\/]claude-code[\\/]/.test(command);
+}
+
+/**
+ * Plugin folders this session loaded with `--plugin-dir`, which no settings file names: from
+ * `KIT_PLUGIN_DIRS` (paths joined by the OS path delimiter), from `extra` (`kit doctor
+ * --plugin-dir <path>`), and from the command line of the `claude` process this runs under.
+ * Only folders that hold a plugin are kept.
+ * @param {{ env?: NodeJS.ProcessEnv, extra?: string[], processes?: Array<{ exe: string, command: string }>, cwd?: string }} [options]
+ */
+export function sessionPluginDirs({ env = process.env, extra = [], processes, cwd = process.cwd() } = {}) {
+  const dirs = [...extra.map((dir) => resolve(cwd, dir))];
+  for (const dir of (env.KIT_PLUGIN_DIRS ?? "").split(delimiter)) if (dir) dirs.push(resolve(cwd, dir));
+  const claude = (processes ?? ancestorProcesses()).find(isClaudeProcess);
+  if (claude) dirs.push(...pluginDirArgs(claude.command.split(/\s+/), cwd));
+  return [...new Set(dirs)].filter(isPluginDir);
+}
+
+/**
+ * Plugin folders to read ownership from: this plugin, the plugins this session loaded with
+ * `--plugin-dir` (they override an installed copy of the same name), every plugin installed for
+ * the project (overlays may ship a `kit-owned.json` too), and, when this plugin runs from a kit
+ * checkout, its sibling plugins. `source` says which; `id` is `name@marketplace` for an install.
+ * @param {string | null} projectDir
+ * @returns {Array<{ root: string, name: string, source: "self" | "session" | "installed" | "sibling", id?: string }>}
+ */
+export function pluginRoots(projectDir, state = readPluginState(), sessionDirs = sessionPluginDirs({ cwd: projectDir ?? process.cwd() })) {
+  /** @type {Map<string, { root: string, name: string, source: any, id?: string }>} */
+  const byName = new Map();
+  const add = (root, source, id) => {
+    const name = pluginName(root, id);
+    if (!byName.has(name)) byName.set(name, { root, name, source, ...(id ? { id } : {}) });
+  };
+  add(CORE_ROOT, "self");
+  for (const dir of sessionDirs) add(dir, "session");
+  for (const [id, entries] of Object.entries(state.installed)) {
     if (!Array.isArray(entries)) continue;
     for (const entry of entries) {
       const scoped = entry.scope === "user" || entry.scope === "managed" || entry.projectPath === projectDir;
-      if (scoped && typeof entry.installPath === "string" && existsSync(entry.installPath)) {
-        const name = pluginName(entry.installPath);
-        if (![...roots.values()].includes(name)) roots.set(entry.installPath, name);
-      }
+      if (scoped && typeof entry.installPath === "string" && existsSync(entry.installPath)) add(entry.installPath, "installed", id);
     }
   }
   const pluginsDir = dirname(CORE_ROOT);
   if (existsSync(join(pluginsDir, "..", ".claude-plugin", "marketplace.json"))) {
     for (const name of readdirSync(pluginsDir)) {
       const root = join(pluginsDir, name);
-      if (existsSync(join(root, ".claude-plugin", "plugin.json")) && ![...roots.values()].includes(pluginName(root))) {
-        roots.set(root, pluginName(root));
-      }
+      if (isPluginDir(root)) add(root, "sibling");
     }
   }
-  return [...roots].map(([root, name]) => ({ root, name }));
+  return [...byName.values()];
+}
+
+/** A plugin's `dependencies` as `{ name, marketplace }`; a bare name has `marketplace: null`. */
+export function pluginDependencies(root) {
+  const list = readJson(join(root, ".claude-plugin", "plugin.json"))?.dependencies;
+  if (!Array.isArray(list)) return [];
+  return list
+    .map((dep) => {
+      if (typeof dep === "string") {
+        const at = dep.lastIndexOf("@");
+        return at > 0 ? { name: dep.slice(0, at), marketplace: dep.slice(at + 1) } : { name: dep, marketplace: null };
+      }
+      return dep && typeof dep.name === "string" ? { name: dep.name, marketplace: typeof dep.marketplace === "string" ? dep.marketplace : null } : null;
+    })
+    .filter(Boolean);
 }
 
 function listNames(dir, filter) {
@@ -88,18 +180,99 @@ function projectHookCommands(projectDir) {
   return commands;
 }
 
+const SCRIPT_FILE = /\.(?:[cm]?[jt]s|[jt]sx)$/;
+const TEST_FILE = /\.(?:test|spec)\.(?:[cm]?[jt]s|[jt]sx)$/;
+const MAX_TEST_BYTES = 512 * 1024;
+
+/** A repo-relative path without its script extension. @param {string} path */
+function stem(path) {
+  return path.replace(SCRIPT_FILE, "");
+}
+
+/** Test files of the project, repo-relative: git's tracked and untracked-but-not-ignored files. */
+export function projectTestFiles(projectDir) {
+  const listed = spawnSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], {
+    cwd: projectDir,
+    encoding: "utf8",
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  if (listed.status !== 0) return [];
+  return [...new Set(listed.stdout.split("\0"))].filter((path) => TEST_FILE.test(path) && existsSync(join(projectDir, path)));
+}
+
+/** Relative module specifiers in a source text (`import`, `export … from`, `import()`, `require()`). */
+export function relativeImports(text) {
+  const found = [];
+  const pattern = /(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\s*\(\s*|\bimport\s+)["'](\.{1,2}\/[^"']+)["']/g;
+  for (const match of text.matchAll(pattern)) found.push(match[1]);
+  return found;
+}
+
 /**
- * Kit-owned files and hook entries the project still has.
+ * Tests that belong to kit-owned scripts, so a project deletes them with the script: a test beside
+ * the script with the same name (`ledger-brief.test.ts` next to `ledger-brief.mjs`), or a test
+ * anywhere that imports it. The script itself may already be gone: a test left behind still
+ * imports a deleted module. Pure apart from reading the test files.
+ * @param {string[]} owned repo-relative kit-owned paths
+ * @param {string[]} tests repo-relative test files
+ * @param {(path: string) => string} read
+ * @returns {Array<{ test: string, of: string }>}
+ */
+export function testsOfOwned(owned, tests, read) {
+  const scripts = owned.filter((path) => SCRIPT_FILE.test(path) && !TEST_FILE.test(path));
+  if (scripts.length === 0) return [];
+  const byStem = new Map(scripts.map((path) => [stem(path), path]));
+  const found = [];
+  for (const test of tests) {
+    const beside = byStem.get(test.replace(TEST_FILE, ""));
+    if (beside) {
+      found.push({ test, of: beside });
+      continue;
+    }
+    let text = "";
+    try {
+      text = read(test);
+    } catch {
+      continue;
+    }
+    for (const specifier of relativeImports(text)) {
+      const target = byStem.get(stem(posix.normalize(posix.join(posix.dirname(test), specifier))));
+      if (target) {
+        found.push({ test, of: target });
+        break;
+      }
+    }
+  }
+  return found;
+}
+
+/**
+ * Kit-owned files and hook entries the project still has, and tests of kit-owned scripts.
  * @param {string} projectDir @param {Array<{ root: string, name: string }>} [plugins]
  * @returns {Array<{ path: string, plugin: string, note: string | null }>}
  */
 export function findKitCopies(projectDir, plugins = pluginRoots(projectDir)) {
   const found = [];
   const hooks = projectHookCommands(projectDir);
+  const tests = projectTestFiles(projectDir);
+  const read = (path) => {
+    const file = join(projectDir, path);
+    return statSync(file).size > MAX_TEST_BYTES ? "" : readFileSync(file, "utf8");
+  };
+  const seen = new Set();
   for (const plugin of plugins) {
     const owned = ownedBy(plugin);
     for (const { path, note } of owned.files) {
-      if (existsSync(join(projectDir, path))) found.push({ path, plugin: owned.plugin, note });
+      if (existsSync(join(projectDir, path)) && !seen.has(path)) {
+        seen.add(path);
+        found.push({ path, plugin: owned.plugin, note });
+      }
+    }
+    for (const { test, of } of testsOfOwned(owned.files.map((file) => file.path), tests, read)) {
+      if (seen.has(test)) continue;
+      seen.add(test);
+      const gone = existsSync(join(projectDir, of)) ? "" : ", which is already gone";
+      found.push({ path: test, plugin: owned.plugin, note: `tests kit-owned ${of}${gone}; delete it with the script` });
     }
     for (const script of owned.hookScripts) {
       for (const hook of hooks) {

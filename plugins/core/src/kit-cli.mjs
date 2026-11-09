@@ -11,7 +11,9 @@ import { checkUpdates, defaultCacheFile, updateCommands } from "./update-check.m
 
 const USAGE = `Usage: kit <command>
 
-  doctor [--offline]   Check kit.json, enabled plugins and marketplaces, kit-owned copies, installed versions
+  doctor [--offline] [--plugin-dir <path>]...
+                       Check kit.json, enabled and --plugin-dir plugins, marketplaces, kit-owned copies
+                       and their tests, installed versions (KIT_PLUGIN_DIRS adds plugin folders too)
   update-check         Installed kit plugins against their marketplace ref, with the update commands
   adopt [--write] [--plugins core,session] [--base owner/repo#ref]
         [--overlay name=owner/repo#ref] [--overlay-plugin plugin@marketplace]
@@ -20,7 +22,7 @@ const USAGE = `Usage: kit <command>
                        Agent tooling across the repos in ~/.config/agent-kit/inventory.json
   drift [--out dir] [--config file]
                        Changed lines of drifting copies against the reference repo
-  commands             The project's kit.json commands
+  commands             The project's kit.json commands and check suites
   dev                  The dev server port and the matching .claude/launch.json configuration`;
 
 function readJson(file) {
@@ -42,11 +44,20 @@ export function printCommands(root, print = console.log) {
     return 0;
   }
   const commands = Object.entries(kit.commands);
-  if (commands.length === 0) {
-    print("kit.json defines no commands.");
+  const suites = Object.entries(kit.checks);
+  if (commands.length === 0 && suites.length === 0) {
+    print("kit.json defines no commands and no check suites.");
     return 0;
   }
+  if (commands.length === 0) print("kit.json defines no commands.");
   commands.forEach(([name, value], index) => print(`${index + 1}. ${name}: \`${value}\``));
+  if (suites.length === 0) return 0;
+  print("");
+  print("Check suites (kit.json checks), each run in order by `/core:check <suite>`:");
+  suites.forEach(([name, list], index) => {
+    print(`${index + 1}. ${name}:`);
+    list.forEach((command, n) => print(`   ${index + 1}.${n + 1}. \`${command}\``));
+  });
   return 0;
 }
 
@@ -92,13 +103,23 @@ function printUpdates(root, print = console.log) {
   return 0;
 }
 
+/** Every value of a repeatable `--flag <value>` or `--flag=<value>`. @param {string[]} args @param {string} flag */
+export function optionValues(args, flag) {
+  const values = [];
+  args.forEach((arg, index) => {
+    if (arg === flag && args[index + 1]) values.push(args[index + 1]);
+    else if (arg.startsWith(`${flag}=`)) values.push(arg.slice(flag.length + 1));
+  });
+  return values;
+}
+
 /** @param {string[]} argv */
 export function main(argv) {
   const [command, ...args] = argv;
   const root = projectRoot();
   switch (command) {
     case "doctor":
-      return runDoctor(root, { offline: args.includes("--offline") });
+      return runDoctor(root, { offline: args.includes("--offline"), pluginDirs: optionValues(args, "--plugin-dir") });
     case "update-check":
       return printUpdates(root);
     case "adopt":

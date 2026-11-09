@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { isDirectRun } from "../lib/hook-utils.mjs";
 import { escapeRegExp, readKit } from "../lib/kit-config.mjs";
 import { doneMarks } from "./ledger-record.mjs";
+import { recordCommit } from "./preflight.mjs";
 
 /**
  * Commit one session's paths in a working tree other sessions share (`git-commit-session` on the
@@ -70,7 +71,9 @@ import { doneMarks } from "./ledger-record.mjs";
  * After a commit with code in it (not `--close-ledger`, not a concluded merge), the project's
  * `kit.json` `commands.commitAudit` runs from the repository root, and its output is printed under
  * a `commit-audit:` line (`auditCommit`). It reports; the exit code stays the commit's. No
- * command set, no audit.
+ * command set, no audit. `{files}` in the command becomes the committed paths, quoted; they are
+ * also in `KIT_COMMIT_PATHS`, one per line. Then each `kit.json` `preflight` step the commit
+ * touches counts one more skip, and a step due a run prints a `preflight:` line (`preflight.mjs`).
  *
  * An argument before `--` that the script does not take, `-m` included, stops it with the usage
  * (exit 1). Without `--message-file` the message is piped on stdin: a terminal is refused, and stdin
@@ -119,7 +122,8 @@ Flags:
   --help, -h              print this and exit 0
 
 Any other argument before -- is refused with exit 1; there is no -m, use --message-file.
-After a commit with code, kit.json commands.commitAudit runs and its output is shown (never the exit code).
+After a commit with code, kit.json commands.commitAudit runs and its output is shown (never the exit code);
+{files} in it becomes the committed paths, which are also in KIT_COMMIT_PATHS, one per line.
 
 Exit codes:
 ${EXIT_CODES.map(([code, meaning]) => `  ${code}  ${meaning}`).join("\n")}
@@ -688,17 +692,35 @@ export function auditTail(output, max = MAX_AUDIT_LINES) {
   return [`… ${lines.length - max} earlier line(s) cut`, ...lines.slice(-max)];
 }
 
+/** One shell word for a path: POSIX single quotes, or double quotes on Windows. Pure. @param {string} path */
+export function quotePath(path, platform = process.platform) {
+  if (/^[A-Za-z0-9_./:@%+=-]+$/.test(path)) return path;
+  return platform === "win32" ? `"${path}"` : `'${path.replaceAll("'", `'\\''`)}'`;
+}
+
+/**
+ * `commands.commitAudit` with `{files}` replaced by the committed paths, each quoted and separated
+ * by spaces. A command without the placeholder is returned as it is. Pure.
+ * @param {string} command @param {string[]} paths @param {string} [platform]
+ */
+export function auditCommand(command, paths, platform = process.platform) {
+  if (!command.includes("{files}")) return command;
+  return command.replaceAll("{files}", paths.map((path) => quotePath(path, platform)).join(" "));
+}
+
 /**
  * The project's `kit.json` `commands.commitAudit` on the commit just made, from the repository
- * root, through the shell (it is the project's own command line). The committed paths are in
- * `KIT_COMMIT_PATHS`, one per line, for an audit that can narrow to them: the working tree may
- * hold other sessions' changes. Reported under a `commit-audit:` line, never in the exit code.
- * Skipped when the project sets no such command or the commit holds no code.
+ * root, through the shell (it is the project's own command line). The committed paths reach it two
+ * ways, for an audit that should report only findings in them (the working tree may hold other
+ * sessions' changes): `{files}` in the command is replaced by them, quoted, and `KIT_COMMIT_PATHS`
+ * holds them one per line. Reported under a `commit-audit:` line, never in the exit code. Skipped
+ * when the project sets no such command or the commit holds no code.
  * @param {string[]} paths the committed paths
  */
 function auditCommit(paths) {
-  const command = kit.commands.commitAudit;
-  if (!command || !holdsCode(paths, kit.paths.ledger)) return;
+  const configured = kit.commands.commitAudit;
+  if (!configured || !holdsCode(paths, kit.paths.ledger)) return;
+  const command = auditCommand(configured, paths);
   const started = Date.now();
   const run = spawnSync(command, {
     cwd: top,
@@ -711,15 +733,15 @@ function auditCommit(paths) {
   const seconds = ((Date.now() - started) / 1000).toFixed(1);
   if (run.error) {
     const why = run.error.code === "ETIMEDOUT" ? `timed out after ${AUDIT_TIMEOUT_MS / 1000} s` : run.error.message;
-    console.log(`commit-audit: ${command} did not finish (${why}); this commit was not audited`);
+    console.log(`commit-audit: ${configured} did not finish (${why}); this commit was not audited`);
     return;
   }
   // 127 is the shell's "command not found": the tool is not installed on this machine.
   if (run.status === 127) {
-    console.log(`commit-audit: ${command} is not installed here; this commit was not audited`);
+    console.log(`commit-audit: ${configured} is not installed here; this commit was not audited`);
     return;
   }
-  console.log(`commit-audit: ${command} (exit ${run.status}, ${seconds} s)`);
+  console.log(`commit-audit: ${configured} (exit ${run.status}, ${seconds} s)`);
   for (const line of auditTail(`${run.stdout ?? ""}${run.stderr ?? ""}`)) console.log(`  ${line}`);
 }
 
@@ -819,6 +841,8 @@ function main() {
   const added = new Set();
   commitWithRetry(() => attempt(paths, message, added, trailers, options.amend), added);
   auditCommit(paths);
+  // An amend makes no new commit, so it skips no optional step.
+  if (!options.amend) for (const line of recordCommit(top, paths)) console.log(line);
 }
 
 if (isDirectRun(import.meta.url)) main();

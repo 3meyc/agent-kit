@@ -27,7 +27,7 @@ quietly when its id is listed.
 | --- | --- | --- | --- | --- |
 | 1 | `rules` | SessionStart | Prints the always-on rules | listed in `hooks.off` |
 | 2 | `update-check` | SessionStart | One short note when an installed kit plugin's commit differs from its marketplace ref, with the two update commands; remote SHAs cached for six hours | nothing lags, the remote is unreachable, or the session restarted after a compaction |
-| 3 | `lint-edited-file` | PostToolUse Edit, Write, MultiEdit | Runs `lintOnEdit.command` on the edited file; a failure is shown to the agent (exit 2) without undoing the edit | no `lintOnEdit`, or the file matches none of `lintOnEdit.match` |
+| 3 | `lint-edited-file` | PostToolUse Edit, Write, MultiEdit | Runs every `lintOnEdit` rule whose globs match the edited file, in order; any failure is shown to the agent (exit 2) without undoing the edit | no `lintOnEdit`, or the file matches no rule |
 | 4 | `shell-deletions` | PreToolUse and PostToolUse Bash, PowerShell | Snapshots tracked files a script-running command deletes, for the session ledger | `ledger` is not `true`, or the command runs no script |
 | 5 | `codegraph-sync` | PreToolUse Bash, PowerShell, CodeGraph MCP tools | Syncs a linked worktree's own CodeGraph index before a query reads it | no `.codegraph/codegraph.db` in the worktree, or no `codegraph` CLI |
 
@@ -67,7 +67,7 @@ Skills call `node "${CLAUDE_PLUGIN_ROOT}/src/kit-cli.mjs" …`, which needs no P
 
 | ID | Field | Read by |
 | --- | --- | --- |
-| 1 | `commands.check`, `lint`, `test`, `build` | `/core:check` (never `commit`, `land` or `commitAudit`) |
+| 1 | `commands.check`, `lint`, `test`, `build`, and the `checks` suites | `/core:check` (never `commit`, `land` or `commitAudit`); `/core:check <suite>` runs one suite |
 | 2 | `devServer.port`, `commands.dev` | `/core:dev` |
 | 3 | `hooks.off` | every hook (ids above) |
 | 4 | `ledger` | `shell-deletions` (runs only when `true`); `kit doctor` (then expects `session`) |
@@ -75,11 +75,21 @@ Skills call `node "${CLAUDE_PLUGIN_ROOT}/src/kit-cli.mjs" …`, which needs no P
 | 6 | `lintOnEdit` | `lint-edited-file` |
 | 7 | the whole file | `kit doctor` validates it against the schema shipped in `schema/` |
 
-`lintOnEdit` takes a command and optional globs; `{file}` is replaced by the quoted repo-relative
-path, or the path is appended. A glob without `/` matches the file name anywhere.
+`lintOnEdit` takes one rule, or a list of rules so different files get different checks. A rule
+is a command and optional globs; `{file}` is replaced by the quoted repo-relative path, or the path
+is appended. A glob without `/` matches the file name anywhere. Every rule that matches runs, and
+one failing does not stop the next. `checks` names suites of commands for `/core:check <suite>`;
+a suite name may not repeat a `commands` key or `all`, and `/core:check` with no name runs `check`,
+`lint` and `test` as before.
 
 ```json
-{ "lintOnEdit": { "command": "pnpm exec eslint --no-warn-ignored {file}", "match": ["*.ts", "*.svelte"] } }
+{
+  "lintOnEdit": [
+    { "command": "pnpm exec eslint --no-warn-ignored {file}", "match": ["src/**/*.ts", "src/**/*.svelte"] },
+    { "command": "pnpm run i18n:check", "match": ["src/locales/*.json"] }
+  ],
+  "checks": { "i18n": ["pnpm run i18n:check", "pnpm run i18n:parity"], "docs": ["pnpm run docs:check"] }
+}
 ```
 
 ## Inventory repo list
@@ -97,4 +107,10 @@ is measured against; `extraRoots` and `extraFiles` add folders and files to scan
 A project that had its own copies of these files keeps them until someone retires them: `kit
 doctor` and `/core:kit-adopt` list each one. Kit-owned files are named in
 [kit-owned.json](kit-owned.json), plus every agent and skill of the plugin. Another plugin or an
-overlay can ship its own `kit-owned.json`.
+overlay can ship its own `kit-owned.json`. Doctor also lists the tests of kit-owned scripts, so they
+go with the script: a `*.test.*` or `*.spec.*` file beside a listed script with the same name, or
+one that imports it, even after the script itself is gone. It reads ownership from the plugins
+installed for the project and from those this session loaded with `--plugin-dir` (read from the
+running `claude` command line, _unverified_ beyond macOS and Linux; `KIT_PLUGIN_DIRS` or `kit doctor
+--plugin-dir <path>` name them by hand), and warns when an enabled or loaded plugin's
+`dependencies` are neither enabled nor loaded.

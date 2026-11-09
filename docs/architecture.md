@@ -86,20 +86,29 @@ commands the plugins use. Draft v1; the final shape lives in `schema/kit.schema.
     "check": "pnpm run check",
     "test": "pnpm test",
     "build": "pnpm run build",
-    "commitAudit": "npx some-audit --base HEAD~1"
+    "commitAudit": "npx some-audit --base HEAD~1 --only {files}"
   },
-  "lintOnEdit": { "command": "pnpm exec eslint --no-warn-ignored {file}", "match": ["*.ts", "*.svelte"] },
+  "lintOnEdit": [
+    { "command": "pnpm exec eslint --no-warn-ignored {file}", "match": ["*.ts", "*.svelte"] },
+    { "command": "pnpm run i18n:check", "match": ["src/locales/*.json"] }
+  ],
+  "checks": { "i18n": ["pnpm run i18n:check", "pnpm run i18n:parity"] },
+  "preflight": { "docs-review": { "description": "Docs review skill", "match": ["docs/**"], "remindAfter": 3 } },
   "hooks": { "off": ["ledger-stop"] },
   "devServer": { "port": 5173 }
 }
 ```
 
 `commands.commitAudit` runs after each commit that holds code, so the commit script names no
-specific tool. `commands.install` sets up a fresh worktree (without it, `session` guesses pnpm or
-npm from the lockfile), and `commands.dev` starts the dev server where the desktop app's Browser
-pane is not available. `lintOnEdit` lints each edited file: `{file}` is the quoted repo-relative
-path, and `match` limits it to some globs. `hooks.off` lists kit hooks this project skips: a plugin
-can't be switched off hook by hook, so each kit hook reads this list and exits quietly when named.
+specific tool; `{files}` in it becomes the committed paths (also in `KIT_COMMIT_PATHS`), so the
+audit can report only what the commit touched. `commands.install` sets up a fresh worktree (without
+it, `session` guesses pnpm or npm from the lockfile), and `commands.dev` starts the dev server where
+the desktop app's Browser pane is not available. `lintOnEdit` lints each edited file: one rule or a
+list of rules, each a command where `{file}` is the quoted repo-relative path, and `match` globs
+that pick the files it takes; every matching rule runs. `checks` names suites of commands for
+`/core:check <suite>`, and `preflight` names optional steps whose skipped commits `session` counts.
+`hooks.off` lists kit hooks this project skips: a plugin can't be switched off hook by hook, so each
+kit hook reads this list and exits quietly when named.
 
 Every plugin reads `kit.json` through the same module, `shared/kit-config.mjs`, vendored into each
 plugin's `lib/`: it fills in the schema defaults and answers `hooks.off`.

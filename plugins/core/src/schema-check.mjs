@@ -1,8 +1,8 @@
 // A small JSON Schema validator for kit.json, so `kit doctor` needs no dependency once the plugin is
 // installed. It covers the keywords schema/kit.schema.json uses: type, required, properties,
-// additionalProperties (boolean), items, uniqueItems, enum, const, pattern, minLength, minimum,
-// maximum and local `$ref`s (`#/$defs/...`). An unknown keyword is ignored, so a schema change
-// that adds one needs a line here; tests/core-schema-check.test.mjs compares it with Ajv.
+// additionalProperties (boolean or schema), propertyNames, items, minItems, uniqueItems, enum, const,
+// pattern, minLength, minimum, maximum, anyOf, not and local `$ref`s (`#/$defs/...`). An unknown
+// keyword is ignored, so a schema change that adds one needs a line here; tests/core-schema-check.test.mjs compares it with Ajv.
 
 const TYPE_CHECKS = {
   object: (value) => value !== null && typeof value === "object" && !Array.isArray(value),
@@ -31,6 +31,16 @@ export function validate(value, schema, root = schema, path = "") {
   const errors = [];
   const at = path || "/";
   if (schema.$ref) errors.push(...validate(value, resolveRef(root, schema.$ref), root, path));
+  if (Array.isArray(schema.anyOf)) {
+    const branches = schema.anyOf.map((branch) => validate(value, branch, root, path));
+    // None fits: report the branch that came closest, so the message names the likely mistake.
+    if (!branches.some((found) => found.length === 0)) {
+      errors.push(...branches.reduce((best, found) => (found.length < best.length ? found : best)));
+    }
+  }
+  if (schema.not && validate(value, schema.not, root, path).length === 0) {
+    errors.push({ path: at, keyword: "not", message: "is not allowed here" });
+  }
   if (schema.type) {
     const types = Array.isArray(schema.type) ? schema.type : [schema.type];
     if (!types.some((type) => TYPE_CHECKS[type]?.(value))) {
@@ -61,6 +71,9 @@ export function validate(value, schema, root = schema, path = "") {
     }
   }
   if (Array.isArray(value)) {
+    if (schema.minItems !== undefined && value.length < schema.minItems) {
+      errors.push({ path: at, keyword: "minItems", message: `must have at least ${schema.minItems} item(s)` });
+    }
     if (schema.items) value.forEach((item, index) => errors.push(...validate(item, schema.items, root, `${path}/${index}`)));
     if (schema.uniqueItems) {
       const seen = new Set(value.map((item) => JSON.stringify(item)));
@@ -73,6 +86,11 @@ export function validate(value, schema, root = schema, path = "") {
     }
     const properties = schema.properties ?? {};
     for (const [key, child] of Object.entries(value)) {
+      if (schema.propertyNames) {
+        for (const error of validate(key, schema.propertyNames, root, `${path}/${key}`)) {
+          errors.push({ ...error, keyword: "propertyNames", key, message: `name "${key}" ${error.message}` });
+        }
+      }
       if (key in properties) errors.push(...validate(child, properties[key], root, `${path}/${key}`));
       else if (schema.additionalProperties === false) {
         errors.push({ path: at, keyword: "additionalProperties", key, message: `unknown property "${key}"` });

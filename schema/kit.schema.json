@@ -60,21 +60,43 @@
         "build": { "$ref": "#/$defs/command" },
         "commit": { "$ref": "#/$defs/command", "description": "Commit helper, when the project has its own." },
         "land": { "$ref": "#/$defs/command", "description": "Lands a finished branch on baseBranch." },
-        "commitAudit": { "$ref": "#/$defs/command", "description": "Run after each commit that holds code; its output is shown to the agent. Leave out for none." }
+        "commitAudit": { "$ref": "#/$defs/command", "description": "Run after each commit that holds code; its output is shown to the agent. {files} is replaced by the committed paths, each quoted; the same paths are in KIT_COMMIT_PATHS, one per line. Leave out for none." }
       }
     },
     "lintOnEdit": {
+      "description": "Lints each file an Edit or Write call changes (core's lint-edited-file hook). One rule, or a list of rules so different files get different checks; every rule whose match fits the file runs. A failure is shown to the agent; the edit stays.",
+      "anyOf": [
+        { "$ref": "#/$defs/lintRule" },
+        { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/lintRule" } }
+      ]
+    },
+    "checks": {
       "type": "object",
-      "description": "Lints each file an Edit or Write call changes (core's lint-edited-file hook). A failure is shown to the agent; the edit stays.",
-      "required": ["command"],
-      "additionalProperties": false,
-      "properties": {
-        "command": { "$ref": "#/$defs/command", "description": "Run from the repo root. {file} is replaced by the quoted repo-relative path; without it the path is appended." },
-        "match": {
-          "type": "array",
-          "description": "Globs over the repo-relative path; one without a slash matches the file name anywhere. Left out: every edited file.",
-          "items": { "type": "string", "minLength": 1 },
-          "uniqueItems": true
+      "description": "Named check suites for /core:check <name>: each a list of commands run in order from the repo root. A name may not repeat a commands key or `all`.",
+      "propertyNames": {
+        "pattern": "^[a-z0-9][a-z0-9-]*$",
+        "not": { "enum": ["all", "install", "dev", "check", "lint", "test", "build", "commit", "land", "commitAudit"] }
+      },
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 1,
+        "items": { "$ref": "#/$defs/command" }
+      },
+      "examples": [{ "i18n": ["pnpm run i18n:check", "pnpm run i18n:parity"], "docs": ["pnpm run docs:check"] }]
+    },
+    "preflight": {
+      "type": "object",
+      "description": "Optional steps a project wants run now and then before committing (a docs review, an audit). The session plugin counts the commits made since each step last ran and shows the count after a commit; `preflight run <id>` runs the step and clears its count.",
+      "propertyNames": { "pattern": "^[a-z0-9][a-z0-9-]*$" },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["description"],
+        "additionalProperties": false,
+        "properties": {
+          "description": { "type": "string", "minLength": 1, "description": "What the step checks and how to run it when it has no command (for example a skill name)." },
+          "command": { "$ref": "#/$defs/command", "description": "Run from the repo root by `preflight run <id>`; exit 0 clears the count. Left out: the step runs another way, and `preflight done <id>` clears the count." },
+          "match": { "$ref": "#/$defs/globs", "description": "Only commits touching one of these globs count. Left out: every commit with code." },
+          "remindAfter": { "type": "integer", "minimum": 1, "default": 1, "description": "Show the count after a commit once it reaches this many." }
         }
       }
     },
@@ -109,6 +131,21 @@
     "command": {
       "type": "string",
       "minLength": 1
+    },
+    "globs": {
+      "type": "array",
+      "description": "Globs over the repo-relative path; one without a slash matches the file name anywhere.",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "lintRule": {
+      "type": "object",
+      "required": ["command"],
+      "additionalProperties": false,
+      "properties": {
+        "command": { "$ref": "#/$defs/command", "description": "Run from the repo root. {file} is replaced by the quoted repo-relative path; without it the path is appended." },
+        "match": { "$ref": "#/$defs/globs", "description": "Files this rule lints. Left out: every edited file." }
+      }
     }
   }
 }

@@ -1,9 +1,9 @@
 ---
-description: Git chore in a Sonnet sub-agent — status, commit, amend, commit and push, push, pull, branch <ITEM-ID>, close the ledger — committed by this session's own file list
+description: Git chore in a Sonnet sub-agent — status, commit [--review], amend, commit and push, push, pull, branch <ITEM-ID>, close the ledger — committed by this session's own file list
 context: fork
 agent: session:git-ops
-argument-hint: status | commit | amend [reword] | commit and push | push | pull | branch APP-123 [type] [title] | close the ledger
-allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git push:*), Bash(git pull --ff-only:*), Bash(git fetch:*), Bash(git rev-parse:*), Bash(git rev-list:*), Bash(git branch:*), Bash(git-commit-session:*), Bash(session-ledger:*), Bash(git-branch-context:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/session-ledger.mjs:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/git-branch-context.mjs:*)
+argument-hint: status | commit [--review] | amend [reword] | commit and push | push | pull | branch APP-123 [type] [title] | close the ledger
+allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git push:*), Bash(git pull --ff-only:*), Bash(git fetch:*), Bash(git rev-parse:*), Bash(git rev-list:*), Bash(git branch:*), Bash(git-commit-session:*), Bash(session-ledger:*), Bash(git-branch-context:*), Bash(preflight:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/session-ledger.mjs:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/preflight.mjs:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/git-branch-context.mjs:*)
 ---
 
 Operation: $ARGUMENTS
@@ -23,6 +23,10 @@ Branch context (`baseBranch` and `itemPrefix` come from the project's `kit.json`
 Working tree now:
 
 !`git status --short`
+
+Optional pre-commit steps (`kit.json` `preflight`) and the commits made since each last ran:
+
+!`node ${CLAUDE_PLUGIN_ROOT}/scripts/preflight.mjs status`
 
 Commit with `git-commit-session --session <id> -- <paths>`, fed by a quoted heredoc, so the multi-line message needs no file and no shell expansion (PowerShell: `--message-file`). In a linked worktree session: `--worktree --session <id>`, no paths; during a merge (`MERGE_HEAD`) the same call concludes it, with no stdin, git's merge message and the attribution as `--trailer`, and exit 7 names a path still unresolved. An amend adds `--amend` and keeps HEAD's message (no stdin); the script refuses (exit 5) unless HEAD is this session's own unpushed, non-merge commit. Exit 8 names a path staged as deleted (`git rm --cached`) whose file is still on disk: delete it from disk, then commit again. Close the ledger with `--close-ledger --push` and no paths, from this working directory: the script reaches the main checkout itself.
 
@@ -45,7 +49,16 @@ session's record already rides in its commit.
 The message follows the house style in the `git-ops` agent (Conventional Commits). After a commit
 with code in it, the project's `kit.json` `commands.commitAudit` runs, when it is set, and the
 script prints its output under a `commit-audit:` line; relay a `commit-audit:` block that names
-findings to the user. Route an amend only after the user asked for it, and say so in the operation
+findings to the user. `{files}` in that command becomes the committed paths (also in
+`KIT_COMMIT_PATHS`), so the audit can report only what this commit touched.
+
+Each commit also counts a skip for every `kit.json` `preflight` step it touches (optional steps such
+as a docs review or an audit), and the script prints a `preflight:` line for a step that is due;
+relay those lines. `preflight run <id>` runs a step's command and clears its count; `preflight done
+<id>` clears a step that ran another way. Never run a step unasked: say which are due.
+
+`commit --review` (also `commit and push --review`) adds a review pass before the commit: the agent
+reads the whole diff of the paths, reports findings, and commits only when none of them blocks. Route an amend only after the user asked for it, and say so in the operation
 text; the script refuses one that would rewrite another session's commit or pushed history.
 
 Run the operation and return the three-part report: Result, Staged, Left alone.
