@@ -1,0 +1,13 @@
+{
+  "name": "svelte",
+  "description": "Svelte 5 runes, Vitest and accessibility conventions",
+  "author": {
+    "name": "3meyc"
+  },
+  "homepage": "https://github.com/3meyc/agent-kit",
+  "repository": "https://github.com/3meyc/agent-kit",
+  "license": "MIT",
+  "dependencies": [
+    "core"
+  ]
+}

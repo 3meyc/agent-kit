@@ -1,0 +1,24 @@
+{
+  "$schema": "https://raw.githubusercontent.com/3meyc/agent-kit/stable/schema/kit.schema.json",
+  "project": "my-app",
+  "baseBranch": "main",
+  "itemPrefix": "APP",
+  "ledger": true,
+  "paths": {
+    "docs": "docs",
+    "decisions": "docs/decisions",
+    "sdlc": "docs/sdlc",
+    "glossary": "docs/glossary.md",
+    "recipes": "docs/recipes",
+    "ledger": ".claude/ledger"
+  },
+  "commands": {
+    "check": "pnpm run check",
+    "lint": "pnpm run lint",
+    "test": "pnpm test",
+    "build": "pnpm run build",
+    "commit": "node scripts/commit.mjs",
+    "land": "node scripts/land.mjs"
+  },
+  "devServer": { "port": 5173 }
+}

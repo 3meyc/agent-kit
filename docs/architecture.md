@@ -63,8 +63,7 @@ matching recipe when planning. An overlay kit can add recipes and terms shared b
 ## kit.json
 
 The kit never hard-codes a project's layout. `kit.json` at the repo root names the paths and
-commands the plugins use. Draft v1; the final shape lives in `schema/kit.schema.json`
-_(planned)_.
+commands the plugins use. Draft v1; the final shape lives in `schema/kit.schema.json`.
 
 ```json
 {
