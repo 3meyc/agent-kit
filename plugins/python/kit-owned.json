@@ -1,0 +1,10 @@
+{
+  "$comment": "Project files this plugin supplies, for `kit doctor` and `/kit-adopt`. Every skill in skills/ also counts as kit-owned.",
+  "files": [
+    ".claude/rules/python.md"
+  ],
+  "partial": {
+    ".claude/rules/python.md": "The kit's python-code skill holds the generic toolchain rules; keep only the project's required-checks table and its own constraints in a file with another name."
+  },
+  "hookScripts": []
+}
