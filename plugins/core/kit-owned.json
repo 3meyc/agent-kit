@@ -1,0 +1,25 @@
+{
+  "$comment": "Project files this plugin supplies, for `kit doctor` and `/kit-adopt`. Besides these, every agent in agents/ (as .claude/agents/<name>.md) and every skill in skills/ (as .claude/skills/<name>/ or .claude/commands/<name>.md) counts as kit-owned. A project hook in .claude/settings.json that runs one of `hookScripts` duplicates a kit hook.",
+  "files": [
+    ".claude/rules/agent-output-rules.md",
+    ".claude/rules/windows-shell-rules.md",
+    ".claude/rules/tooling-limits.md",
+    "scripts/count-lines.mjs",
+    "scripts/git-branch-context.mjs",
+    "scripts/hooks/lint-edited-file.mjs",
+    "scripts/hooks/shell-pre-hook.mjs",
+    "scripts/hooks/shell-edits.mjs",
+    "scripts/hooks/shell-deletions-hook.mjs",
+    "scripts/hooks/codegraph-sync-hook.mjs"
+  ],
+  "partial": {
+    ".claude/rules/tooling-limits.md": "The generic rows and the rules above the table come from the kit; keep only project-specific rows, in a file with another name.",
+    "scripts/hooks/shell-edits.mjs": "The session ledger may still import it until the session plugin ships its own copy."
+  },
+  "hookScripts": [
+    "lint-edited-file.mjs",
+    "shell-pre-hook.mjs",
+    "shell-deletions-hook.mjs",
+    "codegraph-sync-hook.mjs"
+  ]
+}

@@ -23,10 +23,13 @@ Repeat the install for each plugin you want (`core`, `session`, `svelte`, `pytho
 
 ## 2. Configure the project
 
-1. Add `kit.json` at the repo root ([example](architecture.md#kitjson)).
+1. Add `kit.json` at the repo root ([example](architecture.md#kitjson)), or run `/core:kit-adopt`:
+   it drafts one, declares the marketplaces and plugins in `.claude/settings.json`, and lists the
+   local files the kit now supplies (it deletes nothing).
 2. Set `ledger: false` if the project keeps no session ledger; `session` then skips its ledger hooks.
-3. Run `kit doctor` _(planned)_: it checks `kit.json`, the enabled plugins, and that no
-   kit-owned file is copied into the repo.
+3. Run `/core:kit-doctor` (or `kit doctor` from a Claude session's shell): it checks `kit.json`,
+   the enabled plugins and declared marketplaces, that no kit-owned file is copied into the repo,
+   and whether an installed plugin lags its channel.
 
 ## 3. Take updates
 
@@ -35,6 +38,9 @@ Auto-update is **off by default** for third-party marketplaces.
 1. Turn it on once per machine: `/plugin` → Marketplaces → `agent-kit` → enable auto-update.
 2. With it on, a new `stable` arrives at the next session start.
 3. Without it: `claude plugin marketplace update agent-kit`.
+4. Auto-update can't be relied on (the desktop app turns it off, headless runs never update), so
+   the `core` plugin says at session start when an installed kit plugin lags its channel, with the
+   two commands that update it.
 
 ## 4. Private overlay kits
 
@@ -57,4 +63,4 @@ the one git uses for it.
 | --- | --- | --- |
 | 1 | A skill or command is missing | `/plugin` lists the plugin as enabled for this project |
 | 2 | An old behaviour persists | `claude plugin marketplace update agent-kit`, then a new session |
-| 3 | A rule seems ignored | `kit doctor` _(planned)_; a project copy of a kit file shadows the kit |
+| 3 | A rule seems ignored | `/core:kit-doctor`; a project copy of a kit file shadows the kit |

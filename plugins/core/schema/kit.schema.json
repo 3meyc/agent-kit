@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/3meyc/agent-kit/stable/schema/kit.schema.json",
+  "title": "agent-kit project manifest (kit.json) v1",
+  "description": "Tells the agent-kit plugins where a project keeps its docs, ledger and glossary, and which commands check, test and build it.",
+  "type": "object",
+  "required": ["project"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "URL of this schema, for editor completion."
+    },
+    "project": {
+      "type": "string",
+      "description": "Short project name, used in ledger records and messages.",
+      "pattern": "^[a-z0-9][a-z0-9._-]*$",
+      "examples": ["my-app"]
+    },
+    "baseBranch": {
+      "type": "string",
+      "description": "Branch that work items land on.",
+      "minLength": 1,
+      "default": "main"
+    },
+    "itemPrefix": {
+      "type": "string",
+      "description": "Prefix of work-item ids, as in APP-123.",
+      "pattern": "^[A-Z][A-Z0-9]*$",
+      "examples": ["APP"]
+    },
+    "ledger": {
+      "type": "boolean",
+      "description": "Whether the session plugin keeps a ledger record for each session.",
+      "default": false
+    },
+    "paths": {
+      "type": "object",
+      "description": "Repo-relative paths the plugins read and write. Forward slashes, no leading slash.",
+      "additionalProperties": false,
+      "properties": {
+        "docs": { "$ref": "#/$defs/relPath", "default": "docs" },
+        "decisions": { "$ref": "#/$defs/relPath", "description": "Architecture decision records.", "default": "docs/decisions" },
+        "sdlc": { "$ref": "#/$defs/relPath", "description": "SDLC work-item folders.", "default": "docs/sdlc" },
+        "glossary": { "$ref": "#/$defs/relPath", "description": "Domain glossary file.", "default": "docs/glossary.md" },
+        "recipes": { "$ref": "#/$defs/relPath", "description": "Step-by-step guides for recurring tasks.", "default": "docs/recipes" },
+        "ledger": { "$ref": "#/$defs/relPath", "description": "Session ledger records.", "default": ".claude/ledger" }
+      }
+    },
+    "commands": {
+      "type": "object",
+      "description": "Shell commands the plugins run, from the repo root. Leave one out when the project has no such step.",
+      "additionalProperties": false,
+      "properties": {
+        "check": { "$ref": "#/$defs/command", "description": "Fast whole-project check (types, format)." },
+        "lint": { "$ref": "#/$defs/command" },
+        "test": { "$ref": "#/$defs/command" },
+        "build": { "$ref": "#/$defs/command" },
+        "commit": { "$ref": "#/$defs/command", "description": "Commit helper, when the project has its own." },
+        "land": { "$ref": "#/$defs/command", "description": "Lands a finished branch on baseBranch." },
+        "commitAudit": { "$ref": "#/$defs/command", "description": "Run after each commit that holds code; its output is shown to the agent. Leave out for none." }
+      }
+    },
+    "hooks": {
+      "type": "object",
+      "description": "Per-project control of kit hooks. Plugins can't be switched off hook by hook, so each kit hook reads this list and exits quietly when named.",
+      "additionalProperties": false,
+      "properties": {
+        "off": {
+          "type": "array",
+          "description": "Hook ids to skip in this project, as each plugin's docs name them.",
+          "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "devServer": {
+      "type": "object",
+      "description": "The project's local development server.",
+      "additionalProperties": false,
+      "properties": {
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+      }
+    }
+  },
+  "$defs": {
+    "relPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$))[^\\\\]+$"
+    },
+    "command": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
