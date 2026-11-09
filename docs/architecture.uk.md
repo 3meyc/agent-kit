@@ -84,11 +84,18 @@ SDLC читають глосарій, коли робочий елемент з�
   "commands": {
     "check": "pnpm run check",
     "test": "pnpm test",
-    "build": "pnpm run build"
+    "build": "pnpm run build",
+    "commitAudit": "npx some-audit --base HEAD~1"
   },
+  "hooks": { "off": ["ledger-stop"] },
   "devServer": { "port": 5173 }
 }
 ```
+
+`commands.commitAudit` запускається після кожного коміту з кодом, тож скрипт коміту не називає
+конкретного інструмента. `hooks.off` перелічує хуки набору, які цей проєкт пропускає: плагін не
+можна вимкнути по одному хуку, тож кожен хук набору читає цей список і тихо завершується, якщо
+його названо.
 
 ## Канали релізів
 

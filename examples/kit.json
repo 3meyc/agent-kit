@@ -18,7 +18,13 @@
     "test": "pnpm test",
     "build": "pnpm run build",
     "commit": "node scripts/commit.mjs",
-    "land": "node scripts/land.mjs"
+    "land": "node scripts/land.mjs",
+    "commitAudit": "npx some-audit --base HEAD~1"
+  },
+  "hooks": {
+    "off": [
+      "ledger-stop"
+    ]
   },
   "devServer": { "port": 5173 }
 }

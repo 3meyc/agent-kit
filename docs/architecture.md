@@ -83,11 +83,17 @@ commands the plugins use. Draft v1; the final shape lives in `schema/kit.schema.
   "commands": {
     "check": "pnpm run check",
     "test": "pnpm test",
-    "build": "pnpm run build"
+    "build": "pnpm run build",
+    "commitAudit": "npx some-audit --base HEAD~1"
   },
+  "hooks": { "off": ["ledger-stop"] },
   "devServer": { "port": 5173 }
 }
 ```
+
+`commands.commitAudit` runs after each commit that holds code, so the commit script names no
+specific tool. `hooks.off` lists kit hooks this project skips: a plugin can't be switched off
+hook by hook, so each kit hook reads this list and exits quietly when named.
 
 ## Release channels
 

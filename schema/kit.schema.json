@@ -57,7 +57,21 @@
         "test": { "$ref": "#/$defs/command" },
         "build": { "$ref": "#/$defs/command" },
         "commit": { "$ref": "#/$defs/command", "description": "Commit helper, when the project has its own." },
-        "land": { "$ref": "#/$defs/command", "description": "Lands a finished branch on baseBranch." }
+        "land": { "$ref": "#/$defs/command", "description": "Lands a finished branch on baseBranch." },
+        "commitAudit": { "$ref": "#/$defs/command", "description": "Run after each commit that holds code; its output is shown to the agent. Leave out for none." }
+      }
+    },
+    "hooks": {
+      "type": "object",
+      "description": "Per-project control of kit hooks. Plugins can't be switched off hook by hook, so each kit hook reads this list and exits quietly when named.",
+      "additionalProperties": false,
+      "properties": {
+        "off": {
+          "type": "array",
+          "description": "Hook ids to skip in this project, as each plugin's docs name them.",
+          "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+          "uniqueItems": true
+        }
       }
     },
     "devServer": {
