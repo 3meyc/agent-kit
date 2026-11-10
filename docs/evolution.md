@@ -24,7 +24,7 @@ flowchart LR
 | 0 | Foundations | Plugin behaviours confirmed (rules from hooks, cross-marketplace dependencies, local plugin override, auto-update on a moved tag) | Done 2026-11-09 |
 | 1 | Extract | All five plugins load in a scratch project | Done 2026-11-09 |
 | 2 | Pilot | A full SDLC item runs on the kit with no local overrides; first `stable` | Done 2026-11-10 |
-| 3 | Roll out | No project carries a copy of a kit file | — |
+| 3 | Roll out | No project carries a copy of a kit file | Done 2026-11-10 |
 | 4 | Steady state | Auto-update on; drift check in CI | — |
 
 ## Design decisions
