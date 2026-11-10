@@ -4,6 +4,9 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 ## Unreleased
 
+- core: `lint-edited-file` takes its root from the checkout that holds the edited file, so a worktree nested under the main checkout (`.claude/worktrees/…`) is linted against its own `kit.json` and globs.
+- core: `/check` can be called by the agent as well as the user, and `/check`, `/dev` and the `codegraph` skill pre-allow the `node` command their preamble runs, which the permission check refused before.
+
 ## 2026-11-10 — first `stable`
 
 `stable` points at the commit that adds this entry. Pilot: one full SDLC item ran on the kit in a real project with no local overrides.

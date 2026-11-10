@@ -1,9 +1,10 @@
 ---
 name: codegraph
 description: How to use the CodeGraph CLI in a repo that has a .codegraph/ index — impact checks before changing a shared symbol, and orienting by symbol or file name. Use before renaming or changing the signature of a symbol used across files, when a .codegraph/ folder exists at the repo root.
+allowed-tools: Bash(node ${CLAUDE_PLUGIN_ROOT}/src/codegraph-present.mjs)
 ---
 
-Index here: !`node "${CLAUDE_PLUGIN_ROOT}/src/codegraph-present.mjs"`
+Index here: !`node ${CLAUDE_PLUGIN_ROOT}/src/codegraph-present.mjs`
 
 Applies only where the repo root has a `.codegraph/` folder and the `codegraph` CLI is installed (a machine install, not part of the kit). When the line above says either is missing, stop here: use grep and reads, and do not mention CodeGraph to the user.
 

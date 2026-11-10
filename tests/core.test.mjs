@@ -2,14 +2,14 @@
 // which only the schema cross-check uses.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { after, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import Ajv2020 from "ajv/dist/2020.js";
 import { codegraphQueryDir } from "../plugins/core/hooks/codegraph-sync.mjs";
-import { lintCommandsFor } from "../plugins/core/hooks/lint-edited-file.mjs";
+import { lintCommandsFor, lintRootFor } from "../plugins/core/hooks/lint-edited-file.mjs";
 import { updateText } from "../plugins/core/hooks/session-start.mjs";
 import { dispatch } from "../plugins/core/hooks/shell-pre.mjs";
 import { mergeSettings, parseAdoptArgs, starterKitJson } from "../plugins/core/src/adopt.mjs";
@@ -106,6 +106,22 @@ describe("lint-edited-file", () => {
       if (previous === undefined) delete process.env.CLAUDE_PROJECT_DIR;
       else process.env.CLAUDE_PROJECT_DIR = previous;
     }
+  });
+
+  it("takes the root from the checkout holding the file, so a nested worktree lints", () => {
+    const outer = tempProject("lint-outer", { "src/a.ts": "x" });
+    const inner = join(outer, ".claude", "worktrees", "w1");
+    mkdirSync(join(inner, "src"), { recursive: true });
+    writeFileSync(join(inner, "src", "b.ts"), "x");
+    for (const dir of [outer, inner]) spawnSync("git", ["init", "-q", dir]);
+    const payload = { tool_name: "Edit", tool_input: { file_path: join(inner, "src", "b.ts") }, cwd: inner };
+    const root = lintRootFor(payload);
+    assert.equal(realpathSync(root), realpathSync(inner));
+    assert.deepEqual(lintCommandsFor(payload, config, root).map((target) => target.command), ["eslint src/b.ts"]);
+    // The outer checkout as root sees `.claude/worktrees/w1/src/b.ts`, which a `src/**` glob misses.
+    const scoped = { lintOnEdit: { command: "eslint {file}", match: ["src/**"] } };
+    assert.deepEqual(lintCommandsFor(payload, scoped, outer), []);
+    assert.equal(lintCommandsFor(payload, scoped, root).length, 1);
   });
 
   it("exits 2 with the linter's output when the lint fails, as a process", () => {

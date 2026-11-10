@@ -15,17 +15,45 @@
  * listed order, and a failing one does not stop the next. No `lintOnEdit`: the hook does nothing.
  *
  * Any failing rule exits 2, which shows stderr to the agent without undoing the edit. Each command
- * runs from the project root through the shell, with the hook's own timeout as the only limit.
+ * runs from the root of the checkout that holds the edited file, through the shell, with the hook's
+ * own timeout as the only limit. That checkout, not the session's project, gives the root: in a
+ * worktree nested under the main checkout (`.claude/worktrees/…`) the session's project is the
+ * outer checkout, and paths relative to it never match the globs.
  */
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { resolve } from "node:path";
-import { EDIT_TOOLS, editedFilePath, isDirectRun, projectRoot, readHookInput } from "../lib/hook-utils.mjs";
-import { hookOff, lintOnEdit, readKit } from "../lib/kit-config.mjs";
+import { existsSync, realpathSync } from "node:fs";
+import { dirname, isAbsolute, resolve } from "node:path";
+import { EDIT_TOOLS, isDirectRun, readHookInput, repoRelativePath } from "../lib/hook-utils.mjs";
+import { checkoutRoot, hookOff, lintOnEdit, readKit, rootFor } from "../lib/kit-config.mjs";
 import { matchesAny, withFile } from "../src/lint-match.mjs";
 
 export const HOOK_ID = "lint-edited-file";
 const MAX_OUTPUT = 4000;
+
+/**
+ * The checkout the edited file belongs to; without a file path, the one holding the payload's cwd.
+ * @param {Record<string, any>} input
+ */
+export function lintRootFor(input) {
+  const edited = editedAbsolutePath(input);
+  return (edited && checkoutRoot(dirname(edited))) || rootFor(input?.cwd ?? process.cwd());
+}
+
+/** The edited file as an absolute path, or null. @param {Record<string, any>} input */
+function editedAbsolutePath(input) {
+  const filePath = input?.tool_input?.file_path;
+  if (typeof filePath !== "string" || filePath === "") return null;
+  return isAbsolute(filePath) ? filePath : resolve(input?.cwd ?? process.cwd(), filePath);
+}
+
+/** @param {string} path */
+function realOrSame(path) {
+  try {
+    return realpathSync(path);
+  } catch {
+    return path;
+  }
+}
 
 /**
  * The shell commands to run for this payload, in rule order; empty when there is nothing to lint.
@@ -37,7 +65,10 @@ export function lintCommandsFor(input, config, root) {
   if (!EDIT_TOOLS.has(input?.tool_name ?? "")) return [];
   const rules = lintOnEdit(config);
   if (rules.length === 0) return [];
-  const file = editedFilePath(input);
+  const edited = editedAbsolutePath(input);
+  if (edited === null) return [];
+  // git prints the resolved top level (/private/var on macOS) while the payload may hold a symlinked path.
+  const file = repoRelativePath(realOrSame(edited), root, realOrSame(root));
   if (file === null || !existsSync(resolve(root, file))) return [];
   return rules.filter((rule) => matchesAny(file, rule.match)).map((rule) => ({ file, command: withFile(rule.command, file) }));
 }
@@ -53,7 +84,7 @@ function runLint(target, root) {
 }
 
 export async function main(input) {
-  const root = projectRoot();
+  const root = lintRootFor(input);
   const failures = lintCommandsFor(input, readKit(root), root)
     .map((target) => runLint(target, root))
     .filter((failure) => failure !== null);

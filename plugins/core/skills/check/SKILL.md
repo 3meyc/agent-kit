@@ -2,7 +2,7 @@
 name: check
 description: Run the project's checks (kit.json commands and check suites) in a Haiku sub-agent and report only failures. Empty target runs check, lint and test; or name one command (build, test, …), a suite from kit.json checks (i18n, docs, …) or `all`.
 argument-hint: "[<command name> | <suite> | all]"
-disable-model-invocation: true
+allowed-tools: Bash(node ${CLAUDE_PLUGIN_ROOT}/src/kit-cli.mjs:*)
 context: fork
 agent: core:check-runner
 ---
@@ -11,7 +11,7 @@ Target: $ARGUMENTS
 
 The project's commands and check suites, from its `kit.json` (`commands.*`, `checks.*`):
 
-!`node "${CLAUDE_PLUGIN_ROOT}/src/kit-cli.mjs" commands`
+!`node ${CLAUDE_PLUGIN_ROOT}/src/kit-cli.mjs commands`
 
 Pick the commands for the target, then run them in order, each as its own Bash call from the repo root, and do not stop at the first failure.
 
