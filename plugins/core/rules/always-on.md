@@ -2,7 +2,7 @@
 
 ## Chat output
 
-1. Use English in chat by default; switch language only when the user asks.
+1. Use English in chat by default; switch language when the user asks, or when the project's `CLAUDE.md` or `AGENTS.md` sets the reply language (for example "reply in the user's language"), which wins over this default.
 2. Answer at the length the question deserves. Structure is for content that has parts. Do not restate the request, recap what was just agreed, or summarize a summary.
 3. Use normal markdown; prefer numbered lists (1., 1.1.) for steps, priorities and change summaries.
 4. Do not dump bulk output: no full diffs, multi-line logs, stack traces, whole files or large JSON. A short verbatim excerpt (about three lines) is preferred when the exact text is the point.

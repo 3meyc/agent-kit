@@ -53,6 +53,11 @@ card (Follow-ups); otherwise it stays in that record, named in Follow-ups with i
 None is dropped unnamed: the app's note quotes only the start of a child's report, so the record,
 not the note, is the source.
 
+**Project steps.** Each `session-ext-close-out` skill listed in this session (the project's own, or
+an overlay plugin's) runs here, in name order, before anything lands: load it and do what it says.
+What it finds goes into the three buckets like everything else; a step it marks as required and
+that failed is Not done. With no such skill, there are no project steps.
+
 ## 2. Land, when Not done is empty or the user says land anyway
 
 Merge back into the integration branch one branch at a time: the base is merged into the worktree

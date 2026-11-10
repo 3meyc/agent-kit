@@ -12,13 +12,13 @@ import { codegraphQueryDir } from "../plugins/core/hooks/codegraph-sync.mjs";
 import { lintCommandsFor, lintRootFor } from "../plugins/core/hooks/lint-edited-file.mjs";
 import { updateText } from "../plugins/core/hooks/session-start.mjs";
 import { dispatch } from "../plugins/core/hooks/shell-pre.mjs";
-import { mergeSettings, parseAdoptArgs, starterKitJson } from "../plugins/core/src/adopt.mjs";
+import { mergeSettings, parseAdoptArgs, repoName, starterKitJson } from "../plugins/core/src/adopt.mjs";
 import { compare, outline } from "../plugins/core/src/docs-parity.mjs";
 import { checkKitJson, checkLoadedPlugins, checkSettings } from "../plugins/core/src/doctor.mjs";
 import { collectInventory, groupOf, measureDrift, summarize } from "../plugins/core/src/inventory.mjs";
 import { hookOff, lintOnEdit } from "../plugins/core/lib/kit-config.mjs";
 import { globMatcher, matchesAny, withFile } from "../plugins/core/src/lint-match.mjs";
-import { findKitCopies, isClaudeProcess, ownedBy, pluginDirArgs, pluginRoots, relativeImports, sessionPluginDirs, testsOfOwned } from "../plugins/core/src/kit-owned.mjs";
+import { enabledForProject, findKitCopies, isClaudeProcess, ownedBy, pluginDirArgs, pluginRoots, relativeImports, sessionPluginDirs, testsOfOwned } from "../plugins/core/src/kit-owned.mjs";
 import { optionValues, printCommands } from "../plugins/core/src/kit-cli.mjs";
 import { validate } from "../plugins/core/src/schema-check.mjs";
 import { checkUpdates, pickRemoteSha, updateCommands } from "../plugins/core/src/update-check.mjs";
@@ -465,6 +465,24 @@ describe("kit-owned files", () => {
     assert.deepEqual(findKitCopies(tempProject("owned-json-key-none", {}), plugins), []);
   });
 
+  it("counts an installed or sibling plugin only when the project enables it or a plugin that needs it", () => {
+    const lang = tempProject("enabled-lang", { ".claude-plugin/plugin.json": { name: "lang" } });
+    const overlay = tempProject("enabled-overlay", { ".claude-plugin/plugin.json": { name: "overlay", dependencies: ["base@kit"] } });
+    const base = tempProject("enabled-base", { ".claude-plugin/plugin.json": { name: "base" } });
+    const plugins = [
+      { root: core, name: "core", source: "self" },
+      { root: lang, name: "lang", source: "sibling" },
+      { root: overlay, name: "overlay", source: "installed" },
+      { root: base, name: "base", source: "installed" },
+    ];
+    const names = (dir) => enabledForProject(dir, plugins).map((plugin) => plugin.name);
+    assert.deepEqual(names(tempProject("enabled-none", {})), ["core", "lang", "overlay", "base"]);
+    const project = tempProject("enabled-some", { ".claude/settings.json": { enabledPlugins: { "overlay@ov": true, "lang@kit": true } } });
+    assert.deepEqual(names(project), ["core", "lang", "overlay", "base"]);
+    writeFileSync(join(project, ".claude", "settings.local.json"), JSON.stringify({ enabledPlugins: { "lang@kit": false } }));
+    assert.deepEqual(names(project), ["core", "overlay", "base"]);
+  });
+
   it("lists session's ledger scripts, commands and agent, and its duplicate hook entries", () => {
     const session = join(repo, "plugins", "session");
     const manifest = JSON.parse(readFileSync(join(session, "kit-owned.json"), "utf8"));
@@ -498,6 +516,18 @@ describe("adopt", () => {
     assert.deepEqual(kit.commands, { check: "pnpm run check", lint: "pnpm run lint:check", test: "pnpm test" });
     assert.deepEqual(kit.devServer, { port: 5173 });
     assert.equal(kit.ledger, false);
+  });
+
+  it("names the project after its repo, not a linked worktree's folder", () => {
+    const main = tempProject("named-repo", { "README.md": "x" });
+    const git = (...args) => spawnSync("git", args, { cwd: main, encoding: "utf8" });
+    git("init", "-q");
+    git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "init");
+    const worktree = join(main, ".claude", "worktrees", "brave-otter-1a2b3c");
+    git("worktree", "add", "-q", "-b", "w", worktree);
+    assert.equal(repoName(worktree), "named-repo");
+    git("remote", "add", "origin", "git@github.com:owner/real-name.git");
+    assert.equal(repoName(worktree), "real-name");
   });
 
   it("adds marketplaces and plugins without changing what is there", () => {

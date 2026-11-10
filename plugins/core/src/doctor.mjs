@@ -10,7 +10,7 @@
 // 4. Installed kit plugins against their marketplace ref (S8), with the update commands.
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { CORE_ROOT, findKitCopies, pluginDependencies, pluginRoots, sessionPluginDirs } from "./kit-owned.mjs";
+import { CORE_ROOT, enabledForProject, findKitCopies, pluginDependencies, pluginRoots, sessionPluginDirs } from "./kit-owned.mjs";
 import { KIT_FILE } from "../lib/kit-config.mjs";
 import { validate } from "./schema-check.mjs";
 import { checkUpdates, claudeDir, defaultCacheFile, readPluginState, updateCommands } from "./update-check.mjs";
@@ -131,7 +131,7 @@ export function checkLoadedPlugins(projectDir, plugins, userDir = claudeDir()) {
 }
 
 export function checkCopies(projectDir, plugins = pluginRoots(projectDir)) {
-  const copies = findKitCopies(projectDir, plugins);
+  const copies = findKitCopies(projectDir, enabledForProject(projectDir, plugins));
   if (copies.length === 0) return [{ level: "ok", text: "no copies of kit-owned files" }];
   return copies.map((copy) => ({
     level: "warn",

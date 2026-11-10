@@ -11,7 +11,7 @@ import { projectRoot } from "./hook-utils.mjs";
 export const KIT_FILE = "kit.json";
 
 /** The `commands` keys schema v1 defines, in the order tools list them. A `checks` suite may not reuse one. */
-export const KIT_COMMANDS = Object.freeze(["install", "dev", "check", "lint", "test", "build", "commit", "land", "commitAudit"]);
+export const KIT_COMMANDS = Object.freeze(["install", "dev", "check", "lint", "test", "build", "commit", "land", "commitAudit", "commitMessage"]);
 
 /** Defaults for the fields the plugins read; they match `schema/kit.schema.json`. */
 export const KIT_DEFAULTS = Object.freeze({

@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { isatty } from "node:tty";
 import { fileURLToPath } from "node:url";
@@ -79,6 +80,11 @@ import { recordCommit } from "./preflight.mjs";
  * (exit 1). Without `--message-file` the message is piped on stdin: a terminal is refused, and stdin
  * still open after `COMMIT_STDIN_TIMEOUT_MS` (10 s) stops the run (`readStdinMessage`).
  *
+ * Before committing a new message (not a kept one, not `--close-ledger`, not a concluded merge),
+ * `kit.json` `commands.commitMessage` checks it: the message goes to a temporary file, `{file}` in
+ * the command becomes its quoted path (appended when the command has none), and a non-zero exit
+ * refuses the commit with exit 9 and the command's output (`checkMessage`).
+ *
  * Exit codes: `EXIT_CODES` below; `--help` prints them with this usage.
  */
 
@@ -96,6 +102,7 @@ const EXIT_CODES = [
   [6, "committed, but the push failed"],
   [7, "a merge still has an unmerged path or a conflict marker"],
   [8, "a path is staged as deleted but its file is still on disk: delete it from disk first"],
+  [9, "kit.json commands.commitMessage refused the commit message"],
 ];
 
 const USAGE = `Commit one session's paths in a working tree other sessions share.
@@ -624,6 +631,37 @@ function readMessage(options) {
 }
 
 /**
+ * `commands.commitMessage` with `{file}` replaced by the quoted message path, or the path appended
+ * when the command has no placeholder. Pure.
+ * @param {string} command @param {string} file @param {string} [platform]
+ */
+export function messageCommand(command, file, platform = process.platform) {
+  const quoted = quotePath(file, platform);
+  return command.includes("{file}") ? command.replaceAll("{file}", quoted) : `${command} ${quoted}`;
+}
+
+/**
+ * Run the project's `commands.commitMessage` on the message before anything is staged; a
+ * non-zero exit stops the run with exit 9. No command set, no check.
+ * @param {string | null} message
+ */
+function checkMessage(message) {
+  const configured = kit.commands.commitMessage;
+  if (!configured || message === null) return;
+  const dir = mkdtempSync(join(tmpdir(), "kit-commit-msg-"));
+  const file = join(dir, "COMMIT_EDITMSG");
+  try {
+    writeFileSync(file, message);
+    const run = spawnSync(messageCommand(configured, file), { cwd: top, shell: true, encoding: "utf8", timeout: AUDIT_TIMEOUT_MS });
+    if (run.status === 0) return;
+    const output = `${run.stdout ?? ""}${run.stderr ?? ""}`.trim() || run.error?.message || `exit ${run.status}`;
+    fail(9, `commit message refused by ${configured}:\n${output}\nnothing committed; fix the message and run again`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+/**
  * Claims, record refresh and the amend's ownership check; returns the resolved sessions.
  * `--no-claims` skips the claims check only: a named session still gets its `Session-Id` trailer,
  * or its own `--amend` would later refuse the commit as not its own.
@@ -831,6 +869,7 @@ function main() {
   if (options.amend) checkAmendableHead();
   const changed = collectPaths(options, reword);
   const message = readMessage(options);
+  checkMessage(message);
   const sessions = prepareSessions(options, changed);
   const recordPaths = sessions.flatMap((s) => (s.record ? [s.record] : []));
   const records = recordPaths.length ? changedFiles(recordPaths) : [];

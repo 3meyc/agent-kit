@@ -271,11 +271,44 @@ function ownedLabel(path) {
 }
 
 /**
+ * The plugins whose files a project can be said to copy: this plugin and `--plugin-dir` ones
+ * always; an installed or sibling plugin only when the project enables it, directly or as a
+ * dependency of one it enables. A project that enables no plugin yet (before `/kit-adopt`) keeps
+ * them all, so adoption lists everything the kit could supply.
+ * @param {string} projectDir @param {Array<{ root: string, name: string, source?: string }>} plugins
+ */
+export function enabledForProject(projectDir, plugins) {
+  const enabled = new Set();
+  for (const file of ["settings.json", "settings.local.json"]) {
+    const entries = readJson(join(projectDir, ".claude", file))?.enabledPlugins ?? {};
+    for (const [id, on] of Object.entries(entries)) {
+      const name = id.split("@")[0];
+      if (on === true) enabled.add(name);
+      else if (on === false) enabled.delete(name);
+    }
+  }
+  if (enabled.size === 0) return plugins;
+  const byName = new Map(plugins.map((plugin) => [plugin.name, plugin]));
+  for (const name of [...enabled]) {
+    for (let queue = [name]; queue.length > 0; ) {
+      const plugin = byName.get(queue.pop());
+      for (const dep of plugin ? pluginDependencies(plugin.root) : []) {
+        if (!enabled.has(dep.name)) {
+          enabled.add(dep.name);
+          queue.push(dep.name);
+        }
+      }
+    }
+  }
+  return plugins.filter((plugin) => plugin.source === "self" || plugin.source === "session" || enabled.has(plugin.name));
+}
+
+/**
  * Kit-owned files and hook entries the project still has, and tests of kit-owned scripts.
  * @param {string} projectDir @param {Array<{ root: string, name: string }>} [plugins]
  * @returns {Array<{ path: string, plugin: string, note: string | null }>}
  */
-export function findKitCopies(projectDir, plugins = pluginRoots(projectDir)) {
+export function findKitCopies(projectDir, plugins = enabledForProject(projectDir, pluginRoots(projectDir))) {
   const found = [];
   const hooks = projectHookCommands(projectDir);
   const tests = projectTestFiles(projectDir);

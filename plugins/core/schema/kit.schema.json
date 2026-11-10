@@ -60,7 +60,8 @@
         "build": { "$ref": "#/$defs/command" },
         "commit": { "$ref": "#/$defs/command", "description": "Commit helper, when the project has its own." },
         "land": { "$ref": "#/$defs/command", "description": "Lands a finished branch on baseBranch." },
-        "commitAudit": { "$ref": "#/$defs/command", "description": "Run after each commit that holds code; its output is shown to the agent. {files} is replaced by the committed paths, each quoted; the same paths are in KIT_COMMIT_PATHS, one per line. Leave out for none." }
+        "commitAudit": { "$ref": "#/$defs/command", "description": "Run after each commit that holds code; its output is shown to the agent. {files} is replaced by the committed paths, each quoted; the same paths are in KIT_COMMIT_PATHS, one per line. Leave out for none." },
+        "commitMessage": { "$ref": "#/$defs/command", "description": "Checks the commit message before the commit helper commits (the project's commit rules, as its CI checks them). {file} is replaced by the quoted path of a file holding the message; without it the path is appended. A non-zero exit refuses the commit and shows the output. Leave out for none." }
       }
     },
     "lintOnEdit": {
@@ -75,7 +76,7 @@
       "description": "Named check suites for /core:check <name>: each a list of commands run in order from the repo root. A name may not repeat a commands key or `all`.",
       "propertyNames": {
         "pattern": "^[a-z0-9][a-z0-9-]*$",
-        "not": { "enum": ["all", "install", "dev", "check", "lint", "test", "build", "commit", "land", "commitAudit"] }
+        "not": { "enum": ["all", "install", "dev", "check", "lint", "test", "build", "commit", "land", "commitAudit", "commitMessage"] }
       },
       "additionalProperties": {
         "type": "array",

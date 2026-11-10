@@ -9,7 +9,7 @@
 // 3. Lists the local files the kit now supplies. Deletes nothing.
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { basename, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { BASE_MARKETPLACE } from "./doctor.mjs";
 import { KIT_FILE } from "../lib/kit-config.mjs";
 import { findKitCopies } from "./kit-owned.mjs";
@@ -46,9 +46,25 @@ function baseBranch(projectDir) {
   return branch.status === 0 && branch.stdout.trim() && branch.stdout.trim() !== "HEAD" ? branch.stdout.trim() : "main";
 }
 
+/**
+ * The repo's own name: the `origin` repository, else the main checkout's folder. Never the
+ * folder itself first, which in a linked worktree is the worktree's generated name.
+ */
+export function repoName(projectDir) {
+  const git = (...args) => {
+    const result = spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });
+    return result.status === 0 ? result.stdout.trim() : "";
+  };
+  const remote = git("remote", "get-url", "origin").replace(/\/+$/, "").replace(/\.git$/, "");
+  if (remote) return basename(remote.replace(/:/g, "/"));
+  const common = git("rev-parse", "--path-format=absolute", "--git-common-dir");
+  if (common && basename(common) === ".git") return basename(dirname(common));
+  return basename(projectDir);
+}
+
 /** A starter kit.json drawn from what the project already declares. */
 export function starterKitJson(projectDir) {
-  const project = basename(projectDir).toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^[^a-z0-9]+/, "") || "my-app";
+  const project = repoName(projectDir).toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^[^a-z0-9]+/, "") || "my-app";
   const kit = { $schema: SCHEMA_URL, project, baseBranch: baseBranch(projectDir), ledger: false };
   const scripts = readJson(join(projectDir, "package.json"))?.scripts ?? {};
   const runner = packageRunner(projectDir);

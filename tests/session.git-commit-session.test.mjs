@@ -17,6 +17,7 @@ import {
   auditCommand,
   auditTail,
   holdsCode,
+  messageCommand,
   quotePath,
   splitLedgerStatus,
   unattributedFiles,
@@ -168,6 +169,20 @@ describe("git-commit-session", () => {
     const docs = commitSession(["notes.md"], "docs: notes");
     expect(docs.status).toBe(0);
     expect(docs.stdout).not.toContain("commit-audit:");
+  });
+
+  it("refuses a message kit.json commands.commitMessage rejects, with exit 9 and nothing committed", () => {
+    expect(messageCommand("check-msg {file} --strict", "/tmp/m", "linux")).toBe("check-msg /tmp/m --strict");
+    expect(messageCommand("check-msg", "/tmp/a b", "linux")).toBe("check-msg '/tmp/a b'");
+    const rule = `node -e "const m=require('fs').readFileSync(process.argv[1],'utf8'); if(!/^(feat|fix|docs|test)(\\\\(.+\\\\))?: /.test(m)){console.error('bad subject: '+m.split('\\\\n')[0]); process.exit(4)}"`;
+    writeFileSync(join(repo, "kit.json"), JSON.stringify({ project: "t", commands: { commitMessage: rule } }));
+    writeFileSync(join(repo, "mine.txt"), "refused\n");
+    const head = git("rev-parse", "HEAD");
+    const bad = commitSession(["mine.txt"], "Update mine");
+    expect(bad.status).toBe(9);
+    expect(bad.stderr).toContain("bad subject: Update mine");
+    expect(git("rev-parse", "HEAD")).toBe(head);
+    expect(commitSession(["mine.txt"], "docs: update mine").status).toBe(0);
   });
 
   it("puts the committed paths, quoted, where commitAudit says {files}", () => {

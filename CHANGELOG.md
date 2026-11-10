@@ -9,6 +9,11 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 - core: `/sweep <question>` answers a read-only question across many files in the `repo-sweep` agent and returns a verdict.
 - core, session: a package binary run through `npx`, `pnpx`, `bunx`, `pnpm exec`/`dlx` or `yarn dlx` with no handler that knows it counts as opaque, so the ledger credits the files it writes by the run window (before, a generated file such as an RTK filter file stayed unattributed and `git-commit-session --worktree` refused).
 - core: a `kit-owned.json` entry `<file>#<key.path>` claims one key of a JSON file (`.mcp.json#mcpServers.<name>`), so `kit doctor` no longer flags a project file that holds only the project's own keys.
+- core: `kit doctor` and `/kit-adopt` count an installed or sibling plugin's files only when the project enables that plugin or one that depends on it (before, the `python` plugin claimed `.claude/rules/python.md` in projects that never enabled it).
+- core: `/kit-adopt` names the project after its `origin` repository, else the main checkout's folder, not a linked worktree's generated folder name.
+- core: the chat-language rule yields to a reply language the project's `CLAUDE.md` or `AGENTS.md` sets.
+- session: `/close-out` and `/close-siblings` run the project's `session-ext-close-out` skills before landing; `/close-siblings` offers to delete the merged sub-session branches with `git branch -d`.
+- session, schema: `commands.commitMessage` checks a new commit message before `git-commit-session` commits; a non-zero exit refuses it with exit 9.
 
 ## 2026-11-10 — first `stable`
 

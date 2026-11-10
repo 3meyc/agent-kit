@@ -1,7 +1,7 @@
 ---
 description: Land the work of this session's side sessions — review each sub-session and its branch, merge the finished ones into this branch, run the checks on the merged tree, land this branch on its base, push on the user's word, and archive the merged sub-sessions
 argument-hint: [base] [land | land and push]
-allowed-tools: Bash(worktree-flow:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/worktree-flow.mjs:*), Bash(git status:*), Bash(git log:*), Bash(git merge-base:*), Bash(git rev-parse:*), Bash(gh run list:*), Bash(gh run view:*), Bash(gh run watch:*), Bash(gh api repos/:*)
+allowed-tools: Bash(worktree-flow:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/worktree-flow.mjs:*), Bash(git status:*), Bash(git log:*), Bash(git merge-base:*), Bash(git rev-parse:*), Bash(git branch -d:*), Bash(gh run list:*), Bash(gh run view:*), Bash(gh run watch:*), Bash(gh api repos/:*)
 ---
 
 Arguments: $ARGUMENTS
@@ -53,7 +53,9 @@ below exist in the desktop app; elsewhere, ask the user which branches are the s
 
 Run the project's checks for every path the merges changed: the commands in `kit.json` `commands`
 (`check`, `lint`, `test`, and `build` when a merged branch touched the build), or the project's
-own `/check` command when it has one. A failure stops § 4: report it with its output.
+own `/check` command when it has one. Then each `session-ext-close-out` skill listed in this
+session, in name order, the same project steps `/close-out` § 1 runs. A failure stops § 4: report
+it with its output.
 
 ## 4. Land on the base
 
@@ -77,7 +79,12 @@ own `/check` command when it has one. A failure stops § 4: report it with its o
 base, the last-started first, with the reason `merged into <base> (<hash>)`. Never archive this
 session, an unfinished sub-session, or a session outside this session's family. Then
 `worktree-flow status`: a merged worktree no session owns goes with `worktree-flow remove <path>`,
-only after the user agreed.
+only after the user agreed; it deletes the worktree's branch too.
+
+Last, the merged sub-session branches that are left: list each local `refs/heads/<branch>` from
+§ 1 that the base now contains (`git merge-base --is-ancestor <branch> <base>`), and on the user's
+word delete them with `git branch -d <branch>`, never `-D`. Git refuses a branch still checked out
+in a worktree (an archived session's, kept in the app's reuse pool): leave it and name it.
 
 ## 6. Ask once, then report
 

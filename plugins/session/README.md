@@ -19,6 +19,10 @@ Commands are namespaced by Claude Code as `/session:handoff`, `/session:close-ou
 `/session:close-siblings` and `/session:git`; the agent is `session:git-ops`. The short form
 (`/handoff`) works while no other command has the same name.
 
+A project adds its own close-out steps (a status check of its clones, rows in its own log) as a
+skill named `session-ext-close-out` or `session-ext-close-out-<name>`: `/close-out` and
+`/close-siblings` load every such skill listed in the session, in name order, before landing.
+
 ## Hook ids
 
 Claude Code cannot switch off one hook of a plugin, so every hook here reads `kit.json`
@@ -50,6 +54,7 @@ quiet unless `kit.json` sets `"ledger": true`.
 | 7 | `commands.commitAudit` | none | Run after each commit that holds code; its output is shown, never its exit code. `{files}` in it becomes the committed paths, quoted; they are also in `KIT_COMMIT_PATHS`, one per line, so the audit can report only findings in them |
 | 8 | `commands.check`, `lint`, `test`, `build` | none | The checks `/close-out` and `/close-siblings` run before landing |
 | 9 | `devServer.port` | none | The closing line of the worktree set-up |
+| 10 | `commands.commitMessage` | none | Checks a new commit message before `git-commit-session` commits; `{file}` becomes the quoted path of a file with the message (appended without it); a non-zero exit refuses the commit (exit 9) |
 | 10 | `hooks.off` | `[]` | The hook ids above |
 | 11 | `commands.install` | lockfile guess | The worktree set-up's install step, run through the shell when a known lockfile is newer than the last install |
 | 12 | `preflight` | none | Optional steps to run now and then before committing; each commit they touch counts a skip, shown once it reaches `remindAfter` |
