@@ -480,19 +480,26 @@ function looksLikeScript(word) {
   return /[\\/]/.test(word) || /\.(sh|bash|zsh|mjs|cjs|js|ts|py|ps1|cmd|bat)$/i.test(word);
 }
 
+/** Wrappers that run a package binary: what it writes is unknown unless a handler knows the binary. */
+const PACKAGE_RUNNERS = new Set(["npx", "pnpx", "bunx"]);
+
 /**
  * Drop leading environment assignments, loop and condition keywords, wrapper words and
  * `npx`/`pnpm exec`/`xargs` prefixes so the real command is first. Returns the remaining words;
- * after `xargs`, the operands it would read from stdin are `XARGS_OPERAND`.
+ * after `xargs`, the operands it would read from stdin are `XARGS_OPERAND`. `runner` is true when
+ * a package runner (`npx`, `pnpm exec`, `yarn dlx`, …) was unwrapped on the way.
  * @param {string[]} words
+ * @returns {{ words: string[], runner: boolean }}
  */
 function unwrap(words) {
   let rest = words;
+  let runner = false;
   for (;;) {
     while (rest.length && /^[A-Za-z_]\w*=/.test(rest[0])) rest = rest.slice(1);
-    if (rest.length === 0) return rest;
+    if (rest.length === 0) return { words: rest, runner };
     const step = unwrapOnce(rest);
-    if (step.done) return step.words;
+    if (step.done) return { words: step.words, runner };
+    if (step.runner || PACKAGE_RUNNERS.has(commandName(rest[0]))) runner = true;
     rest = step.words;
   }
 }
@@ -555,7 +562,7 @@ function unwrapPackageManager(rest) {
   const i = skipOptions(rest, /^(--filter|-F|-C|--dir|--prefix|-w|--workspace)$/);
   if (i < rest.length && PM_EXEC_VERBS.has(rest[i])) {
     const words = rest.slice(i + 1);
-    return { words: words[0] === "--" ? words.slice(1) : words, done: false };
+    return { words: words[0] === "--" ? words.slice(1) : words, done: false, runner: true };
   }
   return { words: [rest[0], ...rest.slice(i)], done: true };
 }
@@ -941,7 +948,7 @@ const COMMAND_HANDLERS = new Map([
 function applySimpleCommand(state, simple) {
   for (const target of simple.redirects) addPath(state, target);
   if (recordAssignments(state, simple.words)) return;
-  const words = unwrap(splitWords(state, simple));
+  const { words, runner } = unwrap(splitWords(state, simple));
   if (words.length === 0) return;
   const name = commandName(words[0]);
   const args = words.slice(1);
@@ -954,7 +961,11 @@ function applySimpleCommand(state, simple) {
     applyCmdlet(state, cmdlet, args);
     return;
   }
-  (COMMAND_HANDLERS.get(name) ?? otherCommandTargets)(state, args, name, words);
+  const handler = COMMAND_HANDLERS.get(name);
+  // A package binary run through `npx` / `pnpm exec` (a code generator, a sync tool) may write
+  // anywhere; without a handler that knows it, the run window has to attribute its writes.
+  if (!handler && runner) state.opaque = true;
+  else (handler ?? otherCommandTargets)(state, args, name, words);
 }
 
 /** Writes made by a script body the command runs inline (`node -e`, `python -c`): `fs.*` and `open()` calls. */

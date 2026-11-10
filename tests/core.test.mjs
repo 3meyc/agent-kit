@@ -451,6 +451,20 @@ describe("kit-owned files", () => {
     ]);
   });
 
+  it("claims one JSON key with a `file#key.path` entry and leaves the project's own keys alone", () => {
+    const overlay = tempProject("owned-json-key-plugin", {
+      "kit-owned.json": { files: [".mcp.json#mcpServers.ui-docs", ".mcp.json#mcpServers.browser"] },
+    });
+    const plugins = [{ root: overlay, name: "overlay" }];
+    const own = tempProject("owned-json-key-own", { ".mcp.json": { mcpServers: { "my-index": { command: "x" } } } });
+    assert.deepEqual(findKitCopies(own, plugins), []);
+    const mixed = tempProject("owned-json-key-mixed", {
+      ".mcp.json": { mcpServers: { "my-index": { command: "x" }, browser: { command: "y" } } },
+    });
+    assert.deepEqual(findKitCopies(mixed, plugins).map((copy) => copy.path), [".mcp.json (mcpServers.browser)"]);
+    assert.deepEqual(findKitCopies(tempProject("owned-json-key-none", {}), plugins), []);
+  });
+
   it("lists session's ledger scripts, commands and agent, and its duplicate hook entries", () => {
     const session = join(repo, "plugins", "session");
     const manifest = JSON.parse(readFileSync(join(session, "kit-owned.json"), "utf8"));

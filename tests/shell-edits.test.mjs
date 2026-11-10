@@ -147,6 +147,15 @@ describe("shellWriteTargets", () => {
     expect(targets("npm i lodash").files).toEqual([abs("package-lock.json"), abs("package.json")]);
   });
 
+  it("treats an unknown package binary run through a package runner as opaque", () => {
+    for (const command of ["pnpm exec my-tool sync", "npx my-tool gen", "pnpm dlx my-tool", "bunx my-tool", "yarn dlx my-tool"]) {
+      expect(targets(command).opaque).toBe(true);
+    }
+    expect(targets("pnpm exec prettier --write a.md")).toEqual({ files: [abs("a.md")], globs: [], opaque: false });
+    expect(targets("npx prettier --check a.md").opaque).toBe(false);
+    expect(targets("pnpm exec eslint src").opaque).toBe(false);
+  });
+
   it("splits formatter operands into files and globs", () => {
     expect(targets('npx prettier --write "src/**/*.ts" docs/a.md')).toEqual({
       files: [abs("docs/a.md")],

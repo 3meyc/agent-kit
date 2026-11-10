@@ -6,6 +6,9 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 - core: `lint-edited-file` takes its root from the checkout that holds the edited file, so a worktree nested under the main checkout (`.claude/worktrees/…`) is linted against its own `kit.json` and globs.
 - core: `/check` can be called by the agent as well as the user, and `/check`, `/dev` and the `codegraph` skill pre-allow the `node` command their preamble runs, which the permission check refused before.
+- core: `/sweep <question>` answers a read-only question across many files in the `repo-sweep` agent and returns a verdict.
+- core, session: a package binary run through `npx`, `pnpx`, `bunx`, `pnpm exec`/`dlx` or `yarn dlx` with no handler that knows it counts as opaque, so the ledger credits the files it writes by the run window (before, a generated file such as an RTK filter file stayed unattributed and `git-commit-session --worktree` refused).
+- core: a `kit-owned.json` entry `<file>#<key.path>` claims one key of a JSON file (`.mcp.json#mcpServers.<name>`), so `kit doctor` no longer flags a project file that holds only the project's own keys.
 
 ## 2026-11-10 — first `stable`
 

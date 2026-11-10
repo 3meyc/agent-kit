@@ -44,7 +44,7 @@ Three layers, each with one owner:
 
 | ID | Plugin | Gives you | Needs |
 | --- | --- | --- | --- |
-| 1 | `core` | Chat-output and shell rules, check and sweep agents, `/check`, `/dev`, edit and shell hooks, `kit doctor`, `/kit-adopt`, `/kit-inventory` | — |
+| 1 | `core` | Chat-output and shell rules, check and sweep agents, `/check`, `/sweep`, `/dev`, edit and shell hooks, `kit doctor`, `/kit-adopt`, `/kit-inventory` | — |
 | 2 | `sdlc` | `/sdlc-intent`, `/sdlc-plan`, `/sdlc-build`, `/sdlc-finish`, `/sdlc-status`; simplifier and verifier agents | `core`; uses `session` when enabled |
 | 3 | `session` | Session ledger, `/handoff`, `/close-out`, `/close-siblings`, `/git`, worktree flow, commit script | `core` |
 | 4 | `svelte` | Svelte 5 runes, Vitest and accessibility conventions | `core` |

@@ -247,6 +247,30 @@ export function testsOfOwned(owned, tests, read) {
 }
 
 /**
+ * Whether a kit-owned entry is present in the project. A plain path is a file or folder. A path
+ * `<file>#<key.path>` names one key inside a JSON file (`.mcp.json#mcpServers.svelte`), so a
+ * plugin can claim the entries it supplies while the project keeps its own in the same file.
+ * Keys are dot-separated; a key with a dot in its name cannot be named.
+ * @param {string} projectDir @param {string} path
+ */
+export function ownedPresent(projectDir, path) {
+  const hash = path.indexOf("#");
+  if (hash === -1) return existsSync(join(projectDir, path));
+  let node = readJson(join(projectDir, path.slice(0, hash)));
+  for (const key of path.slice(hash + 1).split(".")) {
+    if (node === null || typeof node !== "object" || !Object.hasOwn(node, key)) return false;
+    node = node[key];
+  }
+  return true;
+}
+
+/** A kit-owned entry as doctor prints it: `.mcp.json (mcpServers.svelte)` for a JSON key. @param {string} path */
+function ownedLabel(path) {
+  const hash = path.indexOf("#");
+  return hash === -1 ? path : `${path.slice(0, hash)} (${path.slice(hash + 1)})`;
+}
+
+/**
  * Kit-owned files and hook entries the project still has, and tests of kit-owned scripts.
  * @param {string} projectDir @param {Array<{ root: string, name: string }>} [plugins]
  * @returns {Array<{ path: string, plugin: string, note: string | null }>}
@@ -263,9 +287,9 @@ export function findKitCopies(projectDir, plugins = pluginRoots(projectDir)) {
   for (const plugin of plugins) {
     const owned = ownedBy(plugin);
     for (const { path, note } of owned.files) {
-      if (existsSync(join(projectDir, path)) && !seen.has(path)) {
+      if (ownedPresent(projectDir, path) && !seen.has(path)) {
         seen.add(path);
-        found.push({ path, plugin: owned.plugin, note });
+        found.push({ path: ownedLabel(path), plugin: owned.plugin, note });
       }
     }
     for (const { test, of } of testsOfOwned(owned.files.map((file) => file.path), tests, read)) {

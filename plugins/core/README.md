@@ -43,7 +43,8 @@ call starts one `node`, not two. No hook ever blocks a tool call; a failure is o
 | 3 | `/core:kit-doctor` | Checks `kit.json` against the schema, the needed plugins, both marketplaces declared, kit-owned copies, installed versions |
 | 4 | `/core:kit-adopt` | Drafts `kit.json`, declares marketplaces and plugins in `.claude/settings.json`, lists local files the kit now supplies; dry run first, deletes nothing |
 | 5 | `/core:kit-inventory [--out <dir>]` | Inventories agent tooling across your local repos and measures drift between copies |
-| 6 | `codegraph` skill | How to use the CodeGraph CLI (impact before changing a shared symbol; grep members read as `obj.prop`). Applies only where `.codegraph/` exists |
+| 6 | `/core:sweep <question>` | Answers a read-only question across many files in the Haiku agent `repo-sweep` and returns a verdict, not excerpts |
+| 7 | `codegraph` skill | How to use the CodeGraph CLI (impact before changing a shared symbol; grep members read as `obj.prop`). Applies only where `.codegraph/` exists |
 
 The docs say the bare names (`/check`, `/dev`, …) work too while no other command has them
 _(unverified here)_. Agents:
@@ -107,7 +108,8 @@ is measured against; `extraRoots` and `extraFiles` add folders and files to scan
 A project that had its own copies of these files keeps them until someone retires them: `kit
 doctor` and `/core:kit-adopt` list each one. Kit-owned files are named in
 [kit-owned.json](kit-owned.json), plus every agent and skill of the plugin. Another plugin or an
-overlay can ship its own `kit-owned.json`. Doctor also lists the tests of kit-owned scripts, so they
+overlay can ship its own `kit-owned.json`. An entry `<file>#<key.path>` claims one key of a JSON
+file (`.mcp.json#mcpServers.<name>`), so the project keeps its own keys there. Doctor also lists the tests of kit-owned scripts, so they
 go with the script: a `*.test.*` or `*.spec.*` file beside a listed script with the same name, or
 one that imports it, even after the script itself is gone. It reads ownership from the plugins
 installed for the project and from those this session loaded with `--plugin-dir` (read from the
