@@ -139,6 +139,44 @@ gh auth setup-git
 With several GitHub accounts on one machine, check that the account that can read the overlay is
 the one git uses for it.
 
+## 5. Check your repos for drift
+
+The kit schedules no check: keeping each repo in step with the kit is the developer's job. Run the
+inventory by hand, for example after taking a new `stable` or before moving files into a kit.
+
+1. **Set up once.** List your local clones in `~/.config/agent-kit/inventory.json` (or under
+   `$XDG_CONFIG_HOME`). The list is your configuration and never goes into the kit. `reference` is
+   the copy drift is measured against; `extraRoots` and `extraFiles` add folders and files to scan
+   ([core README](../plugins/core/README.md), "Inventory repo list").
+
+```json
+{ "repos": { "app": "~/code/my-app", "api": "~/code/my-api" }, "reference": "app" }
+```
+
+2. **Run it.** Pull each repo's default branch first: the inventory reads every clone as it is.
+   In a Claude session run `/core:kit-inventory`, or from its shell (`--out <dir>` writes the full
+   report to files):
+
+```bash
+kit inventory
+```
+
+```bash
+kit drift
+```
+
+3. **Act on the result.** Each file group is `same`, `drift(n)` or `single` across the repos:
+   1. Marked `kit:<plugin>`: a copy the kit now supplies. Retire it in that repo; `/core:kit-doctor`
+      there lists it ([core README](../plugins/core/README.md), "Retiring project copies").
+   2. `drift`: copies that differ. `kit drift` gives the changed lines per repo; large drift means a
+      merge, not a copy.
+   3. `single`: in one repo only, project-specific unless you decide otherwise.
+4. **Check each repo against `stable`.** The inventory does not compare a repo with `stable`. In
+   each repo, `/core:kit-doctor` reports kit-owned copies and plugins that lag their channel; take
+   updates as in § 3. CI with `kit doctor --strict` (§ 2) keeps copies out on every push.
+5. **Keep it current.** Edit `inventory.json` when you add, move or retire a repo. The commands
+   themselves update with the `core` plugin (§ 3).
+
 ## Troubleshooting
 
 | ID | Symptom | Check |

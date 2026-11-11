@@ -4,6 +4,8 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 ## Unreleased
 
+- docs: `using` § 5 explains how to set up, run and keep current the manual drift check (`/core:kit-inventory`, `kit drift`, `/core:kit-doctor` per repo). The kit schedules no inventory run; checking drift is the developer's job.
+
 ## 2026-11-11 — sixth `stable`
 
 `stable` points at the commit that adds this entry. CI keeps copies of kit-owned files out of the repos.
