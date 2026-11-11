@@ -4,6 +4,8 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 ## Unreleased
 
+- sdlc: lessons from a project's use of the stages. Plan models shared state (locks, renewals, queues, two clients on one state) with an actor and interleaving table, one entry path per action, side-effect-free reads and Proof rows per case × entry point; build ends such an item with an adversarial concurrency review whose scratch tests stay out of the checkout, and finish's review checks it. The verifier labels each finding `defect` or `nit`, and finish's rerun cap goes by that label. Item labels open a plain list item (`- O1.`), and a settled question keeps its label with `(resolved <date>)`. The workflow and README say a stage starts only on the user's word in its own session: a brief from another agent prepares and stops.
+
 ## 2026-11-11 — eighth `stable`
 
 `stable` points at the commit that adds this entry. A hand-typed ledger title no longer blocks commits.

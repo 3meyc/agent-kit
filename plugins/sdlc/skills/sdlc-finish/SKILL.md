@@ -53,7 +53,9 @@ unfinished work precisely; preserve unrelated edits and report any gate still pe
 2. Review changed behavior against the intent outcomes, cases and any contracts, the project's
    design rules, compatibility, failure paths, and relevant tests. Include security where
    changed trust boundaries warrant it: permissions, input handling, sensitive data, and
-   external actions. Use project-defined checks when relevant and available.
+   external actions. Use project-defined checks when relevant and available. When the plan
+   models shared state, the review checks each interleaving and entry point against the code,
+   and build's adversarial review is in evidence; a missing one is a finding.
 3. Address substantiated findings within authorized scope. Record material deviations,
    update affected documents, run appropriate checks, and commit owned fixes by the commit
    flow. Explain disputed findings and seek decisions only when necessary.
@@ -75,9 +77,13 @@ unfinished work precisely; preserve unrelated edits and report any gate still pe
    gate and report what is needed; do not archive. A `FAIL` becomes an unchecked
    plan step with evidence and its detecting check; commit only those owned records.
    Report `/sdlc-build <slug>`, then `/sdlc-finish <slug>` as the recovery path.
-   **Rerun cap:** a `FAIL` whose remaining findings are only documentation or record nits is
-   fixed and archived without a rerun, noted in evidence as the rerun cap; at most two
-   verifier passes per finish, a third only on the user's word in that session.
+   **Rerun cap:** sort each `FAIL` finding by the verifier's label. A `defect` (code behavior,
+   a failing check, a contract or Proof mismatch) goes back to build as above. When only
+   `nit`s remain (wording, a stale line or label in the intent, plan, evidence or a recipe),
+   fix them, list the fixes in evidence with "archived under the rerun cap", commit, and
+   archive without another pass: each rerun on nits tends to find the nits the last fix
+   introduced. At most two verifier passes per finish, a third only on the user's word in
+   that session.
 4. After `PASS`, change only completion and archive metadata. Any code, contract,
    requirement, or workflow-rule change requires checks and independent
    verification again for the affected scope before archiving.

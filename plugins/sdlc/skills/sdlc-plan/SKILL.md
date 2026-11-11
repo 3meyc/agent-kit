@@ -64,9 +64,22 @@ real regressions. Name material risks, sequencing constraints, or alternatives b
 affected step; omit empty analysis sections. When the change adds or renames a domain term,
 enum value or identifier, the step that introduces it also updates the glossary.
 
+**Shared state.** For an item with locks, leases, renewals, queued requests, or two clients or
+screens acting on the same state, model the concurrency before any step:
+
+- an **actor and interleaving table** in Design notes: each actor, what it can hold, renew or
+  release and when, then each interleaving that matters (overlapping reads, a failed release,
+  a renewal after a failed read, a request queued behind another) with the expected result;
+- **one entry path per action** from the first step: every caller goes through the same
+  function, so a fix lands once; reads have no side effects (no renew-on-read);
+- **Proof rows per case × entry point:** each intent case that touches the shared state is
+  proved through every entry point that can reach it, not through one of them;
+- a step at the end of build for the adversarial concurrency review (`/sdlc-build`, Complete).
+
 ## Finalize
 
-Check every intent outcome and case is covered, every planned file has an owning step, and
+Check every intent outcome and case is covered (for shared state, through every entry point),
+every planned file has an owning step, and
 Proof can distinguish success from a skip or unavailable environment. Avoid oversized steps; if
 a newly discovered split changes scope, resolve it through intent before approving the plan.
 
