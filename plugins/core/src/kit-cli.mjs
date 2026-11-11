@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { isDirectRun, projectRoot } from "../lib/hook-utils.mjs";
 import { runAdopt } from "./adopt.mjs";
+import { runDev } from "./dev-plugins.mjs";
 import { runDoctor } from "./doctor.mjs";
 import { runInstalls } from "./installs.mjs";
 import { runInventory } from "./inventory.mjs";
@@ -31,7 +32,11 @@ const USAGE = `Usage: kit <command>
   drift [--out dir] [--config file]
                        Changed lines of drifting copies against the reference repo
   commands             The project's kit.json commands and check suites
-  dev                  The dev server port and the matching .claude/launch.json configuration
+  dev [--checkout <marketplace>=<path>]... [--config <file>] [--run] [-- <claude args>]
+                       The claude --plugin-dir command that loads the project's enabled kit plugins
+                       (and their dependencies) from local kit checkouts (~/.config/agent-kit/checkouts.json);
+                       --run starts it. Warns on a dirty checkout, one off its base branch, and a plugin with no checkout
+  dev-server           The dev server port and the matching .claude/launch.json configuration
   release [--yes] [--summary <text>] [--summary-<lang> <text>]
                        Cut a release of a kit repo: notes, check, commit, push, move the stable tag
                        (dry run unless --yes; kit.json release says where the notes live)`;
@@ -184,6 +189,11 @@ export function releaseCommand(args, root = rootFor()) {
   return runRelease(root, args);
 }
 
+/** `kit dev` (and `agent-kit dev`) for the project at the current git top level. @param {string[]} args */
+export function devCommand(args, root = projectRoot()) {
+  return runDev(root, args);
+}
+
 /** @param {string[]} argv */
 export function main(argv) {
   const [command, ...args] = argv;
@@ -203,6 +213,8 @@ export function main(argv) {
     case "commands":
       return printCommands(root);
     case "dev":
+      return runDev(root, args);
+    case "dev-server":
       return printDev(root);
     case "release":
       return releaseCommand(args);

@@ -233,6 +233,47 @@ item on its own when one of these rules says it is settled:
 session-ledger --sweep --dry-run
 ```
 
+## 7. Try a kit change in a project
+
+Installed plugins are read-only copies in Claude Code's plugin cache. To try a change to the base
+kit or an overlay in a real project before it is released, start Claude Code there with the plugin
+folders of your local checkouts (`--plugin-dir`, [changing](changing.md) step 3). `kit dev` builds
+that command, so you don't list every plugin folder by hand.
+
+1. Once per machine, map each marketplace name (the part after `@` in `enabledPlugins`) to its
+   checkout in `~/.config/agent-kit/checkouts.json` (`$XDG_CONFIG_HOME/agent-kit/` when that is
+   set). A path may start with `~/`; a relative one is read from that file's folder.
+2. In the project, from a terminal, run the command below. Outside Claude Code `kit` is not on the
+   PATH: `agent-kit dev` does the same where the root package is installed, and `kit dev` in a
+   Claude session's shell prints the report too.
+3. It reads `enabledPlugins` from `.claude/settings.json` (`settings.local.json` switches one on or
+   off), finds each plugin in its marketplace's checkout through `.claude-plugin/marketplace.json`,
+   adds the plugins they name in `dependencies`, and prints a numbered report: each plugin and the
+   folder it loads from, the warnings, the `claude --plugin-dir …` command and the check.
+4. It warns when a checkout has uncommitted files, is not on its base branch (`kit.json`
+   `baseBranch`, else `main`), is missing or holds no marketplace, and when an enabled plugin has
+   no checkout: that one stays on the installed copy.
+5. `--checkout <marketplace>=<path>` (repeatable) overrides the file for one run, for example to
+   load the worktree where the change is; `--config <file>` reads another file.
+6. `--run` starts the command in the project folder, with any arguments after `--` passed to
+   `claude`. Run it from a terminal, not from inside a Claude session.
+7. A `--plugin-dir` copy replaces the installed plugin of the same name silently, and
+   `claude plugin list` still shows the installed one. In the new session, `/core:kit-doctor`
+   lists each plugin "loaded for this session with --plugin-dir"; one it doesn't list runs from
+   the installed copy.
+
+```json
+{ "agent-kit": "~/src/agent-kit", "my-overlay": "~/src/my-overlay" }
+```
+
+```bash
+node ~/src/agent-kit/plugins/core/src/kit-cli.mjs dev
+```
+
+```bash
+node ~/src/agent-kit/plugins/core/src/kit-cli.mjs dev --checkout agent-kit=~/src/agent-kit/.claude/worktrees/my-change --run
+```
+
 ## Troubleshooting
 
 | ID | Symptom | Check |

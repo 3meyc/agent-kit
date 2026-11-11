@@ -35,7 +35,7 @@ sequenceDiagram
   P->>K: opens a kit-gap issue #n
   P->>K: open a worktree session in agent-kit
   K->>K: edit plugins/<name>
-  K->>P: try it: claude --plugin-dir <kit>/plugins/<name>
+  K->>P: try it: kit dev --run (claude --plugin-dir …)
   K->>M: commit "Fixes #n", merge
   M-->>P: pilot project gets it (latest channel)
   M->>S: release: move stable
@@ -49,9 +49,13 @@ sequenceDiagram
    `.claude-plugin/marketplace.json` and treats that marketplace and its plugins as the repo's
    own, so it asks neither to declare nor to enable them, and does not take the repo's tests for
    tests of kit-owned scripts.
-3. **Try it from the project.** Start Claude in the project with the local plugin loaded:
-   `claude --plugin-dir ~/path/to/agent-kit/plugins/sdlc` _(unverified: that it overrides the
-   installed copy of the same name)_.
+3. **Try it from the project.** Run `kit dev` in the project ([using](using.md) § 7): it prints
+   the `claude --plugin-dir …` command that loads every plugin the project enables from your local
+   kit checkouts, base kit and overlays alike, with their dependencies, and `--run` starts it.
+   Point it at the worktree you edit with `--checkout agent-kit=<path>`. A `--plugin-dir` copy
+   replaces the installed plugin of the same name for that session, silently (Claude Code's plugin
+   loading reference, Name conflicts), so check in that session that `/core:kit-doctor` lists it
+   as loaded with `--plugin-dir`.
 4. **Merge** through a pull request. The naming check in CI must pass (see below). The commit
    that fixes a reported gap says `Fixes #n`, and its CHANGELOG line cites `#n`.
 5. **Release** with `kit release` (next section): it moves the `## Unreleased` lines of
