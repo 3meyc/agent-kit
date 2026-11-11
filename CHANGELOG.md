@@ -4,7 +4,9 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 ## Unreleased
 
-Gaps from the rollout after the second `stable`.
+## 2026-11-11 — third `stable`
+
+`stable` points at the commit that adds this entry. Gaps from the rollout after the second `stable`.
 
 - core: `kit doctor` and `kit update-check` read each marketplace's ref from the remote every time instead of trusting the six-hour cache, which had reported plugins behind `stable` as current; a result that could only come from the cache says so and is a warning. Outside a hook the cache now lives in `plugins/data/core-agent-kit/`, the folder the SessionStart check uses (it was `agent-kit-core/`, so the two disagreed).
 - core: the version check compares against the ref the project declares in `extraKnownMarketplaces` (else the registered one), and `kit doctor` (so also `/kit-adopt`) warns when this machine registered the marketplace, or the user's own `settings.json` declares it, at another ref, with the fix. The SessionStart notice says when the update commands alone won't reach the declared ref.
