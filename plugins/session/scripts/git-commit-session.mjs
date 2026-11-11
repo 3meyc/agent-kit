@@ -241,6 +241,18 @@ function changedFiles(paths) {
   return filesOf(statusEntries(paths));
 }
 
+/**
+ * One line per session record a commit takes along, saying whether the refresh wrote it now. The
+ * record is not in the caller's file list (`session-ledger --record` may have just said there is
+ * none), so the commit names it instead of adding a file nobody asked about.
+ * @param {string[]} records
+ */
+function recordLines(records) {
+  if (records.length === 0) return [];
+  const untracked = new Set(statusEntries(records).filter((entry) => entry.code === "??").map((entry) => entry.path));
+  return records.map((path) => `session record: ${path} (${untracked.has(path) ? "new, written by this commit's refresh" : "updated"})`);
+}
+
 /** @typedef {{ code: string, path: string, from?: string }} StatusEntry `from` only on a rename or copy */
 
 /** @param {string[]} paths @returns {StatusEntry[]} */
@@ -427,7 +439,9 @@ function concludeMerge(options) {
   const recordPaths = sessions.flatMap((s) => (s.record ? [s.record] : []));
   const records = recordPaths.length ? changedFiles(recordPaths) : [];
   const trailers = [...sessions.map((s) => `Session-Id: ${s.id}`), ...options.trailers];
+  const recordNotes = recordLines(records);
   commitWithRetry(() => attemptMerge([...new Set([...unmerged, ...records])], message, trailers));
+  for (const line of recordNotes) console.log(line);
   const left = changedFiles(["."]);
   if (left.length) console.error(`git-commit-session: left uncommitted, not part of the merge: ${left.join(", ")}`);
 }
@@ -878,7 +892,9 @@ function main() {
   // already carries it.
   const trailers = message === null ? [] : [...sessions.map((s) => `Session-Id: ${s.id}`), ...options.trailers];
   const added = new Set();
+  const recordNotes = recordLines(records);
   commitWithRetry(() => attempt(paths, message, added, trailers, options.amend), added);
+  for (const line of recordNotes) console.log(line);
   auditCommit(paths);
   // An amend makes no new commit, so it skips no optional step.
   if (!options.amend) for (const line of recordCommit(top, paths)) console.log(line);

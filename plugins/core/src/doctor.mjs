@@ -5,15 +5,19 @@
 //    in the project's `extraKnownMarketplaces`: an overlay's dependencies on the base kit resolve
 //    only when both are declared (docs/spikes.md S3a). Plugins this session loaded with
 //    `--plugin-dir` are listed, and every enabled or loaded plugin's `dependencies` are checked.
+//    A marketplace this machine registered, or the user's settings declare, at another ref than
+//    the project declares is a warning: plugins install from the registered ref.
 // 3. Copies of kit-owned files in the repo, which shadow or duplicate the kit, and tests of
 //    kit-owned scripts, which go with them.
-// 4. Installed kit plugins against their marketplace ref (S8), with the update commands.
+// 4. Installed kit plugins against the commit their channel's ref points at on the remote now
+//    (S8), with the update commands. The remote is read every time; a cached SHA is used only
+//    when the read fails, and is reported as such.
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { CORE_ROOT, enabledForProject, findKitCopies, pluginDependencies, pluginRoots, sessionPluginDirs } from "./kit-owned.mjs";
 import { KIT_FILE } from "../lib/kit-config.mjs";
 import { validate } from "./schema-check.mjs";
-import { checkUpdates, claudeDir, defaultCacheFile, readPluginState, updateCommands } from "./update-check.mjs";
+import { checkUpdates, claudeDir, defaultCacheFile, readPluginState, sourceRef, updateCommands } from "./update-check.mjs";
 
 export const BASE_MARKETPLACE = "agent-kit";
 
@@ -89,6 +93,48 @@ export function checkSettings(projectDir, config, userDir = claudeDir()) {
       findings.push({ level: "fail", text: `marketplace ${name} is not declared in .claude/settings.json extraKnownMarketplaces${why}` });
     }
   }
+  findings.push(...checkMarketplaceRefs(project.extraKnownMarketplaces ?? {}, user.extraKnownMarketplaces ?? {}, readPluginState(userDir).marketplaces));
+  return findings;
+}
+
+const refLabel = (source) => (typeof source?.ref === "string" && source.ref ? `ref ${source.ref}` : "no ref (HEAD)");
+
+/** `owner/repo#ref` for a GitHub source, the argument `claude plugin marketplace add` takes. */
+function addArgument(source, ref) {
+  return source?.source === "github" && typeof source.repo === "string" ? `${source.repo}#${ref}` : null;
+}
+
+/**
+ * Warnings for each marketplace the project declares at a ref that this machine's registration
+ * (`known_marketplaces.json`) or the user's own `extraKnownMarketplaces` does not match. Plugins
+ * install from the registered ref, and `claude plugin marketplace add <repo>#<ref>` is refused
+ * while the user's own declaration of that marketplace names another source.
+ * @param {Record<string, any>} project @param {Record<string, any>} user @param {Record<string, any>} registered
+ */
+export function checkMarketplaceRefs(project, user, registered) {
+  const findings = [];
+  for (const [name, entry] of Object.entries(project).sort(([a], [b]) => a.localeCompare(b))) {
+    const source = entry?.source;
+    if (typeof source?.ref !== "string" || !source.ref) continue;
+    const want = source.ref;
+    const add = addArgument(source, want);
+    const addHint = add ? `\`claude plugin marketplace add ${add}\`` : `re-add the marketplace at ${want}`;
+    const userSource = user[name]?.source;
+    const userStale = userSource && sourceRef(userSource) !== want;
+    if (userStale) {
+      findings.push({
+        level: "warn",
+        text: `marketplace ${name}: your user settings.json declares it with ${refLabel(userSource)}, the project with ref ${want}; add "ref": "${want}" to that entry, then run ${addHint} (docs/using.md § 3)`,
+      });
+    }
+    const machine = registered[name]?.source;
+    if (machine && sourceRef(machine) !== want) {
+      findings.push({
+        level: "warn",
+        text: `marketplace ${name} is registered on this machine with ${refLabel(machine)}, the project declares ref ${want}; plugins install from the registered ref. ${userStale ? "After the user settings fix, run" : "Run"} ${addHint}, then \`claude plugin update\` each plugin at each scope (docs/using.md § 3)`,
+      });
+    }
+  }
   return findings;
 }
 
@@ -139,18 +185,31 @@ export function checkCopies(projectDir, plugins = pluginRoots(projectDir)) {
   }));
 }
 
+function age(ms) {
+  const minutes = Math.max(0, Math.round(ms / 60000));
+  return minutes < 90 ? `${minutes} min` : `${Math.round(minutes / 60)} h`;
+}
+
+/**
+ * Findings for installed kit plugins against their channel. The remote is read now (`fresh`); a
+ * cached SHA stands in only when that read fails, and the finding says so.
+ */
 export function checkVersions(projectDir, options = {}) {
-  const { lagging, checked } = checkUpdates({ root: projectDir, cacheFile: defaultCacheFile(), ...options });
+  const now = options.now ?? Date.now();
+  const { lagging, checked } = checkUpdates({ root: projectDir, cacheFile: defaultCacheFile(), fresh: true, now, ...options });
   if (checked.length === 0) return [{ level: "ok", text: "no kit plugins installed from a git marketplace (a --plugin-dir copy is not checked)" }];
   const findings = [];
+  const where = (item) => (item.from === "cache" ? `the remote could not be read; a cached ${item.ref} from ${age(now - (item.cachedAt ?? now))} ago` : `${item.ref} on the remote`);
   for (const item of checked) {
-    if (item.latest === null) findings.push({ level: "warn", text: `${item.plugin}@${item.marketplace}: could not read ${item.ref} from the remote` });
-    else if (item.latest === item.installed) findings.push({ level: "ok", text: `${item.plugin}@${item.marketplace} (${item.scope}) is at ${item.ref} ${item.installed.slice(0, 12)}` });
+    if (item.latest === null) findings.push({ level: "warn", text: `${item.plugin}@${item.marketplace} (${item.scope}): could not read ${item.ref} from the remote, and nothing is cached; the installed version is unchecked` });
+    else if (item.latest === item.installed && item.from === "remote") findings.push({ level: "ok", text: `${item.plugin}@${item.marketplace} (${item.scope}) is at ${item.ref} ${item.installed.slice(0, 12)} (read from the remote)` });
+    else if (item.latest === item.installed) findings.push({ level: "warn", text: `${item.plugin}@${item.marketplace} (${item.scope}): ${where(item)} matches the installed ${item.installed.slice(0, 12)}; not proof that it is current` });
   }
   for (const item of lagging) {
+    const refFirst = item.registeredRef !== item.ref ? ` This machine registered ${item.marketplace} at ${item.registeredRef}, so fix the marketplace ref first (section 2).` : "";
     findings.push({
       level: "warn",
-      text: `${item.plugin}@${item.marketplace} (${item.scope}): installed ${item.installed.slice(0, 12)}, ${item.ref} is ${item.latest.slice(0, 12)}; run \`${updateCommands(item).join("` then `")}\`, then start a new session`,
+      text: `${item.plugin}@${item.marketplace} (${item.scope}): installed ${item.installed.slice(0, 12)}, ${where(item)} is ${item.latest.slice(0, 12)}; run \`${updateCommands(item).join("` then `")}\`, then start a new session.${refFirst}`,
     });
   }
   return findings;

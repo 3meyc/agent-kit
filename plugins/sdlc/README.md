@@ -2,9 +2,10 @@
 
 **English** · [Українська](README.uk.md)
 
-Spec-first work items in five user-invoked skills, with two fresh-context agents for the
-independent passes. Every work item is a folder of short documents in the project: what to
-build and why (intent), how to build and prove it (plan), and the record of what happened.
+Spec-first work items in five skills (four the user invokes; the read-only `/sdlc-status` the agent
+may run too), with two fresh-context agents for the independent passes. Every work item is a folder
+of short documents in the project: what to build and why (intent), how to build and prove it
+(plan), and the record of what happened.
 
 ```bash
 claude plugin install sdlc@agent-kit
