@@ -1,0 +1,12 @@
+{
+  "$schema": "./schema/kit.schema.json",
+  "project": "agent-kit",
+  "commands": {
+    "install": "npm ci",
+    "check": "npm run check",
+    "test": "npm test"
+  },
+  "release": {
+    "notes": ["CHANGELOG.md"]
+  }
+}

@@ -8,7 +8,8 @@ import { runDoctor } from "./doctor.mjs";
 import { runInstalls } from "./installs.mjs";
 import { runInventory } from "./inventory.mjs";
 import { ownershipRootDirs } from "./kit-owned.mjs";
-import { readKit } from "../lib/kit-config.mjs";
+import { readKit, rootFor } from "../lib/kit-config.mjs";
+import { runRelease } from "./release.mjs";
 import { checkUpdates, defaultCacheFile, updateCommands } from "./update-check.mjs";
 
 const USAGE = `Usage: kit <command>
@@ -30,7 +31,10 @@ const USAGE = `Usage: kit <command>
   drift [--out dir] [--config file]
                        Changed lines of drifting copies against the reference repo
   commands             The project's kit.json commands and check suites
-  dev                  The dev server port and the matching .claude/launch.json configuration`;
+  dev                  The dev server port and the matching .claude/launch.json configuration
+  release [--yes] [--summary <text>] [--summary-<lang> <text>]
+                       Cut a release of a kit repo: notes, check, commit, push, move the stable tag
+                       (dry run unless --yes; kit.json release says where the notes live)`;
 
 function readJson(file) {
   try {
@@ -171,6 +175,15 @@ export function doctorCommand(args, root = projectRoot(), cwd = process.cwd()) {
   return runDoctor(root, { strict: parsed.strict, offline: parsed.offline, pluginDirs: parsed.pluginDirs, pluginRoots: roots, cwd });
 }
 
+/**
+ * `kit release` (and `agent-kit release`) for the checkout holding the current directory, not
+ * CLAUDE_PROJECT_DIR: a release is cut from the checkout the command runs in.
+ * @param {string[]} args
+ */
+export function releaseCommand(args, root = rootFor()) {
+  return runRelease(root, args);
+}
+
 /** @param {string[]} argv */
 export function main(argv) {
   const [command, ...args] = argv;
@@ -191,6 +204,8 @@ export function main(argv) {
       return printCommands(root);
     case "dev":
       return printDev(root);
+    case "release":
+      return releaseCommand(args);
     case undefined:
     case "help":
     case "--help":

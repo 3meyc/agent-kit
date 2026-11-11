@@ -116,6 +116,48 @@
         }
       }
     },
+    "release": {
+      "type": "object",
+      "description": "How `kit release` cuts a release of a kit's own repo by moving its tag: where the notes live, what to check, and for an overlay the base-kit release it needs.",
+      "additionalProperties": false,
+      "properties": {
+        "branch": { "type": "string", "minLength": 1, "description": "Branch released. Default: baseBranch." },
+        "remote": { "type": "string", "minLength": 1, "default": "origin" },
+        "tag": { "type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$", "default": "stable" },
+        "check": { "$ref": "#/$defs/command", "description": "Run from the repo root before the release commit, on the written notes; a failure refuses. Default: commands.check." },
+        "notes": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Files that record each release, all cut in the same commit. Default: [\"CHANGELOG.md\"].",
+          "items": {
+            "anyOf": [
+              { "$ref": "#/$defs/relPath" },
+              {
+                "type": "object",
+                "required": ["path"],
+                "additionalProperties": false,
+                "properties": {
+                  "path": { "$ref": "#/$defs/relPath" },
+                  "format": { "enum": ["changelog", "table"], "default": "changelog", "description": "changelog: `## Unreleased` moves under a dated heading. table: the file's last table gets a row like the one before, with the id counted up, today's date and the summary in the last cell." },
+                  "lang": { "type": "string", "pattern": "^[a-z]{2,8}$", "description": "Takes its summary from --summary-<lang> instead of --summary, for a translated mirror." }
+                }
+              }
+            ]
+          }
+        },
+        "base": {
+          "type": "object",
+          "description": "For an overlay kit: the base kit release it needs. `kit release` refuses while the base kit's tag does not contain it.",
+          "required": ["repo", "needs"],
+          "additionalProperties": false,
+          "properties": {
+            "repo": { "type": "string", "minLength": 1, "description": "Git URL (or path) of the base kit.", "examples": ["https://github.com/owner/agent-kit.git"] },
+            "tag": { "type": "string", "minLength": 1, "default": "stable" },
+            "needs": { "type": "string", "minLength": 1, "description": "A commit, or a release number or ordinal word (ninth) matched against the base kit's `chore(release): <nth> <tag> release` commits.", "examples": ["ninth"] }
+          }
+        }
+      }
+    },
     "devServer": {
       "type": "object",
       "description": "The project's local development server.",

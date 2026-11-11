@@ -59,7 +59,7 @@ _(тут не перевірено)_. Агенти: `check-runner` (запуск
 | --- | --- | --- |
 | 1 | `count-lines <file>...` | Кількість рядків, однаково на кожній ОС |
 | 2 | `git-branch-context` | Гілка, upstream, базова гілка за замовчуванням і `baseBranch` з `kit.json` у JSON |
-| 3 | `kit doctor \| adopt \| inventory \| drift \| update-check \| installs \| commands \| dev` | Команди, на яких стоять скіли вище; `kit installs [--clean]` показує копії плагінів набору в області проєкту, що відрізняються від копії користувача чи каналу, і прибирає їх ([використання](../../docs/using.uk.md) § 3) |
+| 3 | `kit doctor \| adopt \| inventory \| drift \| update-check \| installs \| commands \| dev \| release` | Команди, на яких стоять скіли вище; `kit installs [--clean]` показує копії плагінів набору в області проєкту, що відрізняються від копії користувача чи каналу, і прибирає їх ([використання](../../docs/using.uk.md) § 3); `kit release [--yes]` випускає реліз `stable` репозиторію набору ([зміни](../../docs/changing.uk.md), Випуск) |
 | 4 | `kit-docs-parity [path...]` | Перевіряє, що в кожній парі `name.md` / `name.uk.md` збігаються заголовки, таблиці, блоки Mermaid, блоки команд і нумеровані пункти |
 
 Скіли викликають `node "${CLAUDE_PLUGIN_ROOT}/src/kit-cli.mjs" …`, якому PATH не потрібен.
@@ -75,6 +75,7 @@ _(тут не перевірено)_. Агенти: `check-runner` (запуск
 | 5 | `baseBranch` | `git-branch-context` |
 | 6 | `lintOnEdit` | `lint-edited-file` |
 | 7 | увесь файл | `kit doctor` перевіряє його за схемою з `schema/` |
+| 8 | `release`, `commands.check` | `kit release` у власному репозиторії набору |
 
 `lintOnEdit` приймає одне правило або список правил, щоб різні файли перевірялися по-різному.
 Правило — це команда й необов'язкові шаблони; `{file}` замінюється на шлях відносно репозиторію в
