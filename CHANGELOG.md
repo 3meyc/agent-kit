@@ -6,6 +6,13 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 - docs: `using` § 5 explains how to set up, run and keep current the manual drift check (`/core:kit-inventory`, `kit drift`, `/core:kit-doctor` per repo). The kit schedules no inventory run; checking drift is the developer's job.
 
+## 2026-11-11 — sixth `stable`
+
+`stable` points at the commit that adds this entry. CI keeps copies of kit-owned files out of the repos.
+
+- core: `kit doctor --strict` judges the repo, not the machine, and fails on a copy of a kit-owned file (or a test of one), a `kit.json` that fails the schema, or a needed plugin or marketplace missing from the shared `.claude/settings.json`; `settings.local.json` and the user's settings don't count there, and installed versions, install scopes and this session's plugins never fail it. `--plugin-root <path>` (repeatable; a plugin folder or a folder of them) adds plugin folders to read ownership from, such as an overlay's. An unknown flag, or a root with no plugin in it, exits 2.
+- root package: `agent-kit doctor [--strict] [--offline] [--plugin-root <path>]...` runs it outside Claude Code, so CI can keep kit-owned copies out with no installed plugins: ownership comes from the plugin folders in the package (docs/using.md § 2).
+
 ## 2026-11-11 — fifth `stable`
 
 `stable` points at the commit that adds this entry. A false "behind" report for plugins with a source of their own.

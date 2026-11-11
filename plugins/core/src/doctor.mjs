@@ -58,22 +58,25 @@ export function neededPlugins(config) {
 }
 
 /**
- * Findings for enabled plugins and declared marketplaces.
+ * Findings for enabled plugins and declared marketplaces. `repoOnly` (strict mode) judges the
+ * needed plugins by the shared `.claude/settings.json` alone, as a CI checkout has it: a plugin
+ * enabled only in `settings.local.json` or the user's settings then fails.
  * @param {string} projectDir @param {Record<string, any> | null} config @param {string} [userDir]
+ * @param {{ repoOnly?: boolean }} [options]
  */
-export function checkSettings(projectDir, config, userDir = claudeDir()) {
+export function checkSettings(projectDir, config, userDir = claudeDir(), { repoOnly = false } = {}) {
   const findings = [];
   const shared = readJson(join(projectDir, ".claude", "settings.json"));
   if (shared.error) return [{ level: "fail", text: `.claude/settings.json does not parse: ${shared.error}` }];
   const project = shared.value ?? {};
-  const local = readJson(join(projectDir, ".claude", "settings.local.json")).value ?? {};
+  const local = repoOnly ? {} : (readJson(join(projectDir, ".claude", "settings.local.json")).value ?? {});
   const user = readJson(join(userDir, "settings.json")).value ?? {};
   const declared = new Set(Object.keys(project.extraKnownMarketplaces ?? {}));
   const enabledIn = (settings, id) => settings.enabledPlugins?.[id] === true;
 
   for (const { id, why } of neededPlugins(config)) {
     if (enabledIn(project, id)) findings.push({ level: "ok", text: `${id} enabled in .claude/settings.json` });
-    else if (enabledIn(local, id) || enabledIn(user, id)) {
+    else if (!repoOnly && (enabledIn(local, id) || enabledIn(user, id))) {
       findings.push({ level: "warn", text: `${id} (${why}) is enabled only for you (${enabledIn(local, id) ? "settings.local.json" : "user settings"}); add it to .claude/settings.json so the project gets it` });
     } else findings.push({ level: "fail", text: `${id} (${why}) is not enabled; add it to enabledPlugins in .claude/settings.json` });
     if (local.enabledPlugins?.[id] === false) {
@@ -179,11 +182,16 @@ export function checkLoadedPlugins(projectDir, plugins, userDir = claudeDir()) {
   return findings;
 }
 
-export function checkCopies(projectDir, plugins = pluginRoots(projectDir)) {
-  const copies = findKitCopies(projectDir, enabledForProject(projectDir, plugins));
+/**
+ * One finding per copy of a kit-owned file: a warning, or a failure in strict mode, which also
+ * reads only the shared settings for which plugins the project enables.
+ * @param {string} projectDir @param {{ strict?: boolean }} [options]
+ */
+export function checkCopies(projectDir, plugins = pluginRoots(projectDir), { strict = false } = {}) {
+  const copies = findKitCopies(projectDir, enabledForProject(projectDir, plugins, { local: !strict }));
   if (copies.length === 0) return [{ level: "ok", text: "no copies of kit-owned files" }];
   return copies.map((copy) => ({
-    level: "warn",
+    level: strict ? "fail" : "warn",
     text: `${copy.path} — supplied by ${copy.plugin}${copy.note ? ` (${copy.note})` : ""}`,
   }));
 }
@@ -255,23 +263,43 @@ export function checkVersions(projectDir, options = {}) {
 
 const MARK = { ok: "ok  ", warn: "WARN", fail: "FAIL" };
 
-/** Run every check and print the report; exit code 1 when anything failed. */
-export function runDoctor(projectDir, { offline = false, pluginDirs = [], print = console.log } = {}) {
+/** Machine-state findings never fail strict mode: a failure among them is printed as a warning. */
+const machineOnly = (findings) => findings.map((finding) => (finding.level === "fail" ? { ...finding, level: "warn" } : finding));
+
+/**
+ * Run every check and print the report; exit code 1 when anything failed.
+ *
+ * `strict` judges the repo, not this machine, so CI gets the same answer: a copy of a kit-owned
+ * file fails, the needed plugins and the plugins whose files count are read from the shared
+ * `.claude/settings.json` alone, and the findings about this session's plugins and installed
+ * versions never fail. `pluginRoots` are extra plugin folders to read ownership from (an overlay's
+ * plugins in CI, where nothing is installed); `state`, `sessionDirs` and `userDir` are for tests.
+ * @param {string} projectDir
+ * @param {{ offline?: boolean, strict?: boolean, pluginDirs?: string[], pluginRoots?: string[], print?: (line: string) => void, state?: ReturnType<typeof readPluginState>, sessionDirs?: string[], userDir?: string }} [options]
+ */
+export function runDoctor(projectDir, options = {}) {
+  const { offline = false, strict = false, pluginDirs = [], print = console.log, userDir = claudeDir() } = options;
+  const state = options.state ?? readPluginState(userDir);
+  const sessionDirs = options.sessionDirs ?? sessionPluginDirs({ extra: pluginDirs, cwd: projectDir });
   const { config, findings: kit } = checkKitJson(projectDir);
-  const plugins = pluginRoots(projectDir, readPluginState(), sessionPluginDirs({ extra: pluginDirs, cwd: projectDir }));
+  const plugins = pluginRoots(projectDir, state, sessionDirs, options.pluginRoots ?? []);
+  const loaded = checkLoadedPlugins(projectDir, plugins, userDir);
+  const versions = offline ? [{ level: "ok", text: "skipped (--offline)" }] : checkVersions(projectDir, { state });
   const sections = [
     ["kit.json", kit],
-    ["Plugins and marketplaces", [...checkSettings(projectDir, config), ...checkLoadedPlugins(projectDir, plugins)]],
-    ["Kit-owned files in the repo", checkCopies(projectDir, plugins)],
-    ["Installed versions", offline ? [{ level: "ok", text: "skipped (--offline)" }] : checkVersions(projectDir)],
+    ["Plugins and marketplaces", [...checkSettings(projectDir, config, userDir, { repoOnly: strict }), ...(strict ? machineOnly(loaded) : loaded)]],
+    ["Kit-owned files in the repo", checkCopies(projectDir, plugins, { strict })],
+    ["Installed versions", strict ? machineOnly(versions) : versions],
   ];
-  let failed = false;
+  if (strict) print("Strict mode: repo state only. Copies of kit-owned files fail; installed versions and install scopes never do.");
+  let failed = 0;
   sections.forEach(([title, findings], index) => {
     print(`${index + 1}. ${title}`);
     findings.forEach((finding, n) => {
-      if (finding.level === "fail") failed = true;
+      if (finding.level === "fail") failed += 1;
       print(`   ${index + 1}.${n + 1}. ${MARK[finding.level]} ${finding.text}`);
     });
   });
-  return failed ? 1 : 0;
+  if (strict) print(failed === 0 ? "Strict: passed." : `Strict: ${failed} finding(s) failed.`);
+  return failed > 0 ? 1 : 0;
 }

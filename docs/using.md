@@ -55,6 +55,25 @@ Why user scope only ([spikes](spikes.md) S11, tried with Claude Code 2.1.300 and
 pnpm add -D github:3meyc/agent-kit#stable
 ```
 
+5. Keep copies out with CI: with that dev dependency, a CI step runs `kit doctor` in strict mode,
+   which needs no Claude Code and no installed plugin. It judges the repo, not the machine: it
+   fails on a copy of a kit-owned file (or a test of one), on a `kit.json` that fails the schema,
+   and on a needed plugin or a marketplace missing from the shared `.claude/settings.json`;
+   `settings.local.json` and the user's settings don't count, and installed versions and install
+   scopes never fail it. It reads ownership from the plugin folders in the `agent-kit` package;
+   for an overlay's plugins, add `--plugin-root <path>` (a plugin folder, or a folder of them,
+   relative to the working directory; repeatable). `--offline` skips the remote version check.
+   Exit codes: 0 passed, 1 a finding failed, 2 a usage error (an unknown flag, a root with no
+   plugin in it).
+
+```bash
+pnpm exec agent-kit doctor --strict --offline
+```
+
+```bash
+pnpm exec agent-kit doctor --strict --offline --plugin-root node_modules/my-overlay-tools/plugins
+```
+
 ## 3. Take updates
 
 Update explicitly, at user scope. A new `stable` takes two commands, then a new session:
@@ -154,7 +173,7 @@ kit drift
    3. `single`: in one repo only, project-specific unless you decide otherwise.
 4. **Check each repo against `stable`.** The inventory does not compare a repo with `stable`. In
    each repo, `/core:kit-doctor` reports kit-owned copies and plugins that lag their channel; take
-   updates as in § 3.
+   updates as in § 3. CI with `kit doctor --strict` (§ 2) keeps copies out on every push.
 5. **Keep it current.** Edit `inventory.json` when you add, move or retire a repo. The commands
    themselves update with the `core` plugin (§ 3).
 
