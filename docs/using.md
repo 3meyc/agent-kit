@@ -45,8 +45,11 @@ Why user scope only ([spikes](spikes.md) S11, tried with Claude Code 2.1.300 and
    local files the kit now supplies (it deletes nothing).
 2. Set `ledger: false` if the project keeps no session ledger; `session` then skips its ledger hooks.
 3. Run `/core:kit-doctor` (or `kit doctor` from a Claude session's shell): it checks `kit.json`,
-   the enabled plugins and declared marketplaces, that no kit-owned file (or a test of one) is
-   copied into the repo, and whether an installed plugin lags its channel.
+   the enabled plugins and declared marketplaces, that each enabled plugin is installed on this
+   machine, that no kit-owned file (or a test of one) is copied into the repo, and whether an
+   installed plugin the project uses lags its channel. In a worktree under another checkout's
+   `.claude/worktrees/` it warns when that checkout's `.claude/` differs from the worktree's:
+   sessions there read the outer one (seen with the desktop app).
 4. For git hooks outside Claude, where plugin commands are not on PATH, add the kit as a dev
    dependency and call its `agent-kit` command, for example `agent-kit ledger-scan-secrets` in the
    pre-commit hook:

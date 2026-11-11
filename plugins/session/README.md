@@ -32,7 +32,7 @@ quiet unless `kit.json` sets `"ledger": true`.
 | ID | Hook id | Event | Needs `"ledger": true` | What it does |
 | --- | --- | --- | --- | --- |
 | 1 | `ledger-stop` | Stop | yes | Writes the session's record and `INDEX.md` |
-| 2 | `ledger-brief` | SessionStart | yes | Prints the brief of recent records into the session's context |
+| 2 | `ledger-brief` | SessionStart | yes | Prints the brief of recent records into the session's context, then the record rules (also with an empty ledger) |
 | 3 | `ledger-shell-deletions` | PreToolUse, PostToolUse (Bash, PowerShell) | yes | Snapshots tracked files a script deletes, so the record credits the deletion |
 | 4 | `ledger-summarize` | (spawned by `ledger-stop`) | yes | Fills a record nobody wrote with a cheap model through `claude -p`. Spends tokens; list it to turn it off, or set `LEDGER_NO_SUMMARY=1` |
 | 5 | `worktree-setup` | SessionStart | no | In a new linked worktree: installs dependencies (`commands.install`, else pnpm or npm from the lockfile), builds a CodeGraph index when the main checkout has one, trusts RTK filters already trusted elsewhere. Each step is skipped when its tool is not installed |

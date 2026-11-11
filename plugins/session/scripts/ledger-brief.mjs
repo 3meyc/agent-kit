@@ -337,6 +337,18 @@ function sharedLines(records, withOthers) {
   return lines;
 }
 
+/**
+ * The record rules every session needs, not only one that runs `/handoff` (whose text has the
+ * full form): a session that commits without it would otherwise leave placeholders to the
+ * summarizer. Printed whenever the ledger is on, an empty ledger included.
+ */
+export const RECORD_RULES = [
+  "This session's ledger record (`session-ledger --record` prints its path): before each commit, or",
+  "with /handoff when stopping mid-task, add `title:` and write ## Intent, ## Decisions (rejected",
+  "approaches too) and ## Next (each item opens with its entry point). An item you did not check",
+  "starts with `(unverified)`. Front matter and ## Files are computed: never edit them.",
+];
+
 /** @param {{ cwd?: unknown }} payload */
 async function main(payload) {
   ROOT = rootFor(payload.cwd);
@@ -344,7 +356,10 @@ async function main(payload) {
   if (!ledgerHookOn(HOOK_ID, KIT)) return;
   LEDGER_DIR = ledgerDir(ROOT, KIT);
   const names = listRecords(LEDGER_DIR, { archive: false }).map((r) => r.name);
-  if (names.length === 0) return;
+  if (names.length === 0) {
+    console.log(RECORD_RULES.join("\n"));
+    return;
+  }
 
   const candidates = readCandidates(names);
   const others = otherWorktreeRecords(new Set(names));
@@ -359,6 +374,8 @@ async function main(payload) {
     ...sharedLines([...candidates.slice(0, SHARED_FROM), ...others], others.length > 0),
     "",
     `Open the record under ${KIT.paths.ledger}/ before reopening any topic above.`,
+    "",
+    ...RECORD_RULES,
   ];
   console.log(lines.join("\n"));
 }

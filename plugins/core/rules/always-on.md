@@ -22,10 +22,10 @@
 
 ## Tooling limits
 
-Sub-agents, kit scripts and the environment refuse some actions on purpose. A refusal is a guard, so going around it is the user's decision.
+Sub-agents, kit scripts and the environment refuse some actions on purpose. A refusal is a guard, so going around it is the user's decision. Check the table below before planning work in these areas.
 
-1. Stop and say which tool refused, quote its reason, and offer the options. Do not quietly run the same action another way.
-2. Work around it only after the user approves that specific action; use the smallest command and say in the reply that it bypassed the tool.
+1. Stop and say which tool refused, quote its reason, and offer the options. Do not quietly run the same action another way, and do not reword the request until it passes.
+2. Work around it only after the user approves that specific action; use the smallest command, say in the reply that it bypassed the tool, and record the bypass in the session record's Decisions when the project keeps a ledger.
 3. Record the gap so the tool gets fixed (a follow-up item or task). A second workaround for the same gap means the tool needs the capability.
 4. A sub-agent does not accept approval relayed by its caller for an action its own rules forbid.
 

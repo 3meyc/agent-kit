@@ -13,14 +13,19 @@
 //    (S8), with the update commands. The remote is read every time; a cached SHA is used only
 //    when the read fails, and is reported as such. The copy a session here loads is named (S11),
 //    and so is every project-scope copy of this repository that differs from the user copy or the
-//    channel, with `kit installs --clean` to clear it; stale copies elsewhere are counted.
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+//    channel, with `kit installs --clean` to clear it; stale copies elsewhere are counted. Only the
+//    plugins the project enables, or that come from a marketplace it declares, are checked.
+// Section 2 also names an enabled plugin this machine has not installed (not in strict mode), and
+// a worktree nested in another checkout's `.claude/worktrees/` whose `.claude/` differs from that
+// checkout's, since sessions there read the outer one.
+import { spawnSync } from "node:child_process";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { CORE_ROOT, enabledForProject, findKitCopies, pluginDependencies, pluginRoots, sessionPluginDirs } from "./kit-owned.mjs";
 import { KIT_FILE } from "../lib/kit-config.mjs";
 import { validate } from "./schema-check.mjs";
 import { surveyInstalls, tilde } from "./installs.mjs";
-import { checkUpdates, claudeDir, defaultCacheFile, readPluginState, repoRoot, samePath, sourceRef, updateCommands } from "./update-check.mjs";
+import { checkUpdates, claudeDir, defaultCacheFile, readPluginState, recordApplies, repoRoot, samePath, sourceRef, splitId, updateCommands } from "./update-check.mjs";
 
 export const BASE_MARKETPLACE = "agent-kit";
 
@@ -183,6 +188,124 @@ export function checkLoadedPlugins(projectDir, plugins, userDir = claudeDir()) {
 }
 
 /**
+ * The plugins the project's `.claude/settings.json` and `settings.local.json` enable, by id, with
+ * the file that enables each; a local `false` takes one back.
+ * @param {string} projectDir @returns {Map<string, string>}
+ */
+function projectEnabled(projectDir) {
+  const enabled = new Map();
+  for (const file of ["settings.json", "settings.local.json"]) {
+    for (const [id, on] of Object.entries(readJson(join(projectDir, ".claude", file)).value?.enabledPlugins ?? {})) {
+      if (on === true) enabled.set(id, `.claude/${file}`);
+      else if (on === false) enabled.delete(id);
+    }
+  }
+  return enabled;
+}
+
+/**
+ * Whether the project cares about an installed plugin: one its settings enable, or one from a
+ * marketplace it declares. A project whose settings name neither cares about every plugin.
+ * @param {string} projectDir @returns {(plugin: string, marketplace: string) => boolean}
+ */
+export function projectPluginFilter(projectDir) {
+  const enabled = projectEnabled(projectDir);
+  const declared = new Set(Object.keys(readJson(join(projectDir, ".claude", "settings.json")).value?.extraKnownMarketplaces ?? {}));
+  if (enabled.size === 0 && declared.size === 0) return () => true;
+  return (plugin, marketplace) => enabled.has(`${plugin}@${marketplace}`) || declared.has(marketplace);
+}
+
+/**
+ * One warning per plugin the project enables that this machine has not installed for it (no user
+ * record, no project record of this repository) and no `--plugin-dir` loads: sessions here then
+ * run without it, which an enabled-only check misses.
+ * @param {string} projectDir @param {ReturnType<typeof readPluginState>} state @param {Set<string>} loadedNames
+ */
+export function checkInstalled(projectDir, state, loadedNames = new Set()) {
+  const enabled = projectEnabled(projectDir);
+  const keys = new Map();
+  const findings = [];
+  for (const [id, where] of [...enabled].sort(([a], [b]) => a.localeCompare(b))) {
+    const name = splitId(id);
+    if (!name || loadedNames.has(name.plugin)) continue;
+    const entries = state.installed[id];
+    if (Array.isArray(entries) && entries.some((entry) => recordApplies(entry, projectDir, keys))) continue;
+    findings.push({
+      level: "warn",
+      text: `${id} is enabled in ${where} but not installed on this machine, so sessions here run without it; install it at user scope: \`claude plugin install ${id} --scope user\` (docs/using.md § 1)`,
+    });
+  }
+  if (enabled.size > 0 && findings.length === 0) findings.push({ level: "ok", text: `every enabled plugin (${enabled.size}) is installed on this machine or loaded with --plugin-dir` });
+  return findings;
+}
+
+/** The checkout a worktree at `<checkout>/.claude/worktrees/<name>` sits in, or null. @param {string} dir */
+export function outerCheckout(dir) {
+  const match = /^(.*)[\\/]\.claude[\\/]worktrees[\\/][^\\/]+$/.exec(resolve(dir));
+  return match && existsSync(join(match[1], ".git")) ? match[1] : null;
+}
+
+/** JSON with sorted keys, so two files that differ only in key order compare equal. @param {unknown} value */
+function canonical(value) {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(/** @type {any} */ (value)[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+/** What differs between two checkouts' `.claude/`: the shared settings, and the entries of its skill, agent, command and rule folders. */
+function claudeDirDiffs(outer, inner) {
+  const diffs = [];
+  const settings = (dir) => {
+    const file = readJson(join(dir, ".claude", "settings.json"));
+    return file.value === undefined ? (file.missing ? "missing" : "unreadable") : canonical(file.value);
+  };
+  if (settings(outer) !== settings(inner)) diffs.push(".claude/settings.json");
+  for (const folder of ["skills", "agents", "commands", "rules"]) {
+    const names = (dir) => {
+      try {
+        return new Set(readdirSync(join(dir, ".claude", folder)));
+      } catch {
+        return new Set();
+      }
+    };
+    const [a, b] = [names(outer), names(inner)];
+    const changed = [...[...b].filter((name) => !a.has(name)).map((name) => `+${name}`), ...[...a].filter((name) => !b.has(name)).map((name) => `-${name}`)];
+    if (changed.length > 0) diffs.push(`.claude/${folder} ${changed.sort().join(" ")}`);
+  }
+  return diffs;
+}
+
+/** The git top level of `cwd`, or null outside git. @param {string} cwd */
+function gitTopLevel(cwd) {
+  const top = spawnSync("git", ["rev-parse", "--show-toplevel"], { cwd, encoding: "utf8" });
+  return top.status === 0 && top.stdout.trim() ? resolve(top.stdout.trim()) : null;
+}
+
+/**
+ * A finding for a worktree nested in another checkout's `.claude/worktrees/` (the desktop app's
+ * default), found from the project or from the shell's own checkout, which differ when the session's
+ * project is the outer checkout. Sessions in such a worktree read the outer checkout's `.claude/`
+ * settings, skills and hooks (seen with the desktop app, which passes the main checkout as the
+ * project's config root), so a branch that changes its `.claude/` is not what runs there.
+ * @param {string} projectDir @param {string} [cwd]
+ */
+export function checkNestedWorktree(projectDir, cwd = process.cwd()) {
+  const top = gitTopLevel(cwd);
+  const inner = [top, projectDir].find((dir) => dir && outerCheckout(dir));
+  if (!inner) return [];
+  const outer = /** @type {string} */ (outerCheckout(inner));
+  const reading = samePath(projectDir, outer) ? ` This report reads ${tilde(outer)}, the session's project, not the worktree.` : "";
+  const diffs = claudeDirDiffs(outer, inner);
+  if (diffs.length === 0) return [{ level: "ok", text: `worktree inside ${tilde(outer)}/.claude/worktrees/; its .claude/ matches the outer checkout's, which sessions here read${reading}` }];
+  return [{
+    level: "warn",
+    text: `worktree inside ${tilde(outer)}/.claude/worktrees/: sessions here read the outer checkout's .claude/ settings, skills and hooks, which differ from this branch's (${diffs.join("; ")}). Plugins, hooks or skills this branch changes do not apply here; start the session in a clone or a worktree outside the checkout, or land the branch first.${reading}`,
+  }];
+}
+
+/**
  * One finding per copy of a kit-owned file: a warning, or a failure in strict mode, which also
  * reads only the shared settings for which plugins the project enables.
  * @param {string} projectDir @param {{ strict?: boolean }} [options]
@@ -216,7 +339,11 @@ function copyLabel(item) {
  */
 export function checkVersions(projectDir, options = {}) {
   const now = options.now ?? Date.now();
-  const { checked } = checkUpdates({ root: projectDir, cacheFile: defaultCacheFile(), fresh: true, now, ...options });
+  const wanted = projectPluginFilter(projectDir);
+  /** @type {Set<string>} */
+  const skipped = new Set();
+  const include = (plugin, marketplace) => wanted(plugin, marketplace) || (skipped.add(`${plugin}@${marketplace}`), false);
+  const { checked } = checkUpdates({ root: projectDir, cacheFile: defaultCacheFile(), fresh: true, now, include, ...options });
   const findings = [];
   const of = (item) => (item.source ? ` of the plugin's own source ${item.source}` : "");
   const where = (item) => {
@@ -250,6 +377,7 @@ export function checkVersions(projectDir, options = {}) {
     }
   }
   if (checked.length === 0) findings.push({ level: "ok", text: "no kit plugins installed from a git marketplace (a --plugin-dir copy is not checked)" });
+  if (skipped.size > 0) findings.push({ level: "ok", text: `not checked: ${[...skipped].sort().join(", ")}, which this project neither enables nor declares the marketplace of` });
   const repo = repoRoot(projectDir);
   const elsewhere = surveyInstalls({ state: options.state ?? readPluginState() }).filter(
     (copy) => copy.stale && !(repo ? copy.repo === repo : samePath(copy.projectPath, projectDir)),
@@ -275,7 +403,7 @@ const machineOnly = (findings) => findings.map((finding) => (finding.level === "
  * versions never fail. `pluginRoots` are extra plugin folders to read ownership from (an overlay's
  * plugins in CI, where nothing is installed); `state`, `sessionDirs` and `userDir` are for tests.
  * @param {string} projectDir
- * @param {{ offline?: boolean, strict?: boolean, pluginDirs?: string[], pluginRoots?: string[], print?: (line: string) => void, state?: ReturnType<typeof readPluginState>, sessionDirs?: string[], userDir?: string }} [options]
+ * @param {{ offline?: boolean, strict?: boolean, pluginDirs?: string[], pluginRoots?: string[], print?: (line: string) => void, state?: ReturnType<typeof readPluginState>, sessionDirs?: string[], userDir?: string, cwd?: string }} [options]
  */
 export function runDoctor(projectDir, options = {}) {
   const { offline = false, strict = false, pluginDirs = [], print = console.log, userDir = claudeDir() } = options;
@@ -284,10 +412,14 @@ export function runDoctor(projectDir, options = {}) {
   const { config, findings: kit } = checkKitJson(projectDir);
   const plugins = pluginRoots(projectDir, state, sessionDirs, options.pluginRoots ?? []);
   const loaded = checkLoadedPlugins(projectDir, plugins, userDir);
+  const loadedNames = new Set(plugins.filter((plugin) => plugin.source === "session").map((plugin) => plugin.name));
+  // CI installs nothing, so strict mode leaves the installed check out rather than warn on every plugin.
+  const nested = checkNestedWorktree(projectDir, options.cwd ?? projectDir);
+  const machine = strict ? machineOnly([...loaded, ...nested]) : [...loaded, ...checkInstalled(projectDir, state, loadedNames), ...nested];
   const versions = offline ? [{ level: "ok", text: "skipped (--offline)" }] : checkVersions(projectDir, { state });
   const sections = [
     ["kit.json", kit],
-    ["Plugins and marketplaces", [...checkSettings(projectDir, config, userDir, { repoOnly: strict }), ...(strict ? machineOnly(loaded) : loaded)]],
+    ["Plugins and marketplaces", [...checkSettings(projectDir, config, userDir, { repoOnly: strict }), ...machine]],
     ["Kit-owned files in the repo", checkCopies(projectDir, plugins, { strict })],
     ["Installed versions", strict ? machineOnly(versions) : versions],
   ];

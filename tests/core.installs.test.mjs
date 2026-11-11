@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync,
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, describe, it } from "node:test";
-import { checkVersions } from "../plugins/core/src/doctor.mjs";
+import { checkInstalled, checkNestedWorktree, checkVersions, outerCheckout } from "../plugins/core/src/doctor.mjs";
 import { runInstalls, surveyInstalls, uninstallCopy } from "../plugins/core/src/installs.mjs";
 import { checkUpdates, loadedRecord, recordApplies, repoRoot } from "../plugins/core/src/update-check.mjs";
 
@@ -119,6 +119,61 @@ describe("kit doctor: project-scope copies", () => {
     const state = kitState([record("user", "b"), record("project", "b", dirs.inner)]);
     const findings = checkVersions(dirs.main, { state, cacheFile: null, resolveSha: () => sha("b") });
     assert.deepEqual(findings.map((finding) => finding.level), ["ok"]);
+  });
+});
+
+describe("kit doctor: what this machine runs for the project", () => {
+  const dirs = layout("machine");
+
+  it("warns on an enabled plugin with no install record for the project, unless --plugin-dir loads it", () => {
+    assert.deepEqual(checkInstalled(dirs.main, kitState([record("user", "a")])).map((finding) => finding.level), ["ok"]);
+    assert.deepEqual(checkInstalled(dirs.inner, kitState([record("project", "a", dirs.sibling)])).map((finding) => finding.level), ["ok"], "a project record of the same repository counts");
+    const missing = checkInstalled(dirs.main, kitState([record("project", "a", dirs.other)]));
+    assert.equal(missing.length, 1);
+    assert.equal(missing[0].level, "warn");
+    assert.match(missing[0].text, /^core@agent-kit is enabled in \.claude\/settings\.json but not installed on this machine.*`claude plugin install core@agent-kit --scope user`/);
+    assert.deepEqual(checkInstalled(dirs.main, { marketplaces: {}, installed: {} }, new Set(["core"])).map((finding) => finding.level), ["ok"], "a --plugin-dir copy stands in");
+    assert.deepEqual(checkInstalled(dirs.other, { marketplaces: {}, installed: {} }), [], "nothing enabled, nothing to say");
+  });
+
+  it("checks the versions of the plugins the project enables or declares, not every user plugin", () => {
+    const state = {
+      marketplaces: {
+        "agent-kit": { source: { source: "github", repo: "owner/agent-kit", ref: "stable" } },
+        "life-kit": { source: { source: "github", repo: "owner/life-kit" } },
+      },
+      installed: { "core@agent-kit": [record("user", "b")], "diary@life-kit": [record("user", "d")] },
+    };
+    const asked = [];
+    const resolveSha = (remote) => {
+      asked.push(remote.url);
+      return sha("b");
+    };
+    const texts = checkVersions(dirs.main, { state, cacheFile: null, resolveSha }).map((finding) => `${finding.level} ${finding.text}`);
+    assert.deepEqual(asked, ["https://github.com/owner/agent-kit.git"], "the unrelated marketplace is never read");
+    assert.ok(texts.some((text) => /^ok core@agent-kit \(user\) is at stable/.test(text)), texts.join("\n"));
+    assert.ok(texts.includes("ok not checked: diary@life-kit, which this project neither enables nor declares the marketplace of"), texts.join("\n"));
+    asked.length = 0;
+    checkVersions(dirs.other, { state, cacheFile: null, resolveSha });
+    assert.equal(asked.length, 2, "a project whose settings name nothing checks every plugin");
+  });
+
+  it("names a worktree nested in a checkout's .claude/worktrees/ and what its .claude/ differs in", () => {
+    assert.equal(outerCheckout(dirs.inner), dirs.main);
+    assert.equal(outerCheckout(dirs.sibling), null);
+    assert.deepEqual(checkNestedWorktree(dirs.sibling, dirs.sibling), []);
+    const same = checkNestedWorktree(dirs.inner, dirs.inner);
+    assert.deepEqual(same.map((finding) => finding.level), ["ok"]);
+
+    writeFileSync(join(dirs.inner, ".claude", "settings.json"), '{"enabledPlugins":{"core@agent-kit":true,"extra@agent-kit":true}}\n');
+    mkdirSync(join(dirs.inner, ".claude", "skills", "new-skill"), { recursive: true });
+    const [finding] = checkNestedWorktree(dirs.inner, dirs.inner);
+    assert.equal(finding.level, "warn");
+    assert.match(finding.text, /sessions here read the outer checkout's \.claude\/ settings, skills and hooks, which differ from this branch's \(\.claude\/settings\.json; \.claude\/skills \+new-skill\)/);
+    assert.doesNotMatch(finding.text, /This report reads/);
+
+    const fromShell = checkNestedWorktree(dirs.main, join(dirs.inner, ".claude"));
+    assert.match(fromShell[0].text, /This report reads .*my-app, the session's project, not the worktree\.$/, "the session's project is the outer checkout");
   });
 });
 

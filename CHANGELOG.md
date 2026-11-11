@@ -4,6 +4,10 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 ## Unreleased
 
+- core: `kit doctor` warns on a plugin the project enables that this machine has not installed for it (not in strict mode), checks installed versions only for the plugins the project enables or whose marketplace it declares (an unrelated user plugin's remote is never read), and in a worktree under another checkout's `.claude/worktrees/` warns when that checkout's `.claude/` settings, skills, agents, commands or rules differ from the worktree's, since sessions there read the outer one.
+- core: the Tooling limits rules say to check the table before planning, never to reword a refused request until it passes, and to record an approved bypass in the session record's Decisions.
+- session: the SessionStart ledger brief carries the record rules (title, Intent, Decisions, Next, the `(unverified)` prefix, computed front matter), also with an empty ledger, so they reach a session that never runs `/handoff`.
+- svelte: `vitest` says it does not apply to Playwright specs, which its `**/*.spec.ts` path also matches.
 - docs: `using` § 5 explains how to set up, run and keep current the manual drift check (`/core:kit-inventory`, `kit drift`, `/core:kit-doctor` per repo). The kit schedules no inventory run; checking drift is the developer's job.
 
 ## 2026-11-11 — sixth `stable`

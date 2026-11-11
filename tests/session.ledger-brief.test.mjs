@@ -8,6 +8,7 @@ import {
   countUnverified,
   openNextItems,
   owedCountLine,
+  RECORD_RULES,
   removableLine,
   unmergedRecordNames,
   withComputedFacts,
@@ -240,6 +241,19 @@ describe("ledger-brief.mjs and kit.json", () => {
     }
   });
 
+  it("prints the record rules with an empty ledger", () => {
+    const repo = mkdtempSync(join(tmpdir(), "ledger-brief-empty-"));
+    try {
+      writeFileSync(join(repo, "kit.json"), KIT_ON);
+      mkdirSync(join(repo, ".claude", "ledger"), { recursive: true });
+      const result = spawnSync(process.execPath, [BRIEF], { cwd: repo, encoding: "utf8", input: JSON.stringify({ cwd: repo }) });
+      expect(result.status).toBe(0);
+      expect(result.stdout).toBe(`${RECORD_RULES.join("\n")}\n`);
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
   it("reads the ledger folder kit.json names", () => {
     const result = run({ project: "t", ledger: true, paths: { ledger: "notes/sessions" } });
     expect(result.stdout).toContain("Recent sessions in this repo (from notes/sessions/");
@@ -356,6 +370,11 @@ describe("ledger-brief.mjs brief sections (characterization)", () => {
           src/b.ts (3)
 
         Open the record under .claude/ledger/ before reopening any topic above.
+
+        This session's ledger record (\`session-ledger --record\` prints its path): before each commit, or
+        with /handoff when stopping mid-task, add \`title:\` and write ## Intent, ## Decisions (rejected
+        approaches too) and ## Next (each item opens with its entry point). An item you did not check
+        starts with \`(unverified)\`. Front matter and ## Files are computed: never edit them.
         "
       `);
     } finally {
@@ -392,6 +411,11 @@ describe("ledger-brief.mjs brief sections (characterization)", () => {
           src/x.ts (2)
 
         Open the record under .claude/ledger/ before reopening any topic above.
+
+        This session's ledger record (\`session-ledger --record\` prints its path): before each commit, or
+        with /handoff when stopping mid-task, add \`title:\` and write ## Intent, ## Decisions (rejected
+        approaches too) and ## Next (each item opens with its entry point). An item you did not check
+        starts with \`(unverified)\`. Front matter and ## Files are computed: never edit them.
         "
       `);
     } finally {
