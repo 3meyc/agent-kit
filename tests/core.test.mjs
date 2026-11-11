@@ -387,6 +387,46 @@ describe("update-check", () => {
     assert.match(updateText(lagging), /registered agent-kit \(HEAD, project wants stable\)/);
   });
 
+  it("checks a plugin whose catalog entry names its own repository against that repository's ref", () => {
+    const location = tempProject("own-source-marketplace", {
+      ".claude-plugin/marketplace.json": {
+        name: "my-kit",
+        plugins: [
+          { name: "inside", source: "./plugins/inside" },
+          { name: "outside", source: { source: "github", repo: "owner/outside-plugin", ref: "local" } },
+          { name: "pinned", source: { source: "url", url: "https://example.com/pinned.git", sha: sha("p") } },
+        ],
+      },
+    });
+    const record = (c) => [{ scope: "user", version: sha(c).slice(0, 12), gitCommitSha: sha(c) }];
+    const state = {
+      marketplaces: { "my-kit": { source: { source: "github", repo: "owner/my-kit" }, installLocation: location } },
+      installed: { "inside@my-kit": record("a"), "outside@my-kit": record("o"), "pinned@my-kit": record("p") },
+    };
+    const asked = [];
+    const { checked, lagging } = checkUpdates({
+      state,
+      resolveSha: (remote) => {
+        asked.push(`${remote.url} ${remote.ref}`);
+        return remote.url.includes("outside") ? sha("o") : sha("m");
+      },
+    });
+    assert.deepEqual(asked.sort(), ["https://github.com/owner/my-kit.git HEAD", "https://github.com/owner/outside-plugin.git local"]);
+    assert.deepEqual(
+      checked.map(({ plugin, ref, from, source }) => ({ plugin, ref, from, source })),
+      [
+        { plugin: "inside", ref: "HEAD", from: "remote", source: null },
+        { plugin: "outside", ref: "local", from: "remote", source: "https://github.com/owner/outside-plugin.git" },
+        { plugin: "pinned", ref: "HEAD", from: "pinned", source: "https://example.com/pinned.git" },
+      ],
+    );
+    assert.deepEqual(lagging.map((item) => item.plugin), ["inside"], "only the plugin inside the marketplace lags its HEAD");
+    const project = tempProject("own-source-doctor");
+    const texts = checkVersions(project, { state, cacheFile: null, resolveSha: (remote) => (remote.url.includes("outside") ? sha("o") : sha("m")) }).map((finding) => `${finding.level} ${finding.text}`);
+    assert.ok(texts.includes(`ok outside@my-kit (user) is at local ${sha("o").slice(0, 12)} (read from the remote, plugin source https://github.com/owner/outside-plugin.git)`), texts.join("\n"));
+    assert.ok(texts.includes(`ok pinned@my-kit (user) is at the commit its catalog entry pins ${sha("p").slice(0, 12)} (pinned, plugin source https://example.com/pinned.git)`), texts.join("\n"));
+  });
+
   it("caches outside a hook in the folder the hook uses, core-agent-kit", () => {
     const configDir = tempProject("claude-config", { "plugins/data/.keep": "" });
     const run = spawnSync(

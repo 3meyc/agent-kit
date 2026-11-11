@@ -55,7 +55,7 @@ export function surveyInstalls({ state = readPluginState(), channels = null } = 
     if (scoped.length === 0) continue;
     const user = entries.find((entry) => entry.scope === "user");
     const userSha = typeof user?.gitCommitSha === "string" ? user.gitCommitSha : null;
-    const channel = channels?.channel(name.marketplace) ?? null;
+    const channel = channels?.channel(name.marketplace, name.plugin) ?? null;
     const latest = channel?.latest ?? null;
     for (const entry of scoped) {
       const installed = entry.gitCommitSha;

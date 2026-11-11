@@ -210,7 +210,12 @@ export function checkVersions(projectDir, options = {}) {
   const now = options.now ?? Date.now();
   const { checked } = checkUpdates({ root: projectDir, cacheFile: defaultCacheFile(), fresh: true, now, ...options });
   const findings = [];
-  const where = (item) => (item.from === "cache" ? `the remote could not be read; a cached ${item.ref} from ${age(now - (item.cachedAt ?? now))} ago` : `${item.ref} on the remote`);
+  const of = (item) => (item.source ? ` of the plugin's own source ${item.source}` : "");
+  const where = (item) => {
+    if (item.from === "pinned") return "the commit its catalog entry pins";
+    if (item.from === "cache") return `the remote could not be read; a cached ${item.ref}${of(item)} from ${age(now - (item.cachedAt ?? now))} ago`;
+    return `${item.ref}${of(item)} on the remote`;
+  };
   for (const item of checked) {
     const label = copyLabel(item);
     if (!item.loaded && item.scope !== "user") {
@@ -226,7 +231,7 @@ export function checkVersions(projectDir, options = {}) {
     }
     const shadow = item.loaded && item.scope !== "user" ? `; sessions here load this copy instead of the user copy${item.userInstalled ? ` (${item.userInstalled.slice(0, 12)})` : ""}, because its install record comes first (S11)` : "";
     if (item.latest === null) findings.push({ level: "warn", text: `${label}: could not read ${item.ref} from the remote, and nothing is cached; the installed version is unchecked${shadow}` });
-    else if (item.latest === item.installed && item.from === "remote") findings.push({ level: shadow ? "warn" : "ok", text: `${label} is at ${item.ref} ${item.installed.slice(0, 12)} (read from the remote)${shadow}${shadow ? "; `kit installs --clean` clears it once the user copy is current" : ""}` });
+    else if (item.latest === item.installed && (item.from === "remote" || item.from === "pinned")) findings.push({ level: shadow ? "warn" : "ok", text: `${label} is at ${item.from === "pinned" ? "the commit its catalog entry pins" : item.ref} ${item.installed.slice(0, 12)} (${item.from === "pinned" ? "pinned" : "read from the remote"}${item.source ? `, plugin source ${item.source}` : ""})${shadow}${shadow ? "; `kit installs --clean` clears it once the user copy is current" : ""}` });
     else if (item.latest === item.installed) findings.push({ level: "warn", text: `${label}: ${where(item)} matches the installed ${item.installed.slice(0, 12)}; not proof that it is current${shadow}` });
     else {
       const refFirst = item.registeredRef !== item.ref ? ` This machine registered ${item.marketplace} at ${item.registeredRef}, so fix the marketplace ref first (section 2).` : "";

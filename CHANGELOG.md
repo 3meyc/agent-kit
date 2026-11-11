@@ -4,6 +4,8 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 ## Unreleased
 
+- core: the version check follows a plugin's own repository and ref when its catalog entry names one (a `github` or `url` source), and a commit the entry pins with `sha`. It compared such plugins with the marketplace repository's ref, so `kit doctor` and the SessionStart note reported a current plugin as behind.
+
 ## 2026-11-11 — fourth `stable`
 
 `stable` points at the commit that adds this entry. Project-scope installs that ran old kit copies (F46).
