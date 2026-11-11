@@ -5,9 +5,11 @@
  *
  * 1. `rules` — print `rules/always-on.md`.
  * 2. `update-check` — one short line per kit plugin whose installed commit differs from its
- *    channel (the project's declared marketplace ref, else the registered one) now, with the two
- *    update commands (S8). Remote SHAs are cached for six hours
- *    in the plugin's data folder; offline or slow remotes print nothing.
+ *    channel (the project's declared marketplace ref, else the registered one) now, with the
+ *    update commands (S8). Only the copy this session loads and the user-scope copy are named
+ *    (S11); the update names `--scope user`, and a project-scope copy is cleared with
+ *    `kit installs --clean`. Remote SHAs are cached for six hours in the plugin's data folder;
+ *    offline or slow remotes print nothing.
  *
  * Never blocks the session: every failure goes to stderr and the hook exits 0.
  */
@@ -33,10 +35,14 @@ export function updateText(lagging) {
   );
   const commands = new Set();
   for (const item of lagging) {
-    lines.push(`- ${item.plugin}@${item.marketplace}: ${item.installed.slice(0, 12)} installed, ${item.ref} is ${item.latest.slice(0, 12)}`);
+    const copy = item.scope === "user" || item.scope === "managed" || !item.scope ? "" : ` (${item.scope}-scope copy${item.loaded ? ", loaded instead of the user copy" : ""})`;
+    lines.push(`- ${item.plugin}@${item.marketplace}${copy}: ${item.installed.slice(0, 12)} installed, ${item.ref} is ${item.latest.slice(0, 12)}`);
     for (const command of updateCommands(item)) commands.add(command);
   }
   lines.push("", ...[...commands].map((command) => `    ${command}`));
+  if (commands.has("kit installs --clean")) {
+    lines.push("", "`kit installs --clean` (a kit command in the session's shell) uninstalls stale project-scope copies and keeps each folder's .claude/settings.json as it was.");
+  }
   const misregistered = [...new Set(lagging.filter((item) => item.registeredRef && item.registeredRef !== item.ref).map((item) => `${item.marketplace} (${item.registeredRef}, project wants ${item.ref})`))];
   if (misregistered.length > 0) {
     lines.push("", `This machine registered ${misregistered.join(", ")} at another ref, so these commands alone won't reach it; \`kit doctor\` gives the fix.`);
@@ -57,7 +63,10 @@ export async function main(input) {
   }
   if (!hookOff("update-check", config) && input?.source !== "compact") {
     try {
-      parts.push(updateText(checkUpdates({ root, cacheFile: defaultCacheFile() }).lagging));
+      // The copy this session runs and the user copy the kit installs; other worktrees' copies are
+      // `kit doctor`'s and `kit installs`'s to report.
+      const { lagging } = checkUpdates({ root, cacheFile: defaultCacheFile() });
+      parts.push(updateText(lagging.filter((item) => item.loaded || item.scope === "user")));
     } catch (error) {
       console.error(`core update-check: ${error instanceof Error ? error.message : error}`);
     }

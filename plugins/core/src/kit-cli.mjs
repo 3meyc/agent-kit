@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { isDirectRun, projectRoot } from "../lib/hook-utils.mjs";
 import { runAdopt } from "./adopt.mjs";
 import { runDoctor } from "./doctor.mjs";
+import { runInstalls } from "./installs.mjs";
 import { runInventory } from "./inventory.mjs";
 import { readKit } from "../lib/kit-config.mjs";
 import { checkUpdates, defaultCacheFile, updateCommands } from "./update-check.mjs";
@@ -15,6 +16,9 @@ const USAGE = `Usage: kit <command>
                        Check kit.json, enabled and --plugin-dir plugins, marketplaces, kit-owned copies
                        and their tests, installed versions (KIT_PLUGIN_DIRS adds plugin folders too)
   update-check         Installed kit plugins against their marketplace ref, with the update commands
+  installs [--clean] [--offline]
+                       Project-scope copies of kit plugins on this machine that differ from the user copy
+                       or the channel; --clean uninstalls them and keeps each folder's settings files
   adopt [--write] [--plugins core,session] [--base owner/repo#ref]
         [--overlay name=owner/repo#ref] [--overlay-plugin plugin@marketplace]
                        Starter kit.json, marketplaces and plugins in .claude/settings.json, kit-owned files (dry run unless --write)
@@ -87,23 +91,28 @@ export function printDev(root, print = console.log) {
 }
 
 function printUpdates(root, print = console.log) {
-  const { lagging, checked } = checkUpdates({ root, cacheFile: defaultCacheFile(), fresh: true });
-  if (checked.length === 0) {
+  const { checked } = checkUpdates({ root, cacheFile: defaultCacheFile(), fresh: true });
+  // What runs here: the copy sessions load, and the user copy the kit installs (S11).
+  const relevant = checked.filter((item) => item.loaded || item.scope === "user");
+  if (relevant.length === 0) {
     print("No kit plugins installed from a git marketplace for this project.");
     return 0;
   }
-  const unread = checked.filter((item) => item.from !== "remote");
+  const unread = relevant.filter((item) => item.from !== "remote");
   if (unread.length > 0) {
     print(`Could not read the remote for ${[...new Set(unread.map((item) => item.marketplace))].join(", ")}; those results ${unread.some((item) => item.from === "cache") ? "come from the cache" : "are missing"}.`);
   }
+  const lagging = relevant.filter((item) => item.latest !== null && item.latest !== item.installed);
   if (lagging.length === 0) {
-    print(`All ${checked.length - unread.filter((item) => item.latest === null).length} checked kit plugin install(s) match their channel's ref.`);
-    return 0;
+    print(`All ${relevant.length - unread.filter((item) => item.latest === null).length} checked kit plugin install(s) match their channel's ref.`);
   }
   for (const item of lagging) {
-    print(`${item.plugin}@${item.marketplace} (${item.scope}): installed ${item.installed.slice(0, 12)}, ${item.ref} is ${item.latest.slice(0, 12)}${item.from === "cache" ? " (cached)" : ""}`);
+    const copy = item.scope === "user" ? "user" : `${item.scope} copy for ${item.projectPath}`;
+    print(`${item.plugin}@${item.marketplace} (${copy}${item.loaded && item.scope !== "user" ? ", loaded before the user copy" : ""}): installed ${item.installed.slice(0, 12)}, ${item.ref} is ${item.latest.slice(0, 12)}${item.from === "cache" ? " (cached)" : ""}`);
     for (const command of updateCommands(item)) print(`  ${command}`);
   }
+  const others = checked.filter((item) => !item.loaded && item.scope !== "user" && item.installed !== (item.latest ?? item.installed));
+  if (others.length > 0) print(`${others.length} other project-scope cop${others.length === 1 ? "y" : "ies"} of this repository lag; \`kit installs\` lists them.`);
   return 0;
 }
 
@@ -126,6 +135,8 @@ export function main(argv) {
       return runDoctor(root, { offline: args.includes("--offline"), pluginDirs: optionValues(args, "--plugin-dir") });
     case "update-check":
       return printUpdates(root);
+    case "installs":
+      return runInstalls(args);
     case "adopt":
       return runAdopt(root, args);
     case "inventory":

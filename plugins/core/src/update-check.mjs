@@ -6,11 +6,12 @@
 // (S3c); a plugin with its own version is skipped, since its marketplace HEAD moves for reasons
 // unrelated to it. The channel is the ref the project declares in `.claude/settings.json`
 // `extraKnownMarketplaces` when it declares one, else the ref this machine registered the
-// marketplace at. Node built-ins only.
+// marketplace at. Which install record a session loads, when one plugin is installed at several
+// scopes, follows S11 (`loadedRecord`). Node built-ins only.
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const MISS_TTL_MS = 30 * 60 * 1000;
@@ -93,17 +94,89 @@ function lsRemote(remote, timeoutMs) {
   return result.status === 0 ? pickRemoteSha(result.stdout, remote.ref) : null;
 }
 
+/** `path` with symlinks resolved when it exists (`/tmp` is `/private/tmp` on macOS), else as given. */
+export function realPath(path) {
+  try {
+    return realpathSync(resolve(path));
+  } catch {
+    return resolve(path);
+  }
+}
+
+/** Whether two folders are the same one, by real path. */
+export function samePath(a, b) {
+  return typeof a === "string" && typeof b === "string" && realPath(a) === realPath(b);
+}
+
 /**
- * Whether an install record applies to this project: user scope always; project and local scope
- * only for their own project.
+ * The main checkout of the git repository `path` belongs to: a linked worktree resolves to the
+ * checkout that owns it. A path that no longer exists counts from its nearest existing folder, so a
+ * removed worktree under the main checkout still belongs to it. Null outside git.
+ * @param {string} path
  */
-function appliesTo(entry, root) {
+export function repoRoot(path) {
+  let dir = resolve(path);
+  while (!existsSync(dir)) {
+    const up = dirname(dir);
+    if (up === dir) return null;
+    dir = up;
+  }
+  dir = realPath(dir);
+  for (;;) {
+    const dotGit = join(dir, ".git");
+    if (existsSync(dotGit)) {
+      try {
+        if (statSync(dotGit).isDirectory()) return dir;
+        const gitdir = /^gitdir:\s*(.+)$/m.exec(readFileSync(dotGit, "utf8"))?.[1]?.trim();
+        if (!gitdir) return dir;
+        const worktreeGitDir = resolve(dir, gitdir);
+        const commondirFile = join(worktreeGitDir, "commondir");
+        const common = existsSync(commondirFile) ? resolve(worktreeGitDir, readFileSync(commondirFile, "utf8").trim()) : dirname(dirname(worktreeGitDir));
+        return realPath(basename(common) === ".git" ? dirname(common) : common);
+      } catch {
+        return dir;
+      }
+    }
+    const up = dirname(dir);
+    if (up === dir) return null;
+    dir = up;
+  }
+}
+
+/** What Claude Code matches project-scope records by: the repository, else the folder itself. */
+function projectKey(path) {
+  return repoRoot(path) ?? realPath(path);
+}
+
+/**
+ * Whether an install record can be the copy a session in `root` loads (docs/spikes.md S11): a
+ * user or managed record always; a project or local record when its folder is in the same git
+ * repository as `root` (any worktree of it), or is `root` itself outside git. Local scope is
+ * assumed to match like project scope (unverified).
+ * @param {Record<string, any>} entry @param {string | null} root @param {Map<string, string>} [keys]
+ */
+export function recordApplies(entry, root, keys = new Map()) {
   if (entry.scope === "user" || entry.scope === "managed") return true;
-  return typeof entry.projectPath === "string" && root !== null && resolve(entry.projectPath) === resolve(root);
+  if (typeof entry.projectPath !== "string" || !root) return false;
+  const key = (path) => {
+    if (!keys.has(path)) keys.set(path, projectKey(path));
+    return keys.get(path);
+  };
+  return key(entry.projectPath) === key(root);
+}
+
+/**
+ * The install record a session in `root` loads: the first record in `installed_plugins.json`
+ * order that applies (S11). New records are appended, so a project-scope record written before
+ * the user one, or a user one reinstalled later, decides which copy runs.
+ * @param {Array<Record<string, any>>} entries @param {string | null} root
+ */
+export function loadedRecord(entries, root, keys = new Map()) {
+  return entries.find((entry) => recordApplies(entry, root, keys)) ?? null;
 }
 
 /** A plugin without its own version: Claude Code stores the commit SHA prefix as the version. */
-function isCommitVersioned(entry) {
+export function isCommitVersioned(entry) {
   return (
     typeof entry.gitCommitSha === "string" &&
     typeof entry.version === "string" &&
@@ -112,28 +185,17 @@ function isCommitVersioned(entry) {
 }
 
 /**
- * Plugins installed for `root` whose commit differs from their channel's commit now.
+ * The commit each marketplace's channel points at now, looked up once per marketplace.
  *
- * The channel is the project's declared ref (`declared`, by default read from `root`) when the
- * project declares the marketplace, else the ref the marketplace is registered at on this machine;
- * `registeredRef` keeps the latter, so a caller can say when the two differ (plugins install from
- * the registered one). Remote SHAs are cached in `cacheFile`: for six hours, a failed lookup for
- * thirty minutes. With `fresh`, the cache is not trusted: every remote is read again, and only
- * when that read fails does a cached SHA stand in, with `from: "cache"` and its age in `cachedAt`.
- * @param {{ root?: string | null, cacheFile?: string | null, timeoutMs?: number, state?: ReturnType<typeof readPluginState>, declared?: Record<string, any>, fresh?: boolean, resolveSha?: (remote: {url: string, ref: string}) => string | null, now?: number }} [options]
- * @returns {{ lagging: Array<UpdateItem & { latest: string }>, checked: UpdateItem[] }}
- * @typedef {{ plugin: string, marketplace: string, scope: string, installed: string, latest: string | null, ref: string, registeredRef: string, from: "remote" | "cache" | "none", cachedAt: number | null }} UpdateItem
+ * The channel is the project's declared ref (`declared`) when the project declares the
+ * marketplace, else the ref the marketplace is registered at on this machine; `registeredRef` keeps
+ * the latter, so a caller can say when the two differ (plugins install from the registered one).
+ * Remote SHAs are cached in `cacheFile`: for six hours, a failed lookup for thirty minutes. With
+ * `fresh`, the cache is not trusted: every remote is read again, and only when that read fails does
+ * a cached SHA stand in, with `from: "cache"` and its age in `cachedAt`. Call `save()` once done.
+ * @param {{ cacheFile?: string | null, timeoutMs?: number, state: ReturnType<typeof readPluginState>, declared?: Record<string, any>, fresh?: boolean, resolveSha?: (remote: {url: string, ref: string}) => string | null, now?: number }} options
  */
-export function checkUpdates({
-  root = null,
-  cacheFile = null,
-  timeoutMs = 4000,
-  state = readPluginState(),
-  declared = declaredMarketplaces(root),
-  fresh = false,
-  resolveSha,
-  now = Date.now(),
-} = {}) {
+export function channelResolver({ cacheFile = null, timeoutMs = 4000, state, declared = {}, fresh = false, resolveSha, now = Date.now() }) {
   const cache = cacheFile ? (readJson(cacheFile) ?? {}) : {};
   let cacheDirty = false;
   const looked = new Map();
@@ -160,44 +222,100 @@ export function checkUpdates({
     looked.set(key, result);
     return result;
   };
+  return {
+    /** @returns {{ ref: string, registeredRef: string, latest: string | null, from: "remote" | "cache" | "none", cachedAt: number | null } | null} */
+    channel(marketplace) {
+      const registered = state.marketplaces[marketplace]?.source;
+      const remote = marketplaceRemote(declared[marketplace]) ?? marketplaceRemote(registered);
+      if (!remote) return null;
+      const { sha, from, cachedAt } = shaFor(marketplace, remote);
+      return { ref: remote.ref, registeredRef: registered ? sourceRef(registered) : remote.ref, latest: sha, from, cachedAt };
+    },
+    save() {
+      if (!cacheFile || !cacheDirty) return;
+      try {
+        mkdirSync(dirname(cacheFile), { recursive: true });
+        writeFileSync(cacheFile, JSON.stringify(cache));
+        cacheDirty = false;
+      } catch {
+        // A cache that cannot be written only costs another ls-remote next time.
+      }
+    },
+  };
+}
 
+/** `name@marketplace` split, or null for an id without a marketplace. */
+export function splitId(id) {
+  const at = id.lastIndexOf("@");
+  return at > 0 ? { plugin: id.slice(0, at), marketplace: id.slice(at + 1) } : null;
+}
+
+/**
+ * Kit-style plugins installed for `root`, each against its channel's commit now (see
+ * `channelResolver`). One item per install record that a session in `root` could load: the user
+ * record, and each project or local record of the same repository. `loaded` marks the copy a
+ * session there actually runs (`loadedRecord`, S11); `own` marks a record for `root` itself;
+ * `userInstalled` is the user-scope copy's commit, or null when there is none.
+ * @param {{ root?: string | null, cacheFile?: string | null, timeoutMs?: number, state?: ReturnType<typeof readPluginState>, declared?: Record<string, any>, fresh?: boolean, resolveSha?: (remote: {url: string, ref: string}) => string | null, now?: number }} [options]
+ * @returns {{ lagging: Array<UpdateItem & { latest: string }>, checked: UpdateItem[] }}
+ * @typedef {{ plugin: string, marketplace: string, scope: string, projectPath: string | null, installed: string, latest: string | null, ref: string, registeredRef: string, from: "remote" | "cache" | "none", cachedAt: number | null, loaded: boolean, own: boolean, userInstalled: string | null }} UpdateItem
+ */
+export function checkUpdates({
+  root = null,
+  cacheFile = null,
+  timeoutMs = 4000,
+  state = readPluginState(),
+  declared = declaredMarketplaces(root),
+  fresh = false,
+  resolveSha,
+  now = Date.now(),
+} = {}) {
+  const channels = channelResolver({ cacheFile, timeoutMs, state, declared, fresh, resolveSha, now });
+  const keys = new Map();
   const checked = [];
   for (const [id, entries] of Object.entries(state.installed)) {
-    const at = id.lastIndexOf("@");
-    if (at <= 0 || !Array.isArray(entries)) continue;
-    const plugin = id.slice(0, at);
-    const marketplace = id.slice(at + 1);
-    const registered = state.marketplaces[marketplace]?.source;
-    const remote = marketplaceRemote(declared[marketplace]) ?? marketplaceRemote(registered);
-    if (!remote) continue;
-    const registeredRef = registered ? sourceRef(registered) : remote.ref;
-    for (const entry of entries) {
-      if (!appliesTo(entry, root) || !isCommitVersioned(entry)) continue;
-      const { sha: latest, from, cachedAt } = shaFor(marketplace, remote);
-      checked.push({ plugin, marketplace, scope: entry.scope, installed: entry.gitCommitSha, latest, ref: remote.ref, registeredRef, from, cachedAt });
+    const name = splitId(id);
+    if (!name || !Array.isArray(entries)) continue;
+    const records = entries.filter((entry) => isCommitVersioned(entry) && recordApplies(entry, root, keys));
+    if (records.length === 0) continue;
+    const channel = channels.channel(name.marketplace);
+    if (!channel) continue;
+    const loaded = loadedRecord(entries, root, keys);
+    const user = entries.find((entry) => entry.scope === "user");
+    for (const entry of records) {
+      checked.push({
+        ...name,
+        scope: entry.scope,
+        projectPath: typeof entry.projectPath === "string" ? entry.projectPath : null,
+        installed: entry.gitCommitSha,
+        ...channel,
+        loaded: entry === loaded,
+        own: entry.scope !== "user" && entry.scope !== "managed" && samePath(entry.projectPath, root),
+        userInstalled: typeof user?.gitCommitSha === "string" ? user.gitCommitSha : null,
+      });
     }
   }
-  if (cacheFile && cacheDirty) {
-    try {
-      mkdirSync(dirname(cacheFile), { recursive: true });
-      writeFileSync(cacheFile, JSON.stringify(cache));
-    } catch {
-      // A cache that cannot be written only costs another ls-remote next time.
-    }
-  }
+  channels.save();
   const lagging = /** @type {Array<UpdateItem & { latest: string }>} */ (
     checked.filter((item) => item.latest !== null && item.latest !== item.installed)
   );
   return { lagging, checked };
 }
 
-/** The two commands that bring one lagging plugin up to its ref (S8). */
+/**
+ * The commands that bring one lagging plugin up to its ref (S8). The kit is installed at user
+ * scope only, so the update always names `--scope user` (without it, `claude plugin update` picks
+ * a project-scope copy, S11); a project or local copy is cleared with `kit installs --clean`.
+ * @param {Pick<UpdateItem, "plugin" | "marketplace" | "scope"> & { userInstalled?: string | null }} item
+ */
 export function updateCommands(item) {
-  const scope = item.scope && item.scope !== "user" ? ` --scope ${item.scope}` : "";
-  return [
+  const id = `${item.plugin}@${item.marketplace}`;
+  const commands = [
     `claude plugin marketplace update ${item.marketplace}`,
-    `claude plugin update ${item.plugin}@${item.marketplace}${scope}`,
+    item.userInstalled === null ? `claude plugin install ${id} --scope user` : `claude plugin update ${id} --scope user`,
   ];
+  if (item.scope === "project" || item.scope === "local") commands.push("kit installs --clean");
+  return commands;
 }
 
 /**

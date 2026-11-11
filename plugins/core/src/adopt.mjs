@@ -177,6 +177,6 @@ export function runAdopt(projectDir, args, print = console.log) {
   if (copies.length === 0) print("   none");
   for (const copy of copies) print(`   - ${copy.path} — ${copy.plugin}${copy.note ? ` (${copy.note})` : ""}`);
   if (!options.write) print("\nDry run: nothing written. Run again with --write to apply.");
-  else print("\nWritten. Commit kit.json and .claude/settings.json; teammates are asked to install the plugins on their next session.");
+  else print("\nWritten. Commit kit.json and .claude/settings.json; each teammate installs the kit plugins once at user scope (docs/using.md § 1).");
   return 0;
 }

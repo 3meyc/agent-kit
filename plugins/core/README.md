@@ -26,7 +26,7 @@ quietly when its id is listed.
 | ID | Hook id | Event | Does | Does nothing when |
 | --- | --- | --- | --- | --- |
 | 1 | `rules` | SessionStart | Prints the always-on rules | listed in `hooks.off` |
-| 2 | `update-check` | SessionStart | One short note when an installed kit plugin's commit differs from its channel (the project's declared marketplace ref, else the registered one), with the two update commands; remote SHAs cached for six hours (`kit doctor` and `kit update-check` read the remote every time) | nothing lags, the remote is unreachable, or the session restarted after a compaction |
+| 2 | `update-check` | SessionStart | One short note when the kit plugin copy this session loads, or the user-scope copy, differs from its channel (the project's declared marketplace ref, else the registered one), with the update commands at `--scope user` and, for a project-scope copy, `kit installs --clean`; remote SHAs cached for six hours (`kit doctor` and `kit update-check` read the remote every time) | nothing lags, the remote is unreachable, or the session restarted after a compaction |
 | 3 | `lint-edited-file` | PostToolUse Edit, Write, MultiEdit | Runs every `lintOnEdit` rule whose globs match the edited file, in order; any failure is shown to the agent (exit 2) without undoing the edit | no `lintOnEdit`, or the file matches no rule |
 | 4 | `shell-deletions` | PreToolUse and PostToolUse Bash, PowerShell | Snapshots tracked files a script-running command deletes, for the session ledger | `ledger` is not `true`, or the command runs no script |
 | 5 | `codegraph-sync` | PreToolUse Bash, PowerShell, CodeGraph MCP tools | Syncs a linked worktree's own CodeGraph index before a query reads it | no `.codegraph/codegraph.db` in the worktree, or no `codegraph` CLI |
@@ -59,7 +59,7 @@ On the Bash tool's PATH while the plugin is enabled:
 | --- | --- | --- |
 | 1 | `count-lines <file>...` | Line counts, the same on every OS |
 | 2 | `git-branch-context` | Branch, upstream, default base and `kit.json` `baseBranch` as JSON |
-| 3 | `kit doctor \| adopt \| inventory \| drift \| update-check \| commands \| dev` | The commands behind the skills above |
+| 3 | `kit doctor \| adopt \| inventory \| drift \| update-check \| installs \| commands \| dev` | The commands behind the skills above; `kit installs [--clean]` lists the project-scope copies of kit plugins that differ from the user copy or the channel, and clears them ([using](../../docs/using.md) § 3) |
 | 4 | `kit-docs-parity [path...]` | Checks that each `name.md` / `name.uk.md` pair keeps the same headings, tables, Mermaid blocks, command blocks and numbered items |
 
 Skills call `node "${CLAUDE_PLUGIN_ROOT}/src/kit-cli.mjs" …`, which needs no PATH.

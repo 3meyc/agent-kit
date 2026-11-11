@@ -11,13 +11,16 @@
 //    kit-owned scripts, which go with them.
 // 4. Installed kit plugins against the commit their channel's ref points at on the remote now
 //    (S8), with the update commands. The remote is read every time; a cached SHA is used only
-//    when the read fails, and is reported as such.
+//    when the read fails, and is reported as such. The copy a session here loads is named (S11),
+//    and so is every project-scope copy of this repository that differs from the user copy or the
+//    channel, with `kit installs --clean` to clear it; stale copies elsewhere are counted.
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { CORE_ROOT, enabledForProject, findKitCopies, pluginDependencies, pluginRoots, sessionPluginDirs } from "./kit-owned.mjs";
 import { KIT_FILE } from "../lib/kit-config.mjs";
 import { validate } from "./schema-check.mjs";
-import { checkUpdates, claudeDir, defaultCacheFile, readPluginState, sourceRef, updateCommands } from "./update-check.mjs";
+import { surveyInstalls, tilde } from "./installs.mjs";
+import { checkUpdates, claudeDir, defaultCacheFile, readPluginState, repoRoot, samePath, sourceRef, updateCommands } from "./update-check.mjs";
 
 export const BASE_MARKETPLACE = "agent-kit";
 
@@ -190,27 +193,57 @@ function age(ms) {
   return minutes < 90 ? `${minutes} min` : `${Math.round(minutes / 60)} h`;
 }
 
+/** How a finding names one install record. */
+function copyLabel(item) {
+  const id = `${item.plugin}@${item.marketplace}`;
+  if (item.scope === "user" || item.scope === "managed") return `${id} (${item.scope})`;
+  return `${id} (${item.scope}-scope copy for ${item.own ? "this folder" : tilde(item.projectPath)})`;
+}
+
 /**
  * Findings for installed kit plugins against their channel. The remote is read now (`fresh`); a
- * cached SHA stands in only when that read fails, and the finding says so.
+ * cached SHA stands in only when that read fails, and the finding says so. The copy a session in
+ * `projectDir` loads and the user copy are checked against the channel; the other project-scope
+ * copies of this repository are reported when they differ from the user copy or the channel.
  */
 export function checkVersions(projectDir, options = {}) {
   const now = options.now ?? Date.now();
-  const { lagging, checked } = checkUpdates({ root: projectDir, cacheFile: defaultCacheFile(), fresh: true, now, ...options });
-  if (checked.length === 0) return [{ level: "ok", text: "no kit plugins installed from a git marketplace (a --plugin-dir copy is not checked)" }];
+  const { checked } = checkUpdates({ root: projectDir, cacheFile: defaultCacheFile(), fresh: true, now, ...options });
   const findings = [];
   const where = (item) => (item.from === "cache" ? `the remote could not be read; a cached ${item.ref} from ${age(now - (item.cachedAt ?? now))} ago` : `${item.ref} on the remote`);
   for (const item of checked) {
-    if (item.latest === null) findings.push({ level: "warn", text: `${item.plugin}@${item.marketplace} (${item.scope}): could not read ${item.ref} from the remote, and nothing is cached; the installed version is unchecked` });
-    else if (item.latest === item.installed && item.from === "remote") findings.push({ level: "ok", text: `${item.plugin}@${item.marketplace} (${item.scope}) is at ${item.ref} ${item.installed.slice(0, 12)} (read from the remote)` });
-    else if (item.latest === item.installed) findings.push({ level: "warn", text: `${item.plugin}@${item.marketplace} (${item.scope}): ${where(item)} matches the installed ${item.installed.slice(0, 12)}; not proof that it is current` });
+    const label = copyLabel(item);
+    if (!item.loaded && item.scope !== "user") {
+      const behindUser = item.userInstalled !== null && item.installed !== item.userInstalled;
+      const behindRef = item.latest !== null && item.installed !== item.latest;
+      if (!behindUser && !behindRef) continue;
+      const against = [behindUser ? `the user copy ${item.userInstalled.slice(0, 12)}` : null, behindRef ? `${item.ref} ${item.latest.slice(0, 12)}` : null].filter(Boolean).join(" and ");
+      findings.push({
+        level: "warn",
+        text: `${label}: ${item.installed.slice(0, 12)} differs from ${against}. Sessions here don't load it, but \`claude plugin update\` without \`--scope user\` may update it instead of the user copy; clear it with \`kit installs --clean\` (docs/using.md § 3)`,
+      });
+      continue;
+    }
+    const shadow = item.loaded && item.scope !== "user" ? `; sessions here load this copy instead of the user copy${item.userInstalled ? ` (${item.userInstalled.slice(0, 12)})` : ""}, because its install record comes first (S11)` : "";
+    if (item.latest === null) findings.push({ level: "warn", text: `${label}: could not read ${item.ref} from the remote, and nothing is cached; the installed version is unchecked${shadow}` });
+    else if (item.latest === item.installed && item.from === "remote") findings.push({ level: shadow ? "warn" : "ok", text: `${label} is at ${item.ref} ${item.installed.slice(0, 12)} (read from the remote)${shadow}${shadow ? "; `kit installs --clean` clears it once the user copy is current" : ""}` });
+    else if (item.latest === item.installed) findings.push({ level: "warn", text: `${label}: ${where(item)} matches the installed ${item.installed.slice(0, 12)}; not proof that it is current${shadow}` });
+    else {
+      const refFirst = item.registeredRef !== item.ref ? ` This machine registered ${item.marketplace} at ${item.registeredRef}, so fix the marketplace ref first (section 2).` : "";
+      findings.push({
+        level: "warn",
+        text: `${label}: installed ${item.installed.slice(0, 12)}, ${where(item)} is ${item.latest.slice(0, 12)}${shadow}; run \`${updateCommands(item).join("` then `")}\`, then start a new session.${refFirst}`,
+      });
+    }
   }
-  for (const item of lagging) {
-    const refFirst = item.registeredRef !== item.ref ? ` This machine registered ${item.marketplace} at ${item.registeredRef}, so fix the marketplace ref first (section 2).` : "";
-    findings.push({
-      level: "warn",
-      text: `${item.plugin}@${item.marketplace} (${item.scope}): installed ${item.installed.slice(0, 12)}, ${where(item)} is ${item.latest.slice(0, 12)}; run \`${updateCommands(item).join("` then `")}\`, then start a new session.${refFirst}`,
-    });
+  if (checked.length === 0) findings.push({ level: "ok", text: "no kit plugins installed from a git marketplace (a --plugin-dir copy is not checked)" });
+  const repo = repoRoot(projectDir);
+  const elsewhere = surveyInstalls({ state: options.state ?? readPluginState() }).filter(
+    (copy) => copy.stale && !(repo ? copy.repo === repo : samePath(copy.projectPath, projectDir)),
+  );
+  if (elsewhere.length > 0) {
+    const folders = new Set(elsewhere.map((copy) => copy.projectPath)).size;
+    findings.push({ level: "warn", text: `${elsewhere.length} project-scope copies of kit plugins in ${folders} other folder(s) differ from their user copy; \`kit installs\` lists them, \`kit installs --clean\` clears them` });
   }
   return findings;
 }
