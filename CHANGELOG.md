@@ -4,6 +4,8 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 ## Unreleased
 
+- core: `kit release [--yes] [--summary <text>] [--summary-<lang> <text>]` (also `agent-kit release`) cuts a kit repo's release in one checked step: a dry run by default; it refuses on a dirty tree, a branch ahead of or behind its remote, nothing to release, an empty `## Unreleased`, a failing check or, for an overlay, a base kit whose `stable` lacks the release it needs (`kit.json` `release.base.needs`); with `--yes` it writes the notes (a changelog entry or a release-table row, numbered and dated), commits `chore(release): <nth> stable release`, pushes, moves the annotated `stable` tag and confirms both on the remote. New `kit.json` `release` (notes, check, branch, remote, tag, base); this repo's own `kit.json` sets its check (docs/changing.md, Releasing).
+
 ## 2026-11-11 — eighth `stable`
 
 `stable` points at the commit that adds this entry. A hand-typed ledger title no longer blocks commits.

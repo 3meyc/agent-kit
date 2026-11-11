@@ -59,7 +59,7 @@ On the Bash tool's PATH while the plugin is enabled:
 | --- | --- | --- |
 | 1 | `count-lines <file>...` | Line counts, the same on every OS |
 | 2 | `git-branch-context` | Branch, upstream, default base and `kit.json` `baseBranch` as JSON |
-| 3 | `kit doctor \| adopt \| inventory \| drift \| update-check \| installs \| commands \| dev` | The commands behind the skills above; `kit installs [--clean]` lists the project-scope copies of kit plugins that differ from the user copy or the channel, and clears them ([using](../../docs/using.md) § 3) |
+| 3 | `kit doctor \| adopt \| inventory \| drift \| update-check \| installs \| commands \| dev \| release` | The commands behind the skills above; `kit installs [--clean]` lists the project-scope copies of kit plugins that differ from the user copy or the channel, and clears them ([using](../../docs/using.md) § 3); `kit release [--yes]` cuts a kit repo's `stable` release ([changing](../../docs/changing.md), Releasing) |
 | 4 | `kit-docs-parity [path...]` | Checks that each `name.md` / `name.uk.md` pair keeps the same headings, tables, Mermaid blocks, command blocks and numbered items |
 
 Skills call `node "${CLAUDE_PLUGIN_ROOT}/src/kit-cli.mjs" …`, which needs no PATH.
@@ -75,6 +75,7 @@ Skills call `node "${CLAUDE_PLUGIN_ROOT}/src/kit-cli.mjs" …`, which needs no P
 | 5 | `baseBranch` | `git-branch-context` |
 | 6 | `lintOnEdit` | `lint-edited-file` |
 | 7 | the whole file | `kit doctor` validates it against the schema shipped in `schema/` |
+| 8 | `release`, `commands.check` | `kit release`, in a kit's own repo |
 
 `lintOnEdit` takes one rule, or a list of rules so different files get different checks. A rule
 is a command and optional globs; `{file}` is replaced by the quoted repo-relative path, or the path
