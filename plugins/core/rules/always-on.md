@@ -33,6 +33,6 @@ Sub-agents, kit scripts and the environment refuse some actions on purpose. A re
 | --- | --- | --- |
 | `sync_with_base_branch` (desktop app) | Refuses with uncommitted changes; merges only the session's own base or the default branch | Commit first; pass `base` explicitly when the session's base is not the default branch |
 | Auto-mode classifier | Blocks self-modification such as `~/.claude/settings.json` | The user makes the edit |
-| Kit hooks and skills | Run from the plugin cache, not the project; a kit file copied into the project shadows or duplicates the kit. `hooks.off` in `kit.json` switches one kit hook off | Change the kit in its own repo and try it with `claude --plugin-dir`; run `kit doctor` when a rule seems ignored |
+| Kit hooks and skills | Run from the plugin cache, not the project; a kit file copied into the project shadows or duplicates the kit. `hooks.off` in `kit.json` switches one kit hook off | Change the kit in its own repo and try it with the `claude --plugin-dir` command `kit dev` prints; run `kit doctor` when a rule seems ignored |
 | Machine tools (RTK, CodeGraph, Fallow) | Installed per machine, not by the kit; kit pieces that use one skip quietly when it is missing | When a check needs one and it is missing, report the check as not run, never as passed |
 | CI workflows | Run only on the forge after a push; agents push only on the user's word and never force | Replay each step's command locally; report the workflow itself as unproven until its first run |

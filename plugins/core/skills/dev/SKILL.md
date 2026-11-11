@@ -7,7 +7,7 @@ allowed-tools: Bash(node ${CLAUDE_PLUGIN_ROOT}/src/kit-cli.mjs:*)
 
 Dev server settings from the project's `kit.json` and `.claude/launch.json`:
 
-!`node ${CLAUDE_PLUGIN_ROOT}/src/kit-cli.mjs dev`
+!`node ${CLAUDE_PLUGIN_ROOT}/src/kit-cli.mjs dev-server`
 
 1. If the output names a launch configuration, start it with `preview_start` and that `name`. If it is already running, reuse it and report the URL.
 2. Then report the port and any startup errors from `preview_logs`. Do not start the server through Bash while `preview_start` is available.

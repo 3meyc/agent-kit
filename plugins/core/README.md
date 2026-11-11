@@ -59,7 +59,7 @@ On the Bash tool's PATH while the plugin is enabled:
 | --- | --- | --- |
 | 1 | `count-lines <file>...` | Line counts, the same on every OS |
 | 2 | `git-branch-context` | Branch, upstream, default base and `kit.json` `baseBranch` as JSON |
-| 3 | `kit doctor \| adopt \| inventory \| drift \| update-check \| installs \| commands \| dev \| release` | The commands behind the skills above; `kit installs [--clean]` lists the project-scope copies of kit plugins that differ from the user copy or the channel, and clears them ([using](../../docs/using.md) § 3); `kit release [--yes]` cuts a kit repo's `stable` release ([changing](../../docs/changing.md), Releasing) |
+| 3 | `kit doctor \| adopt \| inventory \| drift \| update-check \| installs \| commands \| dev \| dev-server \| release` | The commands behind the skills above; `kit dev [--run]` prints (or starts) the `claude --plugin-dir …` command that loads the project's enabled kit plugins from local kit checkouts ([using](../../docs/using.md) § 7); `kit dev-server` backs `/core:dev`; `kit installs [--clean]` lists the project-scope copies of kit plugins that differ from the user copy or the channel, and clears them ([using](../../docs/using.md) § 3); `kit release [--yes]` cuts a kit repo's `stable` release ([changing](../../docs/changing.md), Releasing) |
 | 4 | `kit-docs-parity [path...]` | Checks that each `name.md` / `name.uk.md` pair keeps the same headings, tables, Mermaid blocks, command blocks and numbered items |
 
 Skills call `node "${CLAUDE_PLUGIN_ROOT}/src/kit-cli.mjs" …`, which needs no PATH.
