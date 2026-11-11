@@ -93,14 +93,39 @@ export function sessionPluginDirs({ env = process.env, extra = [], processes, cw
 }
 
 /**
- * Plugin folders to read ownership from: this plugin, the plugins this session loaded with
- * `--plugin-dir` (they override an installed copy of the same name), every plugin installed for
- * the project (overlays may ship a `kit-owned.json` too), and, when this plugin runs from a kit
- * checkout, its sibling plugins. `source` says which; `id` is `name@marketplace` for an install.
- * @param {string | null} projectDir
- * @returns {Array<{ root: string, name: string, source: "self" | "session" | "installed" | "sibling", id?: string }>}
+ * The plugin folders behind `kit doctor --plugin-root <path>` values: a path that holds a plugin,
+ * else each plugin folder directly inside it (an overlay package's `plugins/`). A relative path
+ * resolves against `cwd`. A path with no plugin in it is returned in `missing`, so a CI job with a
+ * wrong path fails instead of checking less than it should.
+ * @param {string[]} paths @param {string} [cwd]
+ * @returns {{ roots: string[], missing: string[] }}
  */
-export function pluginRoots(projectDir, state = readPluginState(), sessionDirs = sessionPluginDirs({ cwd: projectDir ?? process.cwd() })) {
+export function ownershipRootDirs(paths, cwd = process.cwd()) {
+  const roots = [];
+  const missing = [];
+  for (const path of paths) {
+    const dir = resolve(cwd, path);
+    if (isPluginDir(dir)) roots.push(dir);
+    else {
+      const inside = existsSync(dir) && statSync(dir).isDirectory() ? readdirSync(dir).map((name) => join(dir, name)).filter(isPluginDir) : [];
+      if (inside.length === 0) missing.push(path);
+      roots.push(...inside);
+    }
+  }
+  return { roots: [...new Set(roots)], missing };
+}
+
+/**
+ * Plugin folders to read ownership from: this plugin, the plugins this session loaded with
+ * `--plugin-dir` (they override an installed copy of the same name), the folders passed with
+ * `--plugin-root` (an overlay's plugins in CI, where nothing is installed), every plugin installed
+ * for the project (overlays may ship a `kit-owned.json` too), and, when this plugin runs from a kit
+ * checkout or the kit's npm package, its sibling plugins. `source` says which; `id` is
+ * `name@marketplace` for an install.
+ * @param {string | null} projectDir @param {string[]} [extraRoots] `--plugin-root` plugin folders
+ * @returns {Array<{ root: string, name: string, source: "self" | "session" | "root" | "installed" | "sibling", id?: string }>}
+ */
+export function pluginRoots(projectDir, state = readPluginState(), sessionDirs = sessionPluginDirs({ cwd: projectDir ?? process.cwd() }), extraRoots = []) {
   /** @type {Map<string, { root: string, name: string, source: any, id?: string }>} */
   const byName = new Map();
   const add = (root, source, id) => {
@@ -109,6 +134,7 @@ export function pluginRoots(projectDir, state = readPluginState(), sessionDirs =
   };
   add(CORE_ROOT, "self");
   for (const dir of sessionDirs) add(dir, "session");
+  for (const dir of extraRoots) add(dir, "root");
   const keys = new Map();
   for (const [id, entries] of Object.entries(state.installed)) {
     if (!Array.isArray(entries)) continue;
@@ -272,14 +298,16 @@ function ownedLabel(path) {
 
 /**
  * The plugins whose files a project can be said to copy: this plugin and `--plugin-dir` ones
- * always; an installed or sibling plugin only when the project enables it, directly or as a
- * dependency of one it enables. A project that enables no plugin yet (before `/kit-adopt`) keeps
- * them all, so adoption lists everything the kit could supply.
+ * always; an installed, sibling or `--plugin-root` plugin only when the project enables it,
+ * directly or as a dependency of one it enables. A project that enables no plugin yet (before
+ * `/kit-adopt`) keeps them all, so adoption lists everything the kit could supply. `local: false`
+ * reads only the shared `.claude/settings.json`, as a CI checkout has it.
  * @param {string} projectDir @param {Array<{ root: string, name: string, source?: string }>} plugins
+ * @param {{ local?: boolean }} [options]
  */
-export function enabledForProject(projectDir, plugins) {
+export function enabledForProject(projectDir, plugins, { local = true } = {}) {
   const enabled = new Set();
-  for (const file of ["settings.json", "settings.local.json"]) {
+  for (const file of local ? ["settings.json", "settings.local.json"] : ["settings.json"]) {
     const entries = readJson(join(projectDir, ".claude", file))?.enabledPlugins ?? {};
     for (const [id, on] of Object.entries(entries)) {
       const name = id.split("@")[0];
