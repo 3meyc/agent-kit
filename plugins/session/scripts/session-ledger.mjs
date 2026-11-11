@@ -34,6 +34,7 @@ import {
   renderRecord,
   resolveRecordPath,
 } from "./ledger-record.mjs";
+import { branchSessions, gitCloseFacts, lastActive, splitItems } from "./ledger-autoclose.mjs";
 import { clip, conversationText, findSecrets, redactSecrets } from "./ledger-text.mjs";
 import { SUMMARIZER_MARKER } from "./ledger-summarize.mjs";
 import {
@@ -63,8 +64,10 @@ import { hookOff, inLedger, ledgerDir, ledgerHookOn, readKit, rootFor } from "..
  *   session-ledger --record [<session-id-prefix>]     # path of this session's record
  *   session-ledger --refresh [<session-id-prefix>...]   # rewrite the record now; print id + path
  *   session-ledger --conflicts <session-id-prefix>... [--allow-shared <path>]... -- <path>...
- *   session-ledger --owed [<word>]       # open `## Next` items of every record, newest first
+ *   session-ledger --owed [<word>]       # open `## Next` items of every record, newest first,
+ *                                        # then the auto-closed ones with their reason
  *   session-ledger --done <id8> <n> [--as <id8>]   # mark item n of that record done
+ *   session-ledger --sweep [--dry-run] [--as <id8>]   # mark every auto-closed item done, with its reason
  *   session-ledger --archive [--days <n>] [--dry-run]   # git mv settled records older than n days (60) to archive/
  *   session-ledger --help          # usage
  *
@@ -861,22 +864,78 @@ function transcriptsById(dirs) {
 const OWED_LINE = 118;
 
 /**
+ * Every record's not-done `## Next` items, newest record first, split by the auto-close rules
+ * (`ledger-autoclose.mjs`). `network` lets the PR rule ask `gh`; the caller saves its cache.
+ * @param {{ network: boolean }} options
+ */
+function ledgerItems({ network }) {
+  const texts = listRecords(LEDGER_DIR, { archive: true }).map(({ name, path }) => ({
+    name,
+    path,
+    text: readFileSync(path, "utf8").replace(/\r\n/g, "\n"),
+  }));
+  const sessionsByBranch = branchSessions(texts.map(({ name, text }) => parseFrontMatter(text, name) ?? {}));
+  const facts = gitCloseFacts(ROOT, KIT.baseBranch, { network, sessionsByBranch });
+  const options = { now: Date.now(), questionDays: KIT.ledgerAutoClose.questionDays };
+  const records = texts.map(({ name, path, text }) => {
+    const items = parseNextItems(parseAuthoredSections(text).get("Next"));
+    const day = name.slice(0, 10);
+    const record = { day, lastAt: lastActive(day, parsePrevious(text).files.map((file) => file.at)) };
+    return { name, path, text, ...splitItems(items, record, facts, options) };
+  });
+  facts.save();
+  return records;
+}
+
+/**
  * Every open `## Next` item across the ledger, newest record first — the items the brief never
  * shows again. One line per item: `<date> <id8>  <n>. <text>`, `n` being the item's number for
  * `--done`. A done item is skipped; `(unverified)` ones keep their prefix. The filter is a
  * case-insensitive substring of the item text, so a path or a skill name finds its items.
+ * The items an auto-close rule closed follow in their own section, each with its reason.
  * @param {string} filter
  */
 function printOwed(filter) {
   const needle = filter.toLowerCase();
-  for (const { name, path } of listRecords(LEDGER_DIR, { archive: true })) {
-    const text = readFileSync(path, "utf8").replace(/\r\n/g, "\n");
-    const items = parseNextItems(parseAuthoredSections(text).get("Next"));
-    for (const item of items) {
-      if (item.done || (needle && !item.text.toLowerCase().includes(needle))) continue;
-      console.log(`${name.slice(0, 10)} ${name.slice(11, 19)}  ${item.n}. ${clip(item.text, OWED_LINE)}`);
-    }
+  const matches = (item) => !needle || item.text.toLowerCase().includes(needle);
+  const closedLines = [];
+  for (const { name, open, closed } of ledgerItems({ network: true })) {
+    const head = `${name.slice(0, 10)} ${name.slice(11, 19)}`;
+    for (const item of open.filter(matches)) console.log(`${head}  ${item.n}. ${clip(item.text, OWED_LINE)}`);
+    for (const { item, reason } of closed.filter(({ item }) => matches(item)))
+      closedLines.push(`${head}  ${item.n}. ${clip(item.text, OWED_LINE - 40)} — ${reason}`);
   }
+  if (!closedLines.length) return;
+  const header = "Auto-closed (hidden from the brief; `session-ledger --sweep` marks them done):";
+  console.log(["", header, "", ...closedLines].join("\n"));
+}
+
+/**
+ * Write the done marks for every auto-closed item: `(done <today> <signer> auto: <reason>)`, the
+ * `--done` mark plus why. Nothing is deleted; a record is rewritten once, atomically, whatever the
+ * number of items. Signed by `--as`, else this session's id, else `sweep` (a run from a terminal).
+ * @param {string[]} args
+ */
+function runSweep(args) {
+  const dryRun = args.includes("--dry-run");
+  const as = args.includes("--as") ? args[args.indexOf("--as") + 1] : undefined;
+  const signer = (as ?? process.env.CLAUDE_CODE_SESSION_ID ?? "sweep").slice(0, 8);
+  const today = new Date().toISOString().slice(0, 10);
+  let items = 0;
+  let records = 0;
+  for (const { path, text, closed } of ledgerItems({ network: true })) {
+    if (!closed.length) continue;
+    let next = text;
+    for (const { item, reason } of closed) {
+      next = markDone(next, item.n, `${today} ${signer} auto: ${reason}`);
+      console.log(`${recordRel(path)}\titem ${item.n}: ${reason}`);
+    }
+    if (!dryRun) writeFileAtomic(path, next);
+    items += closed.length;
+    records += 1;
+  }
+  const verb = dryRun ? "would mark" : "marked";
+  console.log(`session-ledger --sweep${dryRun ? " --dry-run" : ""}: ${verb} ${items} auto-closed item(s) done in ${records} record(s)`);
 }
 
 /**
@@ -1083,10 +1142,16 @@ const USAGE = `Session ledger: one Markdown record per Claude Code session, in k
   session-ledger --refresh [<session-id-prefix>...]   # rewrite the record now; print id + path
   session-ledger --conflicts <session-id-prefix>... [--allow-shared <path>]... -- <path>...
                                                       # paths another session also claims; exit 2 if any
-  session-ledger --owed [<word>]                      # open \`## Next\` items, newest first
+  session-ledger --owed [<word>]                      # open \`## Next\` items, newest first, then
+                                                      # the auto-closed ones with their reason
   session-ledger --done <id8> <n> [--as <id8>]        # mark item n of that record done
+  session-ledger --sweep [--dry-run] [--as <id8>]     # mark every auto-closed item done, with its reason
   session-ledger --archive [--days <n>] [--dry-run]   # git mv settled records older than n days (60) to archive/
   session-ledger --help                               # print this and exit 0
+
+Auto-closed: an "Open question at Stop" item older than kit.json ledgerAutoClose.questionDays (7),
+an item past its "(until YYYY-MM-DD)", one naming a PR merged since (base merge subjects, else gh
+when installed), one naming a branch that landed in the base since. The brief hides them.
 
 Session id prefixes default to CLAUDE_CODE_SESSION_ID. LEDGER_NO_SUMMARY=1 disables the detached
 summarizer (ledger-summarize.mjs, which spends tokens); LEDGER_SUMMARY_MODEL picks its model.
@@ -1104,6 +1169,7 @@ const FLAG_COMMANDS = [
   ["--refresh", runRefresh],
   ["--owed", runOwed],
   ["--done", runDone],
+  ["--sweep", runSweep],
   ["--archive", runArchive],
   ["--conflicts", runConflicts],
 ];

@@ -38,6 +38,8 @@ const broken = {
   "check suite named like a command": { ...minimal, checks: { test: ["npm test"] } },
   "empty check suite": { ...minimal, checks: { i18n: [] } },
   "preflight step without a description": { ...minimal, preflight: { audit: { command: "npm run audit" } } },
+  "ledgerAutoClose questionDays of zero": { ...minimal, ledgerAutoClose: { questionDays: 0 } },
+  "ledgerAutoClose with an unknown key": { ...minimal, ledgerAutoClose: { prDays: 3 } },
 };
 if (!validate(minimal)) {
   failed = true;

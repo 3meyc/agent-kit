@@ -34,6 +34,19 @@
       "description": "Whether the session plugin keeps a ledger record for each session.",
       "default": false
     },
+    "ledgerAutoClose": {
+      "type": "object",
+      "description": "Rules that close session ledger Next items automatically: the brief hides them, session-ledger --owed lists them with the reason, session-ledger --sweep marks them done.",
+      "additionalProperties": false,
+      "properties": {
+        "questionDays": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Days after a record was last active before its 'Open question at Stop' item expires.",
+          "default": 7
+        }
+      }
+    },
     "paths": {
       "type": "object",
       "description": "Repo-relative paths the plugins read and write. Forward slashes, no leading slash.",

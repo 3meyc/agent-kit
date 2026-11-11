@@ -19,6 +19,7 @@ export const KIT_DEFAULTS = Object.freeze({
   baseBranch: "main",
   itemPrefix: null,
   ledger: false,
+  ledgerAutoClose: Object.freeze({ questionDays: 7 }),
   paths: Object.freeze({
     docs: "docs",
     decisions: "docs/decisions",
@@ -128,7 +129,8 @@ export function preflightSteps(kit) {
 
 /**
  * @typedef {{ found: boolean, error: string | null, project: string | null, baseBranch: string,
- *   itemPrefix: string | null, ledger: boolean, paths: Record<string, string>,
+ *   itemPrefix: string | null, ledger: boolean, ledgerAutoClose: { questionDays: number },
+ *   paths: Record<string, string>,
  *   commands: Record<string, string>, lintOnEdit: Array<{ command: string, match: string[] }>,
  *   checks: Record<string, string[]>, preflight: ReturnType<typeof preflightSteps>,
  *   hooks: { off: string[] }, devServer: { port?: number } | null, raw: Record<string, any> | null }} Kit
@@ -158,6 +160,12 @@ export function normalizeKit(raw, error = null) {
     baseBranch: typeof kit.baseBranch === "string" && kit.baseBranch ? kit.baseBranch : KIT_DEFAULTS.baseBranch,
     itemPrefix: typeof kit.itemPrefix === "string" && kit.itemPrefix ? kit.itemPrefix : null,
     ledger: kit.ledger === true,
+    ledgerAutoClose: {
+      questionDays:
+        Number.isInteger(kit.ledgerAutoClose?.questionDays) && kit.ledgerAutoClose.questionDays >= 1
+          ? kit.ledgerAutoClose.questionDays
+          : KIT_DEFAULTS.ledgerAutoClose.questionDays,
+    },
     paths,
     commands,
     lintOnEdit: lintOnEdit(kit),

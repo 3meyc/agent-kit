@@ -259,7 +259,8 @@ export function markDone(text, n, stamp) {
   throw new Error(`the record has ${count} Next item(s), not ${n}`);
 }
 
-const DONE_MARK = /^(\s*(?:[-*]|\d+\.)\s+)\(done \d{4}-\d{2}-\d{2} ([^\s)]+)\) (.*)$/;
+// `session-ledger --sweep` adds the rule's reason: `(done <date> <id8> auto: <reason>)`.
+const DONE_MARK = /^(\s*(?:[-*]|\d+\.)\s+)\(done \d{4}-\d{2}-\d{2} ([^\s)]+)(?: auto: [^)]*)?\) (.*)$/;
 
 /**
  * The inverse of `markDone`: the id8s that signed the marks turning `before` into `after`, or null

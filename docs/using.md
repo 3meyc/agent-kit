@@ -180,6 +180,39 @@ kit drift
 5. **Keep it current.** Edit `inventory.json` when you add, move or retire a repo. The commands
    themselves update with the `core` plugin (§ 3).
 
+## 6. Keep the ledger's Next list short
+
+With `"ledger": true`, every session record ends with a `## Next` list, and its open items come
+back in each new session's brief until `session-ledger --done <id8> <n>` marks them. In a busy
+project most of them are settled long before anyone marks them, so the `session` plugin closes an
+item on its own when one of these rules says it is settled:
+
+| ID | Rule | Closes an item when |
+| --- | --- | --- |
+| 1 | Expired question | It opens with `Open question at Stop:` (the recap's unanswered question) and the record was last active more than `ledgerAutoClose.questionDays` days ago (default 7) |
+| 2 | Until date | It carries `(until YYYY-MM-DD)` and that day has passed |
+| 3 | Merged PR | It names a PR (`PR #12`, `pull request 12`, `owner/repo#12`, a `…/pull/12` link) that merged on or after the record's day. Merge subjects on the integration branches answer offline; `gh pr view` answers the rest, only for `--owed` and `--sweep` and only when `gh` is installed, cached in the git common dir. Without `gh` the item stays open |
+| 4 | Landed branch | It is about landing, merging or pushing, and names a branch that landed in its base since the record's day began. The base is the one `worktree-flow base` recorded, else any integration branch for a `claude/…` session branch, else `baseBranch`. A deleted branch counts through its sessions' `Session-Id` commits or a merge subject. A branch named in a condition (`once`, `when`, `after`, `until`, `before`, `if` just before it) does not count: that item becomes due, not done |
+| 5 | Pushed branch | It says push and names a branch other than the base whose remote-tracking ref holds what the branch held at the end of the record's day |
+
+1. The brief hides closed items and says in one line how many there are.
+2. `session-ledger --owed` lists the open items, then the auto-closed ones under their own
+   heading, each with its reason.
+3. `session-ledger --sweep` writes the done marks into the records, as
+   `(done <date> <id8> auto: <reason>)`, signed with `--as`, the session id, or `sweep` outside a
+   session; `--dry-run` only lists them. Nothing is deleted. `session-ledger --archive` then moves
+   the records that owe nothing.
+4. Give an item that matters only for a while an end date: `watch the error rate (until 2026-12-01)`.
+5. Change the question window in `kit.json`:
+
+```json
+{ "ledgerAutoClose": { "questionDays": 14 } }
+```
+
+```bash
+session-ledger --sweep --dry-run
+```
+
 ## Troubleshooting
 
 | ID | Symptom | Check |

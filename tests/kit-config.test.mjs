@@ -95,6 +95,22 @@ describe("hookOff and ledgerHookOn", () => {
   });
 });
 
+describe("ledgerAutoClose", () => {
+  it("defaults questionDays to the schema's value and keeps a valid one", () => {
+    write({ project: "x" });
+    expect(readKit(dir).ledgerAutoClose).toEqual({ questionDays: schema.properties.ledgerAutoClose.properties.questionDays.default });
+    write({ project: "x", ledgerAutoClose: { questionDays: 3 } });
+    expect(readKit(dir).ledgerAutoClose.questionDays).toBe(3);
+  });
+
+  it("falls back to the default on a value below 1 or not a whole number", () => {
+    for (const questionDays of [0, -2, 1.5, "7"]) {
+      write({ project: "x", ledgerAutoClose: { questionDays } });
+      expect(readKit(dir).ledgerAutoClose.questionDays).toBe(KIT_DEFAULTS.ledgerAutoClose.questionDays);
+    }
+  });
+});
+
 describe("ledger paths", () => {
   it("joins the ledger folder to the root and matches paths inside it", () => {
     const kit = { paths: { ledger: "notes/ledger" } };

@@ -15,12 +15,17 @@
  * `"ledger": true` and does not list `ledger-brief` in `hooks.off`. Every scan reads the live
  * folder only: `session-ledger --archive` moves nothing that still owes work, so `archive/` has
  * nothing for the brief.
+ *
+ * Owed items the auto-close rules close (`ledger-autoclose.mjs`: an expired question, a past
+ * `(until …)`, a landed branch or merged PR) are hidden and only counted, from git alone: the
+ * brief never calls `gh`.
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { gitDirtyFiles, isDirectRun, parseWorktrees, readHookInput } from "../lib/hook-utils.mjs";
 import { ledgerDir, ledgerHookOn, readKit, rootFor } from "../lib/kit-config.mjs";
+import { branchSessions, gitCloseFacts, lastActive, splitItems } from "./ledger-autoclose.mjs";
 import { UNCOMMITTED_RECORD_DAYS, openPaths } from "./ledger-claims.mjs";
 import { filePaths, frontMatterString, listRecords, parseFileLines, parseNextItems } from "./ledger-record.mjs";
 import { clip } from "./ledger-text.mjs";
@@ -70,6 +75,8 @@ function readRecord(path) {
   return {
     id: field("id") ?? "",
     date: field("date") ?? "",
+    // The branch the session ran on (`branch:`); `branch` is the worktree's, for other-worktree rows.
+    sessionBranch: field("branch") ?? null,
     title,
     prompt,
     flags: (field("flags") ?? "[]")
@@ -158,6 +165,19 @@ export function openNextItems(body) {
 }
 
 /**
+ * The auto-close rules (`ledger-autoclose.mjs`) for this brief: git only, never `gh`, so a session
+ * start never waits on the network; a PR answer `--owed` cached still counts. Set by `main`.
+ * @type {((r: { name: string, next: string, editedAt: Map<string, string> }) => ReturnType<typeof splitItems>) | null}
+ */
+let splitOwed = null;
+
+/** A record's open items after the auto-close rules, and how many those rules closed. */
+function owedOf(r) {
+  if (!splitOwed) return { open: openNextItems(r.next), closed: [] };
+  return splitOwed(r);
+}
+
+/**
  * What a record is worth to the session about to start. Unfinished work ranks above reasoning,
  * which ranks above having merely touched the repo — a session that produced no code but decided
  * something is worth more here than one that edited ten files and concluded nothing.
@@ -165,7 +185,7 @@ export function openNextItems(body) {
  */
 function signal(r) {
   return (
-    (openNextItems(r.next).length ? 3 : 0) +
+    (owedOf(r).open.length ? 3 : 0) +
     (isEmptySection(r.decisions) ? 0 : 2) +
     (r.paths.length || r.commits ? 1 : 0)
   );
@@ -192,6 +212,17 @@ export function owedCountLine(items, records) {
   const what = items === 1 ? "1 open Next item" : `${items} open Next items`;
   const where = records === 1 ? "1 older record" : `${records} older records`;
   return `${what} in ${where} — session-ledger --owed`;
+}
+
+/**
+ * One line for the items the auto-close rules hid, across the whole live folder, so they get swept
+ * rather than counted forever. Empty at zero.
+ * @param {number} items
+ */
+export function autoClosedLine(items) {
+  if (items === 0) return "";
+  const what = items === 1 ? "1 Next item" : `${items} Next items`;
+  return `${what} auto-closed (expired, past its until date, or its branch or PR landed) — session-ledger --owed lists them, --sweep marks them done`;
 }
 
 /** A record's title, else its prompt, else its session id prefix; clipped to `width`. */
@@ -267,7 +298,7 @@ function removableLines() {
 }
 
 function owedLines(shown) {
-  const owed = shown.map((r) => ({ id8: r.name.slice(11, 19), open: openNextItems(r.next) })).filter(({ open }) => open.length);
+  const owed = shown.map((r) => ({ id8: r.name.slice(11, 19), open: owedOf(r).open })).filter(({ open }) => open.length);
   if (!owed.length) return [];
   const items = [];
   for (const { id8, open } of owed) {
@@ -286,21 +317,23 @@ function owedLines(shown) {
  * The rest of the ledger owes work too, often far more than the shown records, and the brief would
  * never show it again. One line says how much and where to list it; nothing when there is none.
  */
-function olderOwedLines(shown) {
+function olderOwedLines(shown, live) {
   const shownNames = new Set(shown.map((r) => r.name));
   let olderItems = 0;
   let olderRecords = 0;
+  let autoClosed = 0;
   // Live folder only: `--archive` never moves a record with an open item, so the archive owes
   // nothing by construction and reading it would grow this scan by the size the archive bounds.
-  for (const { name, path } of listRecords(LEDGER_DIR, { archive: false })) {
-    if (shownNames.has(name)) continue;
-    const open = openNextItems(readRecord(path).next).length;
-    if (open === 0) continue;
-    olderItems += open;
+  for (const r of live) {
+    const { name } = r;
+    const { open, closed } = owedOf(r);
+    autoClosed += closed.length;
+    if (shownNames.has(name) || open.length === 0) continue;
+    olderItems += open.length;
     olderRecords += 1;
   }
-  const older = owedCountLine(olderItems, olderRecords);
-  return older ? ["", older] : [];
+  const lines = [owedCountLine(olderItems, olderRecords), autoClosedLine(autoClosed)].filter(Boolean);
+  return lines.length ? ["", ...lines] : [];
 }
 
 /**
@@ -308,7 +341,8 @@ function olderOwedLines(shown) {
  * when some of their claims were never checked — without growing past what gets read.
  */
 function unverifiedLines(shown) {
-  const unverified = shown.reduce((n, r) => n + countUnverified(r.decisions) + countUnverified(r.next), 0);
+  const openUnverified = (r) => owedOf(r).open.filter((item) => /^\(unverified\)/i.test(item.text)).length;
+  const unverified = shown.reduce((n, r) => n + countUnverified(r.decisions) + openUnverified(r), 0);
   return unverified > 0 ? ["", `${unverified} item(s) marked (unverified) — confirm before relying on them.`] : [];
 }
 
@@ -350,6 +384,18 @@ async function main(payload) {
     return;
   }
 
+  const live = names.map((name) => ({ name, ...readRecord(join(LEDGER_DIR, name)) }));
+  const sessionsByBranch = branchSessions(live.map((r) => ({ branch: r.sessionBranch, id: r.id })));
+  const facts = gitCloseFacts(ROOT, KIT.baseBranch, { network: false, sessionsByBranch });
+  const options = { now: Date.now(), questionDays: KIT.ledgerAutoClose.questionDays };
+  const memo = new Map();
+  splitOwed = (r) => {
+    if (!memo.has(r.name)) {
+      const day = r.name.slice(0, 10);
+      memo.set(r.name, splitItems(openNextItems(r.next), { day, lastAt: lastActive(day, r.editedAt.values()) }, facts, options));
+    }
+    return memo.get(r.name);
+  };
   const candidates = readCandidates(names);
   const others = otherWorktreeRecords(new Set(names));
   const shown = pickShown(candidates);
@@ -358,7 +404,7 @@ async function main(payload) {
     ...otherWorktreeLines(others),
     ...removableLines(),
     ...owedLines(shown),
-    ...olderOwedLines(shown),
+    ...olderOwedLines(shown, live),
     ...unverifiedLines(shown),
     ...sharedLines([...candidates.slice(0, SHARED_FROM), ...others], others.length > 0),
     "",

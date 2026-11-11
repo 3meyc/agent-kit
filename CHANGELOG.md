@@ -4,6 +4,8 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 ## Unreleased
 
+- session: the ledger closes `## Next` items that are already settled, so the start-of-session brief stops piling them up. An `Open question at Stop` item expires after `kit.json` `ledgerAutoClose.questionDays` days (default 7); an item past its `(until <date>)` closes; so does an item naming a PR merged since (base merge subjects, else `gh` when installed, cached, never needed), and an item about landing or pushing a branch once that branch landed in its base or was pushed since the record's day. The brief hides these items and counts them in one line; `session-ledger --owed` lists them in an "auto-closed" section with the reason; `session-ledger --sweep [--dry-run]` writes their done marks with the reason. Nothing is deleted (docs/using.md § 6).
+
 ## 2026-11-11 — eighth `stable`
 
 `stable` points at the commit that adds this entry. A hand-typed ledger title no longer blocks commits.
