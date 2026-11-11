@@ -228,6 +228,22 @@ describe("gitCloseFacts", () => {
     expect(gitCloseFacts(repo, "main").branchLanded("feat/big", "2026-11-05")).toBeNull();
   });
 
+  it("names the branch the work landed in first, not one cut from it later", () => {
+    git(["branch", "feat/big"]);
+    git(["checkout", "-q", "-b", "claude/w"]);
+    commit("w.md", "2026-11-05T10:00:00Z", "feat: w\n\nSession-Id: sess-w");
+    git(["checkout", "-q", "feat/big"]);
+    git(["merge", "-q", "--ff-only", "claude/w"], "2026-11-05T12:00:00Z");
+    // Sorts before feat/big, holds the same commits, and was created a day after the landing.
+    git(["branch", "chore/later", "feat/big"], "2026-11-06T09:00:00Z");
+    expect(gitCloseFacts(repo, "main").branchLanded("claude/w", "2026-11-05")?.into).toBe("feat/big");
+    git(["branch", "-q", "-D", "claude/w"]);
+    const sessionsByBranch = new Map([["claude/w", ["sess-w"]]]);
+    expect(gitCloseFacts(repo, "main", { sessionsByBranch }).branchLanded("claude/w", "2026-11-05")?.into).toBe(
+      "feat/big",
+    );
+  });
+
   it("does not close a branch cut from the base with no commits of its own", () => {
     git(["branch", "claude/empty"]);
     expect(gitCloseFacts(repo, "main").branchLanded("claude/empty", "2026-11-05")).toBeNull();
