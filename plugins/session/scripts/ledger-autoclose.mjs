@@ -360,7 +360,8 @@ export function gitCloseFacts(
     if (!commits.every((c) => inInto.has(c.sha))) return null;
     const newest = commits.reduce((a, b) => (b.at > a.at ? b : a));
     if (newest.at < Date.parse(`${day}T00:00:00Z`)) return null;
-    return containing(newest.sha, into)[0] ?? null;
+    const found = containing(newest.sha, into);
+    return found.length ? firstHolder(found, newest.at) : null;
   };
 
   const loadMerges = () => {
@@ -389,6 +390,28 @@ export function gitCloseFacts(
 
   const shortName = (ref) => ref.replace(/^refs\/(?:heads|remotes)\//, "");
 
+  /** When a ref was created, from its reflog's oldest entry when that entry is the creation; else null. */
+  const createdAt = (ref) =>
+    once(`created ${ref}`, () => {
+      const lines = (git(["reflog", "show", "--format=%ct%x09%gs", ref], root) ?? "").trim().split("\n");
+      const [at, subject = ""] = (lines.at(-1) ?? "").split("\t");
+      return /^branch: Created\b/.test(subject) ? Number(at) * 1000 : null;
+    });
+
+  const commitTime = (rev) => once(`time ${rev}`, () => Number(git(["log", "-1", "--format=%ct", rev], root)) * 1000);
+
+  /**
+   * The holder the work first landed in. A branch cut from the integration branch later holds the
+   * same commits, so a holder its reflog shows was created after `landedAt` is passed over; the
+   * order of `holders` (`integration`) decides among the rest.
+   * @param {string[]} found Holders containing the work, in order. @param {number} landedAt ms
+   */
+  const firstHolder = (found, landedAt) =>
+    found.find((ref) => {
+      const created = createdAt(ref);
+      return created === null || created <= landedAt;
+    }) ?? found[0];
+
   /** @type {CloseFacts["branchLanded"]} */
   const branchLanded = (candidate, day) => {
     const { heads, tracking, aliases } = loadRefs();
@@ -403,11 +426,11 @@ export function gitCloseFacts(
       const dayStart = `${day}T00:00:00Z`;
       for (const ref of own) {
         // Landed since the record's day began: some holder has it now and did not have it then.
-        const since = containing(ref, into).find((holder) => {
+        const since = containing(ref, into).filter((holder) => {
           const then = refAt(holder, dayStart);
           return !then || !isAncestor(ref, then);
         });
-        if (since) return { branch: name, into: shortName(since) };
+        if (since.length) return { branch: name, into: shortName(firstHolder(since, commitTime(ref))) };
       }
       return null;
     }
