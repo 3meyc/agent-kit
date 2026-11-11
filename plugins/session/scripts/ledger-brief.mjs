@@ -22,7 +22,7 @@ import { join, resolve } from "node:path";
 import { gitDirtyFiles, isDirectRun, parseWorktrees, readHookInput } from "../lib/hook-utils.mjs";
 import { ledgerDir, ledgerHookOn, readKit, rootFor } from "../lib/kit-config.mjs";
 import { UNCOMMITTED_RECORD_DAYS, openPaths } from "./ledger-claims.mjs";
-import { filePaths, listRecords, parseFileLines, parseNextItems } from "./ledger-record.mjs";
+import { filePaths, frontMatterString, listRecords, parseFileLines, parseNextItems } from "./ledger-record.mjs";
 import { clip } from "./ledger-text.mjs";
 import { readCommitFacts } from "./ledger-utils.mjs";
 import { mergedCleanWorktrees } from "./worktree-flow.mjs";
@@ -62,22 +62,11 @@ function readRecord(path) {
     return /^_.*_$/s.test(body) ? "" : body;
   };
   const files = text.split(/^## Files(?: \(\d+\))?\s*$/m)[1]?.split(/^## /m)[0] ?? "";
-  let title = field("title") ?? "";
-  try {
-    title = title ? JSON.parse(title) : "";
-  } catch {
-    /* a hand-edited title without quotes is still a title */
-  }
+  const title = frontMatterString(field("title"));
   // Records predating `title` still carry their first prompt; use it rather than showing a bare id.
   // Those prompts open with the other machine's absolute path often enough that the label would be
   // all path and no task, so strip that here — the renderer no longer quotes prompts at all.
-  let prompt = field("prompt") ?? "";
-  try {
-    prompt = prompt ? JSON.parse(prompt) : "";
-  } catch {
-    /* an unquoted prompt is still a prompt */
-  }
-  prompt = prompt.replace(/^\s*Repository:\s*\S+\.?\s*/i, "").trim();
+  const prompt = frontMatterString(field("prompt")).replace(/^\s*Repository:\s*\S+\.?\s*/i, "").trim();
   return {
     id: field("id") ?? "",
     date: field("date") ?? "",

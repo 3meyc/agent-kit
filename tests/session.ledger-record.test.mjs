@@ -6,6 +6,7 @@ import {
   RECAP_MARKER,
   doneMarks,
   fillFromRecap,
+  frontMatterString,
   isNextOpen,
   listRecords,
   markDone,
@@ -257,6 +258,42 @@ describe("parseFrontMatter", () => {
 
   it("returns null without front matter", () => {
     expect(parseFrontMatter("# no front matter\n", "x.md")).toBeNull();
+  });
+
+  // A hand-typed `title:` (a session filling its record, `/handoff`) is often a plain scalar; the
+  // claims check reads every record, so a throw here stopped every commit in the checkout.
+  it.each([
+    ["an unquoted title", "title: kit.json commitAudit narrowed (tools commit-audit)", "kit.json commitAudit narrowed (tools commit-audit)"],
+    ["a quoted title", 'title: "Moved to the second stable; all checks pass"', "Moved to the second stable; all checks pass"],
+    ["an unquoted title holding `: ` and quotes", 'title: Fix: the "claims" check', 'Fix: the "claims" check'],
+    ["a quoted title holding `: ` and escaped quotes", 'title: "Fix: the \\"claims\\" check"', 'Fix: the "claims" check'],
+    ["a YAML single-quoted title", "title: 'It''s quoted'", "It's quoted"],
+    ["an unquoted prompt and no title", "prompt: fix the build", "fix the build"],
+  ])("labels a record with %s", (_case, line, label) => {
+    const text = `---\nid: x\ndate: 2026-09-01\n${line}\nflags: []\n---\n`;
+    expect(parseFrontMatter(text, "2026-09-01-xxxxxxxx.md").label).toBe(label);
+  });
+});
+
+describe("frontMatterString", () => {
+  it("reads JSON, YAML single quotes and plain scalars, and keeps a broken quote as written", () => {
+    expect(frontMatterString('"a \\"b\\": c"')).toBe('a "b": c');
+    expect(frontMatterString("'a ''b'''")).toBe("a 'b'");
+    expect(frontMatterString("  plain: text  ")).toBe("plain: text");
+    expect(frontMatterString('"quoted" then more')).toBe('"quoted" then more');
+    expect(frontMatterString(undefined)).toBe("");
+  });
+});
+
+describe("a hand-typed title on the next render", () => {
+  it.each([
+    ["unquoted", "title: Fix: the \"claims\" check"],
+    ["quoted", 'title: "Fix: the \\"claims\\" check"'],
+  ])("is kept and written back as JSON when it was %s", (_case, line) => {
+    const before = renderRecord(record(), new Map()).replace("branch: chore/x\n", `branch: chore/x\n${line}\n`);
+    const after = renderRecord(record(), parseAuthoredSections(before));
+    expect(after).toContain('title: "Fix: the \\"claims\\" check"\n');
+    expect(parseFrontMatter(after, "2026-09-27-2796e327.md").label).toBe('Fix: the "claims" check');
   });
 });
 

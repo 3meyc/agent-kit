@@ -22,7 +22,7 @@ import { readCommitFacts } from "./ledger-utils.mjs";
 
 // The checkout the record belongs to: the one the command runs in.
 const REPO_ROOT = rootFor(process.cwd());
-import { filePaths } from "./ledger-record.mjs";
+import { filePaths, frontMatterString } from "./ledger-record.mjs";
 import { redactSecrets } from "./ledger-text.mjs";
 
 const SECTIONS = ["Intent", "Decisions", "Next"];
@@ -34,12 +34,7 @@ const SECTIONS = ["Intent", "Decisions", "Next"];
 export function parseRecord(text) {
   const flat = String(text).replace(/\r\n/g, "\n");
   const field = (name) => flat.match(new RegExp(`^${name}: (.+)$`, "m"))?.[1];
-  let title = field("title") ?? "";
-  try {
-    title = title ? JSON.parse(title) : "";
-  } catch {
-    /* an unquoted title is still a title */
-  }
+  const title = frontMatterString(field("title"));
   /** @type {Map<string, string>} */
   const sections = new Map();
   for (const heading of SECTIONS) {

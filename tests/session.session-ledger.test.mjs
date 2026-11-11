@@ -1020,14 +1020,14 @@ describe("session-ledger --conflicts on sessions whose work already landed", () 
     gitIn(cwd, "add", file);
     gitIn(cwd, ...COMMIT, "-m", `work\n\nSession-Id: ${id}`);
   };
-  const record = (id, branch, path) => {
+  const record = (id, branch, path, title = '"landed work"') => {
     mkdirSync(join(repo, ".claude", "ledger"), { recursive: true });
     const text = [
       "---",
       `id: ${id}`,
       `date: ${day}`,
       `branch: ${branch}`,
-      'title: "landed work"',
+      `title: ${title}`,
       "flags: []",
       "---",
       "",
@@ -1113,5 +1113,24 @@ describe("session-ledger --conflicts on sessions whose work already landed", () 
     const result = conflicts("kept.md");
     expect(result.status).toBe(2);
     expect(result.stdout).toContain("dddddddd");
+  });
+
+  // `git-commit-session` fails closed on any exit but 0 or 2, so one hand-typed title in any record
+  // used to stop every commit in the checkout with a raw JSON error.
+  it("reads a record whose title was typed without quotes", () => {
+    const UNQUOTED = "eeeeeeee-1111-2222-3333-444444444444";
+    git("add", ".");
+    git(...COMMIT, "-m", "set-up");
+    const tree = join(repo, ".claude", "worktrees", "unquoted");
+    gitIn(repo, "worktree", "add", "-q", "-b", "claude/unquoted", tree);
+    writeFileSync(join(tree, "typed.md"), "the other session's edit\n");
+    transcript(tree, UNQUOTED);
+    record(UNQUOTED, "claude/unquoted", "typed.md", 'kit.json: narrowed to the "committed" paths');
+
+    writeFileSync(join(repo, "typed.md"), "this session's edit\n");
+    const result = conflicts("typed.md");
+    expect(result.stderr).not.toContain("JSON");
+    expect(result.status).toBe(2);
+    expect(result.stdout).toContain("eeeeeeee");
   });
 });
