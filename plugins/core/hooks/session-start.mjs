@@ -5,7 +5,8 @@
  *
  * 1. `rules` — print `rules/always-on.md`.
  * 2. `update-check` — one short line per kit plugin whose installed commit differs from its
- *    marketplace ref now, with the two update commands (S8). Remote SHAs are cached for six hours
+ *    channel (the project's declared marketplace ref, else the registered one) now, with the two
+ *    update commands (S8). Remote SHAs are cached for six hours
  *    in the plugin's data folder; offline or slow remotes print nothing.
  *
  * Never blocks the session: every failure goes to stderr and the hook exits 0.
@@ -36,6 +37,10 @@ export function updateText(lagging) {
     for (const command of updateCommands(item)) commands.add(command);
   }
   lines.push("", ...[...commands].map((command) => `    ${command}`));
+  const misregistered = [...new Set(lagging.filter((item) => item.registeredRef && item.registeredRef !== item.ref).map((item) => `${item.marketplace} (${item.registeredRef}, project wants ${item.ref})`))];
+  if (misregistered.length > 0) {
+    lines.push("", `This machine registered ${misregistered.join(", ")} at another ref, so these commands alone won't reach it; \`kit doctor\` gives the fix.`);
+  }
   return lines.join("\n");
 }
 

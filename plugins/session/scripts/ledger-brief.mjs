@@ -278,16 +278,17 @@ function removableLines() {
 }
 
 function owedLines(shown) {
-  const owed = shown.map((r) => openNextItems(r.next)).filter((items) => items.length);
+  const owed = shown.map((r) => ({ id8: r.name.slice(11, 19), open: openNextItems(r.next) })).filter(({ open }) => open.length);
   if (!owed.length) return [];
   const items = [];
-  for (const open of owed) {
+  for (const { id8, open } of owed) {
     // A `Next` item can run to a paragraph; the brief shows the instruction, the record holds the
-    // reasoning. One line per item, its number kept so `--done <id8> <n>` names it; clip rather
-    // than let one entry dominate the whole digest.
-    for (const item of open.slice(0, NEXT_ITEMS_PER_RECORD)) items.push(`  ${item.n}. ${clip(item.text, MAX_LINE)}`);
+    // reasoning. One bullet per item, led by its record's id and its own number, so
+    // `--done <id8> <n>` names it and the items of several records don't read as one list whose
+    // numbering restarts; clip rather than let one entry dominate the whole digest.
+    for (const item of open.slice(0, NEXT_ITEMS_PER_RECORD)) items.push(`  - ${id8} #${item.n} ${clip(item.text, MAX_LINE)}`);
   }
-  const lines = ["", "Left owed by those sessions:", ...items.slice(0, MAX_OWED_LINES)];
+  const lines = ["", "Left owed by those sessions (record #item; `session-ledger --done <id8> <n>` marks one done):", ...items.slice(0, MAX_OWED_LINES)];
   if (items.length > MAX_OWED_LINES) lines.push(`  … more in the records below`);
   return lines;
 }

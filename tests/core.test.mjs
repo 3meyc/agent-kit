@@ -14,7 +14,7 @@ import { updateText } from "../plugins/core/hooks/session-start.mjs";
 import { dispatch } from "../plugins/core/hooks/shell-pre.mjs";
 import { mergeSettings, parseAdoptArgs, repoName, starterKitJson } from "../plugins/core/src/adopt.mjs";
 import { compare, outline } from "../plugins/core/src/docs-parity.mjs";
-import { checkKitJson, checkLoadedPlugins, checkSettings } from "../plugins/core/src/doctor.mjs";
+import { checkKitJson, checkLoadedPlugins, checkMarketplaceRefs, checkSettings, checkVersions } from "../plugins/core/src/doctor.mjs";
 import { collectInventory, groupOf, measureDrift, summarize } from "../plugins/core/src/inventory.mjs";
 import { hookOff, lintOnEdit } from "../plugins/core/lib/kit-config.mjs";
 import { globMatcher, matchesAny, withFile } from "../plugins/core/src/lint-match.mjs";
@@ -329,6 +329,65 @@ describe("update-check", () => {
     assert.deepEqual(asked, [{ url: "https://github.com/owner/agent-kit.git", ref: "stable" }]);
     assert.deepEqual(updateCommands(lagging[0]), ["claude plugin marketplace update agent-kit", "claude plugin update core@agent-kit"]);
   });
+
+  const sha = (c) => c.repeat(40);
+  const kitState = (registered) => ({
+    marketplaces: { "agent-kit": { source: { source: "github", repo: "owner/agent-kit", ...registered } } },
+    installed: { "core@agent-kit": [{ scope: "user", version: sha("a").slice(0, 12), gitCommitSha: sha("a") }] },
+  });
+  const cacheKey = (ref) => `agent-kit https://github.com/owner/agent-kit.git ${ref}`;
+
+  it("fresh reads the remote past a recent cache entry that still names the installed commit", () => {
+    const cacheFile = join(tempProject("update-fresh"), "update-check.json");
+    const now = 1_000_000_000;
+    writeFileSync(cacheFile, JSON.stringify({ [cacheKey("stable")]: { sha: sha("a"), at: now - 60_000 } }));
+    const state = kitState({ ref: "stable" });
+    const cached = checkUpdates({ state, cacheFile, now, resolveSha: () => sha("b") });
+    assert.deepEqual(cached.lagging, [], "the session-start check trusts a cache younger than six hours");
+    const fresh = checkUpdates({ state, cacheFile, now, fresh: true, resolveSha: () => sha("b") });
+    assert.equal(fresh.lagging.length, 1);
+    assert.equal(fresh.lagging[0].latest, sha("b"));
+    assert.equal(fresh.lagging[0].from, "remote");
+    assert.equal(JSON.parse(readFileSync(cacheFile, "utf8"))[cacheKey("stable")].sha, sha("b"));
+  });
+
+  it("fresh falls back to the cached SHA, marked as such, when the remote cannot be read", () => {
+    const cacheFile = join(tempProject("update-fresh-offline"), "update-check.json");
+    const now = 1_000_000_000;
+    writeFileSync(cacheFile, JSON.stringify({ [cacheKey("stable")]: { sha: sha("a"), at: now - 3 * 3600_000 } }));
+    const { checked } = checkUpdates({ state: kitState({ ref: "stable" }), cacheFile, now, fresh: true, resolveSha: () => null });
+    assert.deepEqual(
+      checked.map(({ latest, from, cachedAt }) => ({ latest, from, cachedAt })),
+      [{ latest: sha("a"), from: "cache", cachedAt: now - 3 * 3600_000 }],
+    );
+    assert.equal(JSON.parse(readFileSync(cacheFile, "utf8"))[cacheKey("stable")].sha, sha("a"), "a failed fresh read keeps the last good SHA");
+  });
+
+  it("compares against the project's declared ref and keeps the registered one", () => {
+    const asked = [];
+    const { lagging } = checkUpdates({
+      state: kitState({}),
+      declared: { "agent-kit": { source: "github", repo: "owner/agent-kit", ref: "stable" } },
+      resolveSha: (remote) => {
+        asked.push(remote.ref);
+        return sha("b");
+      },
+    });
+    assert.deepEqual(asked, ["stable"]);
+    assert.equal(lagging[0].ref, "stable");
+    assert.equal(lagging[0].registeredRef, "HEAD");
+    assert.match(updateText(lagging), /registered agent-kit \(HEAD, project wants stable\)/);
+  });
+
+  it("caches outside a hook in the folder the hook uses, core-agent-kit", () => {
+    const configDir = tempProject("claude-config", { "plugins/data/.keep": "" });
+    const run = spawnSync(
+      process.execPath,
+      ["--input-type=module", "-e", `import { defaultCacheFile } from ${JSON.stringify(join(core, "src", "update-check.mjs"))}; console.log(defaultCacheFile());`],
+      { encoding: "utf8", env: { ...process.env, CLAUDE_CONFIG_DIR: configDir, CLAUDE_PLUGIN_DATA: "" } },
+    );
+    assert.equal(run.stdout.trim(), join(configDir, "plugins", "data", "core-agent-kit", "update-check.json"));
+  });
 });
 
 describe("schema-check", () => {
@@ -428,6 +487,44 @@ describe("doctor settings", () => {
       },
     });
     assert.deepEqual(checkSettings(project, { project: "my-app" }, userDir).filter((finding) => finding.level !== "ok"), []);
+  });
+
+  it("warns when this machine or the user's settings hold the marketplace at another ref", () => {
+    const stable = { source: { source: "github", repo: "owner/agent-kit", ref: "stable" } };
+    const refless = { source: { source: "github", repo: "owner/agent-kit" } };
+    const home = tempProject("user-home-refless", {
+      "settings.json": { extraKnownMarketplaces: { "agent-kit": refless } },
+      "plugins/known_marketplaces.json": { "agent-kit": refless },
+    });
+    const project = tempProject("doctor-ref", {
+      ".claude/settings.json": { extraKnownMarketplaces: { "agent-kit": stable }, enabledPlugins: { "core@agent-kit": true } },
+    });
+    const warns = checkSettings(project, { project: "my-app" }, home).filter((finding) => finding.level === "warn").map((finding) => finding.text);
+    assert.equal(warns.length, 2);
+    assert.match(warns[0], /user settings\.json declares it with no ref \(HEAD\).*add "ref": "stable".*claude plugin marketplace add owner\/agent-kit#stable/);
+    assert.match(warns[1], /registered on this machine with no ref \(HEAD\).*After the user settings fix/);
+    assert.deepEqual(checkMarketplaceRefs({ "agent-kit": stable }, { "agent-kit": stable }, { "agent-kit": stable }), []);
+    assert.deepEqual(checkMarketplaceRefs({ "agent-kit": refless }, {}, { "agent-kit": stable }), [], "a project that names no ref accepts any");
+  });
+
+  it("reports a plugin behind the remote even when the cache says it is current", () => {
+    const project = tempProject("doctor-versions");
+    const sha = (c) => c.repeat(40);
+    const state = {
+      marketplaces: { "agent-kit": { source: { source: "github", repo: "owner/agent-kit", ref: "stable" } } },
+      installed: { "core@agent-kit": [{ scope: "user", version: sha("a").slice(0, 12), gitCommitSha: sha("a") }] },
+    };
+    const cacheFile = join(project, "update-check.json");
+    const now = 1_000_000_000;
+    writeFileSync(cacheFile, JSON.stringify({ "agent-kit https://github.com/owner/agent-kit.git stable": { sha: sha("a"), at: now - 60_000 } }));
+    const behind = checkVersions(project, { state, cacheFile, now, resolveSha: () => sha("b") });
+    assert.equal(behind.length, 1);
+    assert.equal(behind[0].level, "warn");
+    assert.match(behind[0].text, /installed aaaaaaaaaaaa, stable on the remote is bbbbbbbbbbbb/);
+    writeFileSync(cacheFile, JSON.stringify({ "agent-kit https://github.com/owner/agent-kit.git stable": { sha: sha("a"), at: now - 60_000 } }));
+    const offline = checkVersions(project, { state, cacheFile, now, resolveSha: () => null });
+    assert.equal(offline[0].level, "warn");
+    assert.match(offline[0].text, /remote could not be read; a cached stable from \d+ min ago matches the installed aaaaaaaaaaaa; not proof/);
   });
 });
 

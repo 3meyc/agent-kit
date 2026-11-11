@@ -58,6 +58,20 @@ claude plugin update core@agent-kit
 3. Auto-update can't be relied on: the desktop app turns it off, headless runs never update, and an
    interactive session applies an update only at the next launch (S8). Turning it on
    (`/plugin` → Marketplaces → `agent-kit`) is optional and doesn't replace the commands above.
+4. Plugins install from the ref this machine registered the marketplace at, not from the ref the
+   project declares. When your own `~/.claude/settings.json` `extraKnownMarketplaces` declares
+   `agent-kit` without a `ref`, the marketplace tracks `HEAD`, and
+   `claude plugin marketplace add 3meyc/agent-kit#stable` is refused because its source doesn't
+   match that entry. Add `"ref": "stable"` to the user entry, then run the `add` command again.
+   `/core:kit-doctor` warns about both cases (observed with one Claude Code version; the message
+   may differ).
+5. Moving the marketplace to `stable` doesn't touch the installed plugins: each keeps its old copy
+   until `claude plugin update`. Run it once per plugin at user scope, and again for each
+   project-scope install, from that project:
+
+```bash
+claude plugin update core@agent-kit --scope project
+```
 
 ## 4. Private overlay kits
 
@@ -81,3 +95,4 @@ the one git uses for it.
 | 1 | A skill or command is missing | `/plugin` lists the plugin as enabled for this project |
 | 2 | An old behaviour persists | `claude plugin marketplace update agent-kit`, `claude plugin update <plugin>@agent-kit`, then a new session |
 | 3 | A rule seems ignored | `/core:kit-doctor`; a project copy of a kit file shadows the kit |
+| 4 | `marketplace add …#stable` is refused: its source doesn't match its `extraKnownMarketplaces` entry | Add `"ref": "stable"` to that marketplace in `~/.claude/settings.json`, run `add` again, then `claude plugin update` per plugin and scope (§ 3) |

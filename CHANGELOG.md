@@ -4,6 +4,16 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 ## Unreleased
 
+Gaps from the rollout after the second `stable`.
+
+- core: `kit doctor` and `kit update-check` read each marketplace's ref from the remote every time instead of trusting the six-hour cache, which had reported plugins behind `stable` as current; a result that could only come from the cache says so and is a warning. Outside a hook the cache now lives in `plugins/data/core-agent-kit/`, the folder the SessionStart check uses (it was `agent-kit-core/`, so the two disagreed).
+- core: the version check compares against the ref the project declares in `extraKnownMarketplaces` (else the registered one), and `kit doctor` (so also `/kit-adopt`) warns when this machine registered the marketplace, or the user's own `settings.json` declares it, at another ref, with the fix. The SessionStart notice says when the update commands alone won't reach the declared ref.
+- docs: `using.md` § 3 explains the refused `marketplace add …#stable` when the user's settings declare the marketplace without a `ref`, and that each plugin then needs `claude plugin update` at user scope and per project-scope install.
+- sdlc: `/sdlc-status` is read-only, so the agent may run it too (a delegated session could not).
+- session: the ledger brief's "Left owed" items lead with their record id (`a5a5a5a5 #2`), so items of several records no longer read as one list whose numbering restarts.
+- session: `git-commit-session` prints a `session record:` line for the record it commits, new or updated, and `session-ledger --record` says where a missing record comes from; `git-ops` counts the staged files from the commit, record included.
+- core: the chat-output rules ask for a plain-words summary of what changed and why, and for runnable commands in fenced blocks rather than inline backticks.
+
 ## 2026-11-10 — second `stable`
 
 `stable` points at the commit that adds this entry. Fixes from the pilot's review and from the first rollout to three more projects.

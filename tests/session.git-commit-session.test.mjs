@@ -510,13 +510,21 @@ require("node:module").syncBuiltinESMExports();`,
     writeFileSync(join(repo, "mine.txt"), "changed\n");
     const hooks = fakeLedger(0, "", { refresh: ["aaaaaaaa-1111\t.claude/ledger/2026-09-27-aaaaaaaa.md"] });
 
-    commitSession(["mine.txt"], "test: record", { args: ["--session", "aaaaaaaa"], env: hooks.env });
+    const first = commitSession(["mine.txt"], "test: record", { args: ["--session", "aaaaaaaa"], env: hooks.env });
 
     expect(git("show", "--name-only", "--format=", "HEAD").split("\n").sort()).toEqual([
       ".claude/ledger/2026-09-27-aaaaaaaa.md",
       "mine.txt",
     ]);
     expect(git("status", "--porcelain")).toBe("");
+    // The record is not in the caller's list, so the script names it, and says the refresh wrote it.
+    expect(first.stdout).toContain("session record: .claude/ledger/2026-09-27-aaaaaaaa.md (new, written by this commit's refresh)");
+
+    writeFileSync(join(repo, "mine.txt"), "changed again\n");
+    writeFileSync(join(repo, ".claude/ledger/2026-09-27-aaaaaaaa.md"), "older\n");
+    git("commit", "-q", "-m", "older record", "--", ".claude/ledger/2026-09-27-aaaaaaaa.md");
+    const second = commitSession(["mine.txt"], "test: record again", { args: ["--session", "aaaaaaaa"], env: hooks.env });
+    expect(second.stdout).toContain("session record: .claude/ledger/2026-09-27-aaaaaaaa.md (updated)");
   });
 
   it("carries one trailer per id after a resume", () => {

@@ -338,13 +338,13 @@ describe("ledger-brief.mjs brief sections (characterization)", () => {
 
         1 other worktree is merged and clean — safe to remove: worktree-flow status (✓ rows).
 
-        Left owed by those sessions:
-          1. (unverified) check the thing
-          3. a long instruction a long instruction a long instruction a long instruction a long instruction a long instruction a l…
-          4. fourth item
-          1. one
-          2. two
-          3. three
+        Left owed by those sessions (record #item; \`session-ledger --done <id8> <n>\` marks one done):
+          - a2a2a2a2 #1 (unverified) check the thing
+          - a2a2a2a2 #3 a long instruction a long instruction a long instruction a long instruction a long instruction a long instruction a l…
+          - a2a2a2a2 #4 fourth item
+          - a5a5a5a5 #1 one
+          - a5a5a5a5 #2 two
+          - a5a5a5a5 #3 three
           … more in the records below
 
         1 open Next item in 1 older record — session-ledger --owed

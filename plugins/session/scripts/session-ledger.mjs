@@ -1009,7 +1009,11 @@ function runRecord(args) {
   }
   const match = recordsFor(prefix.slice(0, 8))[0];
   if (match) console.log(recordRel(match.path));
-  else console.error(`session-ledger --record: no record yet for ${prefix.slice(0, 8)}`);
+  else {
+    console.error(
+      `session-ledger --record: no record yet for ${prefix.slice(0, 8)}; the Stop hook writes it at the end of the turn, and git-commit-session writes and commits it with this session's next commit`,
+    );
+  }
 }
 
 function runFiles(args) {

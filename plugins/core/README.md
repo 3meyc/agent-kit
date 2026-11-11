@@ -26,7 +26,7 @@ quietly when its id is listed.
 | ID | Hook id | Event | Does | Does nothing when |
 | --- | --- | --- | --- | --- |
 | 1 | `rules` | SessionStart | Prints the always-on rules | listed in `hooks.off` |
-| 2 | `update-check` | SessionStart | One short note when an installed kit plugin's commit differs from its marketplace ref, with the two update commands; remote SHAs cached for six hours | nothing lags, the remote is unreachable, or the session restarted after a compaction |
+| 2 | `update-check` | SessionStart | One short note when an installed kit plugin's commit differs from its channel (the project's declared marketplace ref, else the registered one), with the two update commands; remote SHAs cached for six hours (`kit doctor` and `kit update-check` read the remote every time) | nothing lags, the remote is unreachable, or the session restarted after a compaction |
 | 3 | `lint-edited-file` | PostToolUse Edit, Write, MultiEdit | Runs every `lintOnEdit` rule whose globs match the edited file, in order; any failure is shown to the agent (exit 2) without undoing the edit | no `lintOnEdit`, or the file matches no rule |
 | 4 | `shell-deletions` | PreToolUse and PostToolUse Bash, PowerShell | Snapshots tracked files a script-running command deletes, for the session ledger | `ledger` is not `true`, or the command runs no script |
 | 5 | `codegraph-sync` | PreToolUse Bash, PowerShell, CodeGraph MCP tools | Syncs a linked worktree's own CodeGraph index before a query reads it | no `.codegraph/codegraph.db` in the worktree, or no `codegraph` CLI |
@@ -40,7 +40,7 @@ call starts one `node`, not two. No hook ever blocks a tool call; a failure is o
 | --- | --- | --- |
 | 1 | `/core:check [<command> \| all]` | Runs `kit.json` `commands.*` in the Haiku agent `check-runner`, which reports only failures. Empty: `check`, `lint`, `test` |
 | 2 | `/core:dev` | Starts the dev server on `devServer.port` through the matching `.claude/launch.json` entry, in the desktop app's Browser pane |
-| 3 | `/core:kit-doctor` | Checks `kit.json` against the schema, the needed plugins, both marketplaces declared, kit-owned copies, installed versions |
+| 3 | `/core:kit-doctor` | Checks `kit.json` against the schema, the needed plugins, both marketplaces declared and registered at the declared ref, kit-owned copies, installed versions against the remote |
 | 4 | `/core:kit-adopt` | Drafts `kit.json`, declares marketplaces and plugins in `.claude/settings.json`, lists local files the kit now supplies; dry run first, deletes nothing |
 | 5 | `/core:kit-inventory [--out <dir>]` | Inventories agent tooling across your local repos and measures drift between copies |
 | 6 | `/core:sweep <question>` | Answers a read-only question across many files in the Haiku agent `repo-sweep` and returns a verdict, not excerpts |

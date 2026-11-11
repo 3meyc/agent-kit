@@ -2,8 +2,8 @@
 name: sdlc-status
 description: >-
   Read SDLC work-item records and version history to report each item's current stage,
-  blockers, drafts, and next action without changing anything. User-invoked only.
-disable-model-invocation: true
+  blockers, drafts, and next action without changing anything. Read-only, so the agent may run
+  it too, for example in a delegated session asked to report an item's state.
 allowed-tools: Bash(sdlc-kit:*)
 ---
 

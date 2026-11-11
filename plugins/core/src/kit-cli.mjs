@@ -87,17 +87,21 @@ export function printDev(root, print = console.log) {
 }
 
 function printUpdates(root, print = console.log) {
-  const { lagging, checked } = checkUpdates({ root, cacheFile: defaultCacheFile() });
+  const { lagging, checked } = checkUpdates({ root, cacheFile: defaultCacheFile(), fresh: true });
   if (checked.length === 0) {
     print("No kit plugins installed from a git marketplace for this project.");
     return 0;
   }
+  const unread = checked.filter((item) => item.from !== "remote");
+  if (unread.length > 0) {
+    print(`Could not read the remote for ${[...new Set(unread.map((item) => item.marketplace))].join(", ")}; those results ${unread.some((item) => item.from === "cache") ? "come from the cache" : "are missing"}.`);
+  }
   if (lagging.length === 0) {
-    print(`All ${checked.length} kit plugin install(s) match their marketplace ref.`);
+    print(`All ${checked.length - unread.filter((item) => item.latest === null).length} checked kit plugin install(s) match their channel's ref.`);
     return 0;
   }
   for (const item of lagging) {
-    print(`${item.plugin}@${item.marketplace} (${item.scope}): installed ${item.installed.slice(0, 12)}, ${item.ref} is ${item.latest.slice(0, 12)}`);
+    print(`${item.plugin}@${item.marketplace} (${item.scope}): installed ${item.installed.slice(0, 12)}, ${item.ref} is ${item.latest.slice(0, 12)}${item.from === "cache" ? " (cached)" : ""}`);
     for (const command of updateCommands(item)) print(`  ${command}`);
   }
   return 0;
