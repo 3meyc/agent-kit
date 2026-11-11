@@ -1,7 +1,7 @@
 ---
 description: Close out a worktree session — resume of done / follow-up / not-done work, then land on the base branch, propose follow-up sessions, push on the user's word, and end with a where-what-why session resume before the archive. Runs after /sdlc-finish
 argument-hint: [slug] [land | land and push | land, push and archive] [with diagram]
-allowed-tools: Bash(worktree-flow:*), Bash(session-ledger:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/worktree-flow.mjs:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/session-ledger.mjs:*), Bash(git status:*), Bash(git log:*), Bash(git rev-parse:*), Bash(gh run list:*), Bash(gh run view:*), Bash(gh run watch:*), Bash(gh api repos/:*)
+allowed-tools: Bash(worktree-flow:*), Bash(session-ledger:*), Bash(evolution:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/evolution.mjs:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/worktree-flow.mjs:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/session-ledger.mjs:*), Bash(git status:*), Bash(git log:*), Bash(git rev-parse:*), Bash(gh run list:*), Bash(gh run view:*), Bash(gh run watch:*), Bash(gh api repos/:*)
 ---
 
 Arguments: $ARGUMENTS
@@ -23,6 +23,10 @@ Files this session edited and still dirty, and its record:
 !`node ${CLAUDE_PLUGIN_ROOT}/scripts/session-ledger.mjs --files`
 
 !`node ${CLAUDE_PLUGIN_ROOT}/scripts/session-ledger.mjs --record`
+
+The project's evolution pages and this branch's commits not on them yet:
+
+!`node ${CLAUDE_PLUGIN_ROOT}/scripts/evolution.mjs status --base auto`
 
 Where things are comes from the project's `kit.json`: `baseBranch` (default `main`), the SDLC
 items in `paths.sdlc` (default `docs/sdlc`), the ledger in `paths.ledger` (default
@@ -57,6 +61,14 @@ not the note, is the source.
 an overlay plugin's) runs here, in name order, before anything lands: load it and do what it says.
 What it finds goes into the three buckets like everything else; a step it marks as required and
 that failed is Not done. With no such skill, there are no project steps.
+
+**Evolution pages.** When the evolution status above lists commits not named on a page, load the
+`evolution` skill (`session:evolution`) and do its steps 2 to 5 before anything lands: a box or a
+line per change, a Sources row each, the mirrors, `evolution bump` and `evolution check`. The
+edited pages are committed with the session's work (§ 2 step 1) and named in Done with their new
+version; a commit left off the page is one line in the resume's Chores, and a printable version
+that was not rendered is Not done only when the project renders one. With no pages, or nothing
+listed, there is no step.
 
 ## 2. Land, when Not done is empty or the user says land anyway
 

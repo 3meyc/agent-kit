@@ -14,6 +14,7 @@ flow from set-up to landing. Depends on `core`.
 | 2 | Commit script | `git-commit-session` commits only this session's paths with `git commit --only`, stops when another session claims a path, adds a `Session-Id` trailer, runs the project's commit audit on the committed paths, and counts the project's skipped optional steps (`preflight`) |
 | 3 | Worktree flow | `worktree-flow` shows every worktree's base and verdict, predicts conflicts, lands a branch on its base by fast-forward only, and removes merged worktrees. A SessionStart hook prepares each new linked worktree |
 | 4 | Commands | `/handoff` writes the record mid-task; `/close-out` sorts the work, lands it and writes the session resume; `/close-siblings` lands the side sessions' work; `/git` runs git chores in the `git-ops` agent, and `/git commit --review` reviews the diff before committing |
+| 5 | Evolution pages | `process-evolution.md` and `features-evolution.md` in `paths.evolution`: one Mermaid flowchart each of how the way of working and the features grew, with a Sources table. `evolution` starts, lists what is missing, bumps and checks them; `/close-out` adds this branch's changes before landing, through the `evolution` skill |
 
 Commands are namespaced by Claude Code as `/session:handoff`, `/session:close-out`,
 `/session:close-siblings` and `/session:git`; the agent is `session:git-ops`. The short form
@@ -58,6 +59,8 @@ quiet unless `kit.json` sets `"ledger": true`.
 | 10 | `hooks.off` | `[]` | The hook ids above |
 | 11 | `commands.install` | lockfile guess | The worktree set-up's install step, run through the shell when a known lockfile is newer than the last install |
 | 12 | `preflight` | none | Optional steps to run now and then before committing; each commit they touch counts a skip, shown once it reaches `remindAfter` |
+| 13 | `paths.evolution` | `docs/evolution` | Where `evolution` and `/close-out` find the evolution pages; none there means the project keeps none |
+| 14 | `commands.evolutionRender` | none | Renders a page's printable version after `evolution bump`; `{page}` becomes the quoted page path (appended without it) |
 
 `preflight` names a project's optional steps, never a tool the kit knows: each has a
 `description`, an optional `command`, optional `match` globs (left out: any commit outside the
@@ -93,6 +96,7 @@ a project may allow them in `.claude/settings.json` (`Bash(session-ledger --file
 | 6 | `ledger-export` | Renders a record as a hand-off file outside the repo (`/handoff --export`) |
 | 7 | `scan-ledger-secrets` | Pre-commit backstop: fails on secret-shaped text in staged records (without paths: the staged files in the ledger folder) |
 | 8 | `preflight` | `status`, `run <id>`, `done <id>` for the `kit.json` `preflight` steps |
+| 9 | `evolution` | `status [--base <ref>\|auto]`, `init`, `bump <page>`, `check` for the evolution pages; `--help` lists them |
 
 Outside a session (a shell, a git hook), plugin commands are not on PATH. For the secret scan in a
 git hook, add this repo as a dev dependency (`github:3meyc/agent-kit#<ref>`) and call

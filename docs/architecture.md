@@ -32,7 +32,7 @@ flowchart BT
 | --- | --- | --- |
 | 1 | `core` | Always-on rules, `check-runner` and `repo-sweep` agents, edit and shell hooks, `kit doctor`, `/kit-inventory`, `/kit-adopt`, docs parity check |
 | 2 | `sdlc` | Five `/sdlc-*` skills, `sdlc-simplifier` and `sdlc-verifier` agents |
-| 3 | `session` | Ledger hooks and scripts, `/handoff`, `/close-out`, `/close-siblings`, `/git` with the `git-ops` agent, worktree set-up and landing |
+| 3 | `session` | Ledger hooks and scripts, `/handoff`, `/close-out`, `/close-siblings`, `/git` with the `git-ops` agent, worktree set-up and landing, the `evolution` pages |
 | 4 | `svelte` | Svelte 5 conventions |
 | 5 | `python` | Python conventions |
 
@@ -78,7 +78,8 @@ commands the plugins use. Draft v1; the final shape lives in `schema/kit.schema.
     "sdlc": "docs/sdlc",
     "glossary": "docs/glossary.md",
     "recipes": "docs/recipes",
-    "ledger": ".claude/ledger"
+    "ledger": ".claude/ledger",
+    "evolution": "docs/evolution"
   },
   "commands": {
     "install": "pnpm install --frozen-lockfile",

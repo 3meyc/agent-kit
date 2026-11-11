@@ -4,6 +4,8 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 ## Unreleased
 
+- session: evolution pages. `process-evolution.md` and `features-evolution.md` in `kit.json` `paths.evolution` (default `docs/evolution`) draw how a project's way of working and its features grew, one Mermaid flowchart each with a Sources table, `version:` and `last_verified:`. `evolution init` starts them (with a mirror per language the repo keeps, Ukrainian translated), `evolution status [--base auto]` lists the commits not on them yet, `evolution bump` raises the version in the page and its mirrors and runs `commands.evolutionRender` for a printable version, and `evolution check` lints the diagram and the mirrors. `/close-out` adds the branch's changes before landing through the new `evolution` skill. The schema gains `paths.evolution` and `commands.evolutionRender`.
+
 ## 2026-11-11 — eighth `stable`
 
 `stable` points at the commit that adds this entry. A hand-typed ledger title no longer blocks commits.
