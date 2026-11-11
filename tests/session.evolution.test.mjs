@@ -10,6 +10,8 @@ import { normalizeKit } from "../shared/kit-config.mjs";
 import { compare } from "../plugins/core/src/docs-parity.mjs";
 import {
   applyBump,
+  changelogPath,
+  unreleasedItems,
   classifyCommits,
   cmdBump,
   cmdCheck,
@@ -199,6 +201,20 @@ describe("classifyCommits", () => {
   });
 });
 
+describe("the changelog's Unreleased lines", () => {
+  it("reads each top-level item with its wrapped lines, up to the next heading", () => {
+    const text = "# C\n\n## Unreleased\n\n- core: one,\n  wrapped.\n* sdlc: two.\n\n## 2026-01-01 — first\n\n- old.\n";
+    assert.deepEqual(unreleasedItems(text), ["core: one, wrapped.", "sdlc: two."]);
+    assert.deepEqual(unreleasedItems("# C\n\n## 2026-01-01\n\n- old.\n"), []);
+  });
+
+  it("takes the first changelog of release.notes without a language", () => {
+    assert.equal(changelogPath(normalizeKit({ project: "t" })), "CHANGELOG.md");
+    const notes = [{ path: "docs/releases.md", format: "table" }, { path: "CHANGES.uk.md", lang: "uk" }, "docs/CHANGES.md"];
+    assert.equal(changelogPath(normalizeKit({ project: "t", release: { notes } })), "docs/CHANGES.md");
+  });
+});
+
 describe("templates", () => {
   for (const kind of ["process", "features"]) {
     it(`${kind}: the page and its Ukrainian mirror pass the check and the docs parity`, () => {
@@ -264,6 +280,21 @@ describe("commands", () => {
     lines.length = 0;
     cmdStatus(repo, kit, ["--base", "HEAD"], print);
     assert.match(lines.join("\n"), /Nothing changed the way of working in HEAD\.\.HEAD/);
+  });
+
+  it("status --since-release counts from the release tag and takes the features from Unreleased", () => {
+    git(repo, "tag", "stable", "HEAD~1");
+    writeFileSync(join(repo, "CHANGELOG.md"), "# C\n\n## Unreleased\n\n- app: the first screen.\n");
+    lines.length = 0;
+    cmdStatus(repo, kit, ["--since-release"], print);
+    const text = lines.join("\n");
+    assert.match(text, /^Evolution pages in docs\/evolution, counting from stable:/);
+    assert.match(text, /process-evolution\.md v1\.0\.0, .*; unchanged since stable; check passed/);
+    assert.match(text, /1\.1\. 2026-11-05 `feat\(app\): first screen` — \.claude\/rules\/x\.md/);
+    assert.match(text, /Its candidates are the CHANGELOG\.md `## Unreleased` lines \(3 below\)/);
+    assert.match(text, /3\. CHANGELOG\.md `## Unreleased`: 1 line, the triaged list for this release/);
+    assert.match(text, /3\.1\. app: the first screen\./);
+    rmSync(join(repo, "CHANGELOG.md"));
   });
 
   it("bump raises the page and its mirror and runs the renderer with the page", () => {

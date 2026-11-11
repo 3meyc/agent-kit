@@ -58,7 +58,7 @@
         "glossary": { "$ref": "#/$defs/relPath", "description": "Domain glossary file.", "default": "docs/glossary.md" },
         "recipes": { "$ref": "#/$defs/relPath", "description": "Step-by-step guides for recurring tasks.", "default": "docs/recipes" },
         "ledger": { "$ref": "#/$defs/relPath", "description": "Session ledger records.", "default": ".claude/ledger" },
-        "evolution": { "$ref": "#/$defs/relPath", "description": "Evolution pages (process-evolution.md, features-evolution.md): how the way of working and the features grew. The session plugin's `evolution` command and /close-out keep them current once they exist.", "default": "docs/evolution" }
+        "evolution": { "$ref": "#/$defs/relPath", "description": "Evolution pages (process-evolution.md, features-evolution.md): how the way of working and the features grew. Brought up to date once per release by the session plugin's `evolution` command and skill; the `kit release` dry run names a page the release has not updated.", "default": "docs/evolution" }
       }
     },
     "commands": {

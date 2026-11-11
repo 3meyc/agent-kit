@@ -84,9 +84,12 @@ pnpm exec agent-kit doctor --strict --offline --plugin-root node_modules/my-over
    takes each shipped feature, release by release. Start them from a Claude session's shell; it
    adds a mirror per language the repo already keeps `*.<lang>.md` pages in (`--lang`,
    `--no-mirror` to choose). Then replace the first boxes with the real history and commit.
-   From then on `/close-out` lists the branch's commits that are not on a page and adds them
-   before landing (the `evolution` skill), so nobody has to remember. Outside `/close-out`,
-   `evolution status` lists what changed after each page's `last_verified`. With a renderer for
+   From then on the pages are brought up to date once per release, not per session:
+   `evolution status --since-release` lists the changelog's `## Unreleased` lines (already
+   triaged: each was worth a line) and the commits since the last release tag that changed the
+   way of working, and the `evolution` skill turns them into a few boxes. The `kit release` dry
+   run names a page not changed since the last release, so nobody has to remember; a project with
+   its own release flow runs the skill before it. With a renderer for
    a printable version, set `commands.evolutionRender` (`{page}` is the page path); `evolution
    bump` runs it. `evolution check` fits a `checks` suite.
 

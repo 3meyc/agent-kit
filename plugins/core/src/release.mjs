@@ -6,7 +6,7 @@
 // name the release commit. `kit.json` `release` says where the notes live and what to check
 // (docs/changing.md, Releasing).
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readKit } from "../lib/kit-config.mjs";
@@ -190,6 +190,27 @@ export function baseContains(base) {
   }
 }
 
+const EVOLUTION_PAGES = ["process-evolution.md", "features-evolution.md"];
+
+/**
+ * One release step line on the project's evolution pages, or null when it keeps none: which page
+ * the commits since the last release left unchanged. A release is when the pages are brought up to
+ * date (the session plugin's `evolution` skill), so the dry run names the ones still to do; it
+ * never refuses.
+ * @param {string} root @param {string} folder `kit.json` `paths.evolution`
+ * @param {string | null} since The commit the tag names now; null on a first release.
+ * @param {string} tag
+ */
+export function evolutionLine(root, folder, since, tag) {
+  const pages = EVOLUTION_PAGES.map((name) => `${folder}/${name}`).filter((path) => existsSync(join(root, ...path.split("/"))));
+  if (pages.length === 0) return null;
+  const todo = "bring them up to date first: `evolution status --since-release` and the `evolution` skill (session plugin)";
+  if (!since) return `Evolution pages: ${pages.join(", ")}; first release, ${todo}`;
+  const stale = pages.filter((path) => git(root, ["diff", "--quiet", since, "--", path]).ok);
+  if (stale.length === 0) return `Evolution pages: ${pages.join(", ")} changed since ${tag}`;
+  return `Evolution pages: ${stale.join(", ")} unchanged since ${tag}; ${todo}, or release without them`;
+}
+
 const SUMMARY_FLAG = /^--summary(?:-([a-z]{2,8}))?$/;
 
 /**
@@ -316,6 +337,10 @@ export function runRelease(root, args, options = {}) {
   const subject = word ? `chore(release): ${word} ${tag} release` : null;
   const tagMessage = word ? `${today}: ${word} release` : null;
   say(word ? `Release: ${word} \`${tag}\`, dated ${today}` : "Release: number unknown (see the notes above)");
+
+  // The evolution pages (session plugin), when the project keeps them: reported, never refused.
+  const evolution = tagged.error ? null : evolutionLine(root, kit.paths.evolution, tagged.commit, tag);
+  if (evolution) say(evolution);
 
   // 4. An overlay's base kit: its tag already holds the release this one needs.
   if (config.base) {

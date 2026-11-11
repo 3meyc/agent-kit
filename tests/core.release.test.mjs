@@ -296,4 +296,16 @@ describe("kit release for an overlay", () => {
     assert.equal(refused.code, 1);
     assert.match(refused.out, /does not contain/);
   });
+
+  it("names the evolution pages the release has not updated, and never refuses for them", () => {
+    const page = "---\nversion: 1.0.0\nlast_verified: 2025-12-01\n---\n\n# P\n";
+    const { dir } = kitRepo("evolution", { ...changelogKit(), "docs/evolution/process-evolution.md": page, "docs/evolution/features-evolution.md": page });
+    land(dir, { "CHANGELOG.md": CHANGELOG.replace("## Unreleased\n", "## Unreleased\n\n- core: a fix.\n"), "docs/evolution/features-evolution.md": page.replace("1.0.0", "1.1.0") });
+    const { code, out } = release(dir, ["--summary", "A fix."]);
+    assert.equal(code, 0, out);
+    assert.match(out, /Evolution pages: docs\/evolution\/process-evolution\.md unchanged since stable; bring them up to date first: `evolution status --since-release`/);
+    const none = kitRepo("no-evolution", changelogKit());
+    land(none.dir, { "CHANGELOG.md": CHANGELOG.replace("## Unreleased\n", "## Unreleased\n\n- core: a fix.\n") });
+    assert.doesNotMatch(release(none.dir, ["--summary", "A fix."]).out, /Evolution pages/);
+  });
 });

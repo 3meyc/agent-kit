@@ -3,9 +3,11 @@
  * Mermaid flowchart (stages as subgraphs, changes as boxes) and a Sources table (`evolution` on
  * the Bash PATH, from the plugin's `bin/`):
  *
- *   evolution [status] [--base <ref> | --base auto]
- *                                  each page's version, last_verified and check result, and the
- *                                  commits not on it yet: since its last_verified, or in <ref>..HEAD
+ *   evolution [status] [--since-release [<tag>] | --base <ref>]
+ *                                  each page's version, last_verified and check result, and what is
+ *                                  not on it yet: the changelog's `## Unreleased` lines (the triaged
+ *                                  list), and the commits since the last release tag (or since the
+ *                                  page's last_verified, or in <ref>..HEAD) that changed the process
  *   evolution init [--lang <xx>]... [--no-mirror]
  *                                  write the missing pages; a mirror per language the repo already
  *                                  keeps `*.<xx>.md` pages in (Ukrainian gets a translated template)
@@ -17,8 +19,9 @@
  *
  * The folder is `kit.json` `paths.evolution` (default `docs/evolution`); the pages are
  * `process-evolution.md` and `features-evolution.md`. A project switches the log on by having
- * them: with no pages every command but `init` says so and exits 0. The `evolution` skill says how
- * to write a box and its Sources row; `/close-out` runs `status --base auto` before landing.
+ * them: with no pages every command but `init` says so and exits 0. The pages are brought up to
+ * date once per release, not per session: the `kit release` dry run names a page not changed since
+ * the last release, and the `evolution` skill says how to triage and write the boxes.
  *
  * `check` is a structural lint, not Mermaid's own parser (which needs a browser): an unknown
  * diagram type is reported as not checked. Exit codes: 0 fine, 1 a check error or a failed render,
@@ -27,14 +30,17 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
-import { fileURLToPath } from "node:url";
 import { isDirectRun, isProcessPath } from "../lib/hook-utils.mjs";
 import { readKit, rootFor } from "../lib/kit-config.mjs";
 
-const USAGE = `Usage: evolution [status [--base <ref>|auto] | init [--lang <xx>]... [--no-mirror] | bump <page> [--patch] [--date YYYY-MM-DD] [--no-render] | check [<page>...]]
+const USAGE = `Usage: evolution [status [--since-release [<tag>] | --base <ref>] | init [--lang <xx>]... [--no-mirror] | bump <page> [--patch] [--date YYYY-MM-DD] [--no-render] | check [<page>...]]
 
-  status    each page's version, last_verified and check result, and the commits not on it yet
-            (since its last_verified, or in <ref>..HEAD with --base; auto asks worktree-flow)
+  status    each page's version, last_verified and check result, and what is not on it yet: the
+            changelog's ## Unreleased lines, and the commits that changed the process (or, with no
+            Unreleased lines, shipped a feature) since the page's last_verified; --since-release
+            counts from the last release tag (kit.json release.tag, else stable, else the newest
+            tag; a page verified later counts from its last_verified), --base from <ref>.
+            Run it before a release.
   init      write the missing pages under kit.json paths.evolution (default docs/evolution),
             with a mirror per language the repo already keeps *.<xx>.md pages in
   bump      raise the page's version (minor; --patch for a correction), set last_verified, move
@@ -358,14 +364,54 @@ function commitsIn(root, { range, after }) {
   return after && !range ? commits.filter((commit) => commit.date > after) : commits;
 }
 
-/** The base `worktree-flow base` names, or null when it names none or this is the base. @param {string} root */
-function autoBase(root) {
-  const flow = join(dirname(fileURLToPath(import.meta.url)), "worktree-flow.mjs");
-  const result = spawnSync(process.execPath, [flow, "base"], { cwd: root, encoding: "utf8" });
-  const base = result.status === 0 ? result.stdout.trim().split(/\s+/)[0] : "";
-  if (!base) return null;
-  const head = git(["rev-parse", "--abbrev-ref", "HEAD"], root)?.trim();
-  return head === base ? null : base;
+/**
+ * The tag the last release moved or made: `kit.json` `release.tag`, else `stable`, when it exists;
+ * else the newest tag reachable from HEAD; null without any.
+ * @param {string} root @param {ReturnType<typeof readKit>} kit
+ */
+export function releaseTag(root, kit) {
+  const named = typeof kit.raw?.release?.tag === "string" && kit.raw.release.tag.trim() ? kit.raw.release.tag.trim() : "stable";
+  if (git(["rev-parse", "--verify", "-q", `refs/tags/${named}^{commit}`], root) !== null) return named;
+  return git(["describe", "--tags", "--abbrev=0"], root)?.trim() || null;
+}
+
+/**
+ * The changelog the release notes go to: the first `kit.json` `release.notes` entry in changelog
+ * format without a language, else `CHANGELOG.md`. Repo-relative.
+ * @param {ReturnType<typeof readKit>} kit
+ */
+export function changelogPath(kit) {
+  const notes = Array.isArray(kit.raw?.release?.notes) ? kit.raw.release.notes : [];
+  for (const entry of notes) {
+    const item = typeof entry === "string" ? { path: entry } : entry ?? {};
+    if (typeof item.path === "string" && item.path && (item.format ?? "changelog") === "changelog" && !item.lang) return item.path;
+  }
+  return "CHANGELOG.md";
+}
+
+/**
+ * The items under `## Unreleased`: each top-level list item with its wrapped lines joined. These
+ * are the release's triaged changes: someone judged each worth a line.
+ * @param {string} text
+ */
+export function unreleasedItems(text) {
+  const lines = text.replace(/\r\n/g, "\n").split("\n");
+  const start = lines.findIndex((line) => /^## Unreleased\s*$/i.test(line));
+  if (start === -1) return [];
+  const items = [];
+  for (const line of lines.slice(start + 1)) {
+    if (line.startsWith("## ")) break;
+    const item = line.match(/^[-*]\s+(.*)$/);
+    if (item) items.push(item[1].trim());
+    else if (/^\s+\S/.test(line) && items.length > 0) items[items.length - 1] += ` ${line.trim()}`;
+  }
+  return items;
+}
+
+/** A long line cut at a word, for a list. @param {string} text @param {number} max */
+function clip(text, max = 140) {
+  if (text.length <= max) return text;
+  return `${text.slice(0, text.lastIndexOf(" ", max - 1) > 40 ? text.lastIndexOf(" ", max - 1) : max - 1)} …`;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -587,10 +633,19 @@ export function cmdStatus(root, kit, args, print = console.log) {
   const folder = folderOf(root, kit);
   const present = Object.entries(PAGES).filter(([, name]) => existsSync(join(folder.abs, name)));
   if (present.length === 0) return noPages(folder, print);
-  const baseArg = valueOf(args, "--base");
-  const base = baseArg === "auto" ? autoBase(root) : baseArg ?? null;
+  let base = valueOf(args, "--base") ?? null;
+  const sinceAt = args.indexOf("--since-release");
+  if (sinceAt !== -1) {
+    const named = args[sinceAt + 1] && !args[sinceAt + 1].startsWith("--") ? args[sinceAt + 1] : null;
+    base = named ?? releaseTag(root, kit);
+    if (!base) print("No release tag yet: counting from each page's last_verified instead.");
+  }
   const extra = [kit.paths.decisions];
-  print(`Evolution pages in ${folder.rel}:`);
+  const changelog = changelogPath(kit);
+  const changelogFile = join(root, ...changelog.split("/"));
+  const items = existsSync(changelogFile) ? unreleasedItems(readFileSync(changelogFile, "utf8")) : [];
+  const itemsAt = present.length + 1;
+  print(`Evolution pages in ${folder.rel}${base ? `, counting from ${base}` : ""}:`);
   present.forEach(([kind, name], index) => {
     const n = index + 1;
     const text = readFileSync(join(folder.abs, name), "utf8");
@@ -598,9 +653,18 @@ export function cmdStatus(root, kit, args, print = console.log) {
     const mirrors = mirrorsOf(folder.abs, name);
     const findings = lintFile(folder.abs, name);
     const mirrorText = mirrors.length ? `; mirrors ${mirrors.join(", ")}` : "";
-    print(`${n}. ${name} v${page.version ?? "?"}, last verified ${page.lastVerified ?? "never"}, ${page.sourcesRows ?? 0} Sources rows${mirrorText}; ${summary(findings)}`);
-    const range = base ? `${base}..HEAD` : null;
-    const after = range ? undefined : page.lastVerified && ISO_DATE.test(page.lastVerified) ? page.lastVerified : undefined;
+    const rel = `${folder.rel}/${name}`;
+    const touched = base ? (spawnSync("git", ["diff", "--quiet", base, "--", rel], { cwd: root }).status === 0 ? `; unchanged since ${base}` : `; changed since ${base}`) : "";
+    print(`${n}. ${name} v${page.version ?? "?"}, last verified ${page.lastVerified ?? "never"}, ${page.sourcesRows ?? 0} Sources rows${mirrorText}${touched}; ${summary(findings)}`);
+    if (kind === "features" && items.length > 0) {
+      print(`   Its candidates are the ${changelog} \`## Unreleased\` lines (${itemsAt} below), not the commits.`);
+      return;
+    }
+    const verified = page.lastVerified && ISO_DATE.test(page.lastVerified) ? page.lastVerified : undefined;
+    // A page verified after the release tag already covers what came before: count from the later.
+    const tagDay = base && sinceAt !== -1 ? git(["log", "-1", "--format=%ad", "--date=short", base], root)?.trim() : undefined;
+    const range = base && !(verified && tagDay && verified > tagDay) ? `${base}..HEAD` : null;
+    const after = range ? undefined : verified;
     if (!range && !after) {
       print(`   No usable last_verified: the commits since cannot be listed.`);
       return;
@@ -624,6 +688,12 @@ export function cmdStatus(root, kit, args, print = console.log) {
     });
     if (open.length > 15) print(`   and ${open.length - 15} more.`);
   });
+  if (items.length > 0) {
+    print(`${itemsAt}. ${changelog} \`## Unreleased\`: ${items.length} line${items.length === 1 ? "" : "s"}, the triaged list for this release. Each is a box, a line in a box, or nothing, on either page:`);
+    items.forEach((item, i) => print(`   ${itemsAt}.${i + 1}. ${clip(item)}`));
+  } else {
+    print(`${itemsAt}. ${changelog}: no \`## Unreleased\` lines; the commits above are the only candidates.`);
+  }
   const render = kit.commands.evolutionRender;
   print(render ? `Renderer: \`${render}\` (commands.evolutionRender), run by \`evolution bump\`.` : "Renderer: none (kit.json commands.evolutionRender); a page's printable version, if it links one, is not re-rendered.");
   return 0;
