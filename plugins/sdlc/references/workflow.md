@@ -112,8 +112,8 @@ the recipes folder.
    notes: the matching recipe it follows, or `none matched`. A task likely to recur that has
    no recipe gets a step that writes one and adds it to the index.
 3. **Build** follows the recipe. When a recipe is wrong or misses a step, fix it in the same
-   change. A recipe that comes from a kit is never edited in the project: record the fix as a
-   follow-up for that kit (Project bindings: Follow-ups) and carry on.
+   change. A recipe that comes from a kit is never edited in the project: open the fix as an
+   issue in that kit (Project bindings: Kit gaps) and carry on.
 4. **Build** updates the glossary in the same change when the item adds or renames a domain
    term, enum value or identifier.
 5. **Finish** checks all four and runs the project's documentation check (Project bindings:
@@ -137,7 +137,8 @@ The stages say "project policy" or "project checks"; each concern resolves as fo
 | Commit flow | **With `session`** (its skills, such as `session:git`, appear in this session's skill list): commit through its `/git commit`, which stages by explicit path from the session's record of touched files and runs `commands.commitAudit`. **Without it**: `commands.commit` when `kit.json` sets one, else plain `git add -- <paths>` and `git commit`; after a commit that holds code, run `commands.commitAudit` when set and show its output. Conventional Commits unless the history uses another form |
 | Commit approval | `/sdlc-build` commits each step, or a batch of small steps, as soon as its check passes, without waiting. Every other stage presents the drafted message and waits for approval, unless the project's `CLAUDE.md` says otherwise |
 | Close-out | **With `session`**: its `/close-out` after the archive (done / follow-up / not-done resume, follow-up sessions, landing on the user's one answer). **Without it**: a short done / follow-up / not-done resume in chat; merging into the base and pushing are separate questions, each on the user's word |
-| Follow-ups | **With `session` and `kit.json` `ledger: true`**: the session record's `## Next`. Otherwise the close-out resume |
+| Follow-ups | **With `session` and `kit.json` `ledger: true`**: the session record's `## Next`. Otherwise the close-out resume. A follow-up for a kit is a kit gap (next row), not a `## Next` item |
+| Kit gaps | A fix owed to a file a kit supplies (a recipe, skill, hook, rule or script under the plugin cache) goes to that kit's GitHub issues, never to a numbered list in the plan or the ledger. 1. `sdlc-kit kit-repo <plugin or kit file path>` names the repo from the plugin's marketplace source. 2. Draft by the kit's `kit-gap` template: title `<plugin>: <the gap>`; body sections Plugin, File, What happens, What should happen, Found in. A public kit's issue describes the project generically (stack, plugins, stage), never by name, link or domain detail. 3. Show the drafts and, on the user's word, `gh issue create --repo <owner/repo> --label kit-gap --title … --body-file <draft in the session's scratch folder>`; a label the repo lacks is dropped and the report says so. Record each `owner/repo#n` in the plan's Review or Deviations. 4. When `kit-repo` names no repo, `gh` is missing or signed out, or `gh repo view <owner/repo>` fails, the gap goes to Follow-ups instead with its drafted title and that reason, for a later session to open |
 | Records | `<sdlc>/<slug>/` is the agreed plan. With `session` and a ledger, the ledger record of each session names the slug and links the two |
 | Spec stage | Not used by default. A feature that needs a separate `spec.md` may add one by hand with the same lifecycle fields; later stages read it "if present" |
 | Independent passes | `sdlc-simplifier` and `sdlc-verifier` agents of this plugin; the finish review uses the host `code-review` skill, adding `security-review` when a trust boundary moves. When an agent is unavailable, run the same contract in a fresh session by hand and paste the verdict into the item's evidence |

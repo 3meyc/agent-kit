@@ -48,7 +48,9 @@ and stops with the command for the user to type there.
 
 `sdlc-kit` (in `bin/`, on the Bash PATH while the plugin is enabled) prints these values with
 their defaults; `sdlc-kit items` lists the work items; `sdlc-kit show <name>` prints the
-plugin's workflow, templates and contracts. A project without `kit.json` gets the defaults.
+plugin's workflow, templates and contracts; `sdlc-kit kit-repo <plugin>` names the GitHub repo a
+kit gap is opened in (`docs/changing.md`, Reporting a gap). A project without `kit.json` gets the
+defaults.
 
 | ID | Field | Default | Used for |
 | --- | --- | --- | --- |

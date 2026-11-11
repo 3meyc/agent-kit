@@ -2,6 +2,7 @@
 //   sdlc-kit [config] [--json]   resolved kit.json values with defaults, and which paths exist
 //   sdlc-kit items [--json]      active and archived work items with their lifecycle state
 //   sdlc-kit show <document>     a document bundled with the plugin (workflow, templates, contracts)
+//   sdlc-kit kit-repo <plugin|path> [--json]  the GitHub repository a kit gap is opened in
 // Called through bin/sdlc-kit (on the Bash PATH while the plugin is enabled). Node built-ins only.
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
@@ -9,6 +10,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { projectRoot } from "../lib/hook-utils.mjs";
 import { KIT_COMMANDS, KIT_DEFAULTS, KIT_FILE } from "../lib/kit-config.mjs";
+import { formatKitRepo, kitRepo } from "../lib/kit-repo.mjs";
 
 // The schema defaults and command names, from the shared kit.json reader. The stages never set up
 // a checkout or start a dev server, so `install` and `dev` are not listed.
@@ -246,12 +248,17 @@ export function show(name, pluginRoot = PLUGIN_ROOT) {
   return readFileSync(join(pluginRoot, rel), "utf8");
 }
 
-const USAGE = `Use: sdlc-kit [config|items] [--json] | sdlc-kit show <${Object.keys(BUNDLED).join("|")}>`;
+const USAGE = `Use: sdlc-kit [config|items] [--json] | sdlc-kit show <${Object.keys(BUNDLED).join("|")}> | sdlc-kit kit-repo <plugin|path> [--json]`;
 
-export function main(argv, { root = projectRoot(), out = console.log } = {}) {
+export function main(argv, { root = projectRoot(), out = console.log, configDir } = {}) {
   const json = argv.includes("--json");
   const words = argv.filter((a) => !a.startsWith("-"));
   const cmd = words[0] ?? "config";
+  if (cmd === "kit-repo") {
+    const result = kitRepo(words[1] ?? "", configDir ? { root, dir: configDir } : { root });
+    out(json ? JSON.stringify(result, null, 2) : formatKitRepo(result));
+    return result.repo ? 0 : 1;
+  }
   if (cmd === "show") {
     const text = show(words[1]);
     if (text === null) {

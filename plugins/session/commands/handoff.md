@@ -1,7 +1,7 @@
 ---
 description: Write this session's ledger record now, mid-task — Intent, Decisions, and a Next that opens with a Resume item — so the next session can pick up without the transcript
 argument-hint: [--export [note for the next agent]] [--out <path>]
-allowed-tools: Bash(session-ledger:*), Bash(ledger-export:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/session-ledger.mjs:*), Bash(git status:*)
+allowed-tools: Bash(session-ledger:*), Bash(ledger-export:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/session-ledger.mjs:*), Bash(git status:*), Bash(kit-repo:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/kit-repo.mjs:*), Bash(gh repo view:*)
 ---
 
 Arguments: $ARGUMENTS
@@ -74,14 +74,27 @@ The steps:
       skill, command or recipe to use, or the file to open.
 4. Every Decisions or Next item you did not check this session — not run, not read — starts
    with `(unverified)`.
-5. Never quote the conversation, never paste diffs or logs, never commit. Do not add a fourth
+5. **Kit gaps.** An item whose fix belongs to a kit (a skill, hook, rule, recipe or script an
+   installed plugin supplies from the plugin cache, not a file of this repo) goes to that kit's
+   GitHub issues, not to a numbered list here. `kit-repo <plugin, plugin@marketplace or the kit
+   file's path>` names the repo. Draft it by the kit's `kit-gap` template: title
+   `<plugin>: <the gap>`; body sections Plugin, File, What happens, What should happen, Found in
+   (this project described generically when the kit's repo is public: stack, plugins, stage;
+   never its name, links or domain detail). Show the draft; on the user's word,
+   `gh issue create --repo <owner/repo> --label kit-gap --title "<title>" --body-file <draft in the scratch folder>`
+   (a repo without the label takes it without; say so) and name `owner/repo#n` in Decisions.
+   Without that word, or when `kit-repo` names no repo, `gh` is missing or signed out, or
+   `gh repo view <owner/repo>` fails, it stays in `## Next` as
+   ``kit gap, not opened (<reason>): <title>``.
+6. Never quote the conversation, never paste diffs or logs, never commit. Do not add a fourth
    section: `Resume:` lives inside `## Next`.
-6. Without `--export`, reply with the record path and the Resume line, nothing more.
+7. Without `--export`, reply with the record path and the Resume line, plus any drafted kit gap
+   waiting for the user's word, nothing more.
 
 ## `--export [note]`
 
 For a reader outside this repo's ledger — a colleague, another repo, another harness, a fork.
-Do steps 1–5 first; the export renders the record, it never replaces it.
+Do steps 1–6 first; the export renders the record, it never replaces it.
 
 1. Pick the **Suggested start**: the skills, commands or docs the receiving side should load
    first, named by path (for a reader in this repo, the `Next` entry points; for another repo,

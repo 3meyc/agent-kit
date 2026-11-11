@@ -32,18 +32,18 @@ sequenceDiagram
   participant K as agent-kit session
   participant M as main
   participant S as stable
-  P->>P: notes the gap (ledger Next, or a task)
+  P->>K: opens a kit-gap issue #n
   P->>K: open a worktree session in agent-kit
   K->>K: edit plugins/<name>
   K->>P: try it: claude --plugin-dir <kit>/plugins/<name>
-  K->>M: pull request, merge
+  K->>M: commit "Fixes #n", merge
   M-->>P: pilot project gets it (latest channel)
   M->>S: release: move stable
   S-->>P: every project, next session
 ```
 
-1. **Note it.** In the project session, record the gap and carry on with the current behaviour.
-   Don't patch locally to unblock yourself.
+1. **Report it.** In the project session, open the gap as an issue in the kit's repo (next
+   section) and carry on with the current behaviour. Don't patch locally to unblock yourself.
 2. **Open a session in agent-kit** (its own worktree). Edit the plugin under `plugins/<name>/`.
    The kit's repo keeps no `.claude/settings.json`: `kit doctor` reads its
    `.claude-plugin/marketplace.json` and treats that marketplace and its plugins as the repo's
@@ -52,10 +52,29 @@ sequenceDiagram
 3. **Try it from the project.** Start Claude in the project with the local plugin loaded:
    `claude --plugin-dir ~/path/to/agent-kit/plugins/sdlc` _(unverified: that it overrides the
    installed copy of the same name)_.
-4. **Merge** through a pull request. The naming check in CI must pass (see below).
+4. **Merge** through a pull request. The naming check in CI must pass (see below). The commit
+   that fixes a reported gap says `Fixes #n`, and its CHANGELOG line cites `#n`.
 5. **Release** with `kit release` (next section): it moves the `## Unreleased` lines of
    [CHANGELOG.md](../CHANGELOG.md) under a dated entry, commits, and moves `stable` to that commit.
 6. **Roll back** by moving `stable` back to the previous release.
+
+## Reporting a gap
+
+A gap is anything a kit supplies (a skill, hook, rule, recipe or script) that did not do what a
+project needed. The kit's GitHub issues, labelled `kit-gap`, are the one list of them. A numbered
+list in a project's ledger records or plans is not: its numbers collide with another project's,
+one list gets taken for another, and nothing ties a gap to the commit that fixed it.
+
+| ID | Step | Do |
+| --- | --- | --- |
+| 1 | Find the repo | `sdlc-kit kit-repo <plugin>` (sdlc) or `kit-repo <plugin>` (session) prints the plugin's marketplace source: the one the project declares in `.claude/settings.json`, else the one this machine registered. `plugin@marketplace` or the path of a kit file in the plugin cache works too |
+| 2 | Draft | The `kit-gap` issue template: plugin, file, what happens, what should happen, and the project that found it. Title `<plugin>: <the gap>`. In a public kit, describe the project generically (its stack and set-up), never by name, link or domain detail |
+| 3 | Open | Show the draft, then on the user's go-ahead `gh issue create --repo <owner/repo> --label kit-gap --title "<title>" --body-file <draft>`. The reference `owner/repo#n` goes where the gap was found: the plan's Review or Deviations, the ledger record's Decisions. A repo without the label takes the issue without it, and the reply says so |
+| 4 | Fall back | `gh` missing or signed out, or the repo out of the account's reach (`gh repo view <owner/repo>` fails): the gap goes to the ledger `## Next` with the drafted title and the reason it was not opened, so a later session opens it |
+| 5 | Fix | In the kit's repo, the commit that fixes it says `Fixes #n` (GitHub closes the issue when the commit reaches the default branch), and its CHANGELOG `## Unreleased` line ends with `(#n)` |
+
+`/sdlc-build`, `/sdlc-finish`, `/close-out` and `/handoff` do steps 1–4 for every kit follow-up
+they find. An overlay kit keeps the same template and label in its own repo.
 
 ## Releasing
 
@@ -134,8 +153,8 @@ ones. Agents follow these rules; the `sdlc` skills apply them during planning an
 1. **Look first.** Before planning, check the project's recipe index for a matching recipe. The
    index lists the project's own recipes and any an overlay kit supplies.
 2. **Fix what you followed.** If a recipe was wrong or missed a step, correct it in the same
-   change. A recipe that comes from a kit is not edited in the project: record the fix in the
-   ledger `## Next` and make it in that kit.
+   change. A recipe that comes from a kit is not edited in the project: open the fix as a
+   `kit-gap` issue in that kit (Reporting a gap) and make it there.
 3. **Write the missing one.** When a task is likely to recur and has no recipe, add one to the
    project and to its index in the same change.
 4. **Promote, don't copy.** When a second project needs the same recipe or term, move it to the

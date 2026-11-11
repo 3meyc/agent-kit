@@ -32,7 +32,8 @@ unfinished work precisely; preserve unrelated edits and report any gate still pe
    inherited ones left as they were, in the plan's Review.
 3. Check the recipes and glossary (workflow section 5):
    - the recipe the plan followed was right, or fixed in this change; a fix to a kit-supplied
-     recipe is recorded as a follow-up for that kit;
+     recipe is opened as an issue in that kit (Project bindings: Kit gaps), and its reference
+     goes in the plan's Review;
    - a task likely to recur that had no recipe now has one, listed in the index, or the plan
      says why not;
    - every domain term, enum value or identifier the diff adds or renames is in the glossary.

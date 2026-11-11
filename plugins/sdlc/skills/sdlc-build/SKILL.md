@@ -36,8 +36,9 @@ compatibility). Then run `sdlc-kit` for this project's paths and commands. If th
    the plan. Existing red-phase evidence in commit bodies remains valid.
 4. Keep documents current in the same step: a new or renamed domain term, enum value or
    identifier updates the glossary; a recipe that proved wrong or incomplete is fixed when it
-   is the project's own, and recorded as a follow-up for its kit when a kit supplies it
-   (workflow section 5).
+   is the project's own, and opened as an issue in its kit when a kit supplies it (workflow
+   section 5; Project bindings: Kit gaps). Build commits without waiting, but an issue is an
+   external write: collect the drafts and open them on the user's word at the end of the run.
 5. Update the checkbox only after its expected result is observed. Commit code, tests,
    documents, the checkbox, and relevant record updates together by the commit flow (Project
    bindings) — with the `session` plugin its `/git commit`, without it plain git by explicit

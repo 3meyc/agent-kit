@@ -98,6 +98,7 @@ a project may allow them in `.claude/settings.json` (`Bash(session-ledger --file
 | 7 | `scan-ledger-secrets` | Pre-commit backstop: fails on secret-shaped text in staged records (without paths: the staged files in the ledger folder) |
 | 8 | `preflight` | `status`, `run <id>`, `done <id>` for the `kit.json` `preflight` steps |
 | 9 | `evolution` | `status [--since-release [<tag>] \| --base <ref>]`, `init`, `bump <page>`, `check` for the evolution pages; `--help` lists them |
+| 10 | `kit-repo` | `<plugin\|plugin@marketplace\|path> [--json]`: the GitHub repo a kit gap is opened in, from the plugin's marketplace source, for `/close-out` and `/handoff` |
 
 Outside a session (a shell, a git hook), plugin commands are not on PATH. For the secret scan in a
 git hook, add this repo as a dev dependency (`github:3meyc/agent-kit#<ref>`) and call

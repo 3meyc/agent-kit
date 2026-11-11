@@ -16,6 +16,7 @@ const check = process.argv.includes("--check");
 export const SHARED_TARGETS = {
   "globs.mjs": ["core", "session"],
   "kit-config.mjs": ["core", "sdlc", "session"],
+  "kit-repo.mjs": ["sdlc", "session"],
   "shell-edits.mjs": ["core", "session"],
 };
 

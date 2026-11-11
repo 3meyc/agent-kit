@@ -25,7 +25,10 @@ through the shared workflow.
 **Look for a recipe first.** Read the recipe index (`paths.recipes`, its `README.md` or
 `index.md`) and pick the recipe that matches this change, if any. Follow it when choosing steps
 and record it in Design notes; write `none matched` when nothing fits. When the task is likely
-to recur and has no recipe, plan a step that writes one and adds it to the index.
+to recur and has no recipe, plan a step that writes one and adds it to the index. A
+kit-supplied recipe that is wrong or misses a step is not planned as a project edit: it is a kit
+gap (Project bindings: Kit gaps), opened as an issue in that kit, and the plan follows the
+corrected steps meanwhile.
 
 Inspect affected code and tests before choosing steps. Answer the project's design-rules
 checklist (Project bindings: Design rules) for this change — ownership, boundaries, smallest

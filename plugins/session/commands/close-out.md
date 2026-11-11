@@ -1,7 +1,7 @@
 ---
 description: Close out a worktree session — resume of done / follow-up / not-done work, then land on the base branch, propose follow-up sessions, push on the user's word, and end with a where-what-why session resume before the archive. Runs after /sdlc-finish
 argument-hint: [slug] [land | land and push | land, push and archive] [with diagram]
-allowed-tools: Bash(worktree-flow:*), Bash(session-ledger:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/worktree-flow.mjs:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/session-ledger.mjs:*), Bash(git status:*), Bash(git log:*), Bash(git rev-parse:*), Bash(gh run list:*), Bash(gh run view:*), Bash(gh run watch:*), Bash(gh api repos/:*)
+allowed-tools: Bash(worktree-flow:*), Bash(session-ledger:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/worktree-flow.mjs:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/session-ledger.mjs:*), Bash(git status:*), Bash(git log:*), Bash(git rev-parse:*), Bash(gh run list:*), Bash(gh run view:*), Bash(gh run watch:*), Bash(gh api repos/:*), Bash(kit-repo:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/kit-repo.mjs:*), Bash(gh repo view:*)
 ---
 
 Arguments: $ARGUMENTS
@@ -52,6 +52,26 @@ here and marked with `session-ledger --done <id8> <n>` (Done); self-contained, i
 card (Follow-ups); otherwise it stays in that record, named in Follow-ups with its `<id8> <n>`.
 None is dropped unnamed: the app's note quotes only the start of a child's report, so the record,
 not the note, is the source.
+
+**Kit gaps.** A follow-up whose fix belongs to a kit (a skill, hook, rule, recipe or script an
+installed plugin supplies from the plugin cache, not a file of this repo) is neither a `## Next`
+item nor a § 3 card: it is an issue in that kit's repo, the one list of every project's gaps.
+For each:
+
+1. `kit-repo <plugin, plugin@marketplace or the kit file's path>` names the repo from the
+   plugin's marketplace source.
+2. Draft it by the kit's `kit-gap` template: title `<plugin>: <the gap>`; body sections Plugin,
+   File, What happens, What should happen, Found in. When the kit's repo is public, Found in
+   describes this project generically (stack, plugins, the stage that ran), never by name, link
+   or domain detail.
+3. Show the drafts under Follow-ups; the § 5 question opens them. On that word,
+   `gh issue create --repo <owner/repo> --label kit-gap --title "<title>" --body-file <draft in the scratch folder>`
+   (a repo without the label takes it without, and the resume says so), and the record's
+   `## Decisions` names each `owner/repo#n`.
+4. When `kit-repo` names no repo, `gh` is missing or signed out, `gh repo view <owner/repo>`
+   fails, or the user leaves them out, the gap goes to the record's `## Next` as
+   ``kit gap, not opened (<reason>): <title>``, so a later session opens it. Such an item from an
+   earlier record is retried here the same way and marked done once opened.
 
 **Project steps.** Each `session-ext-close-out` skill listed in this session (the project's own, or
 an overlay plugin's) runs here, in name order, before anything lands: load it and do what it says.
@@ -170,8 +190,9 @@ done empty the first button is "Land, push, archive" (message: land on `<base>`,
 wait for its CI run, then archive this session) and the second "Land only". In a child session
 (§ 2 step 6) the first is "Land and archive" (message: land on `<base>`, then archive this
 session; the parent pushes and waits for the CI run); with Not done items, the first button
-continues the work and the second lands anyway. The user's click is the authorization for exactly
-what its message says, nothing more.
+continues the work and the second lands anyway. Drafted kit gaps (§ 1) ride on the first button:
+its message also says to open them; the other answers leave them in `## Next` as not opened. The
+user's click is the authorization for exactly what its message says, nothing more.
 
 ## 6. Session resume, the last message before the archive
 

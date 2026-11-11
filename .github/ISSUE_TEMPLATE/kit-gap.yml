@@ -1,0 +1,48 @@
+name: Kit gap
+description: Something in a kit plugin (a skill, hook, rule, recipe or script) that did not do what a project needed.
+title: "<plugin>: <what is missing or wrong>"
+labels: ["kit-gap"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        One gap per issue. The fix lands in a commit whose message says `Fixes #<this issue>`, and its CHANGELOG line cites `#<this issue>`.
+        This repo is public: describe the project that found the gap generically (its stack, its set-up), never by name, link or domain detail.
+  - type: input
+    id: plugin
+    attributes:
+      label: Plugin
+      description: The plugin the gap is in.
+      placeholder: sdlc
+    validations:
+      required: true
+  - type: input
+    id: file
+    attributes:
+      label: File
+      description: The file in the plugin, with a section or line when it helps.
+      placeholder: "plugins/sdlc/skills/sdlc-finish/SKILL.md, Finish preflight step 3"
+    validations:
+      required: true
+  - type: textarea
+    id: happens
+    attributes:
+      label: What happens
+      description: What the kit did, and how it showed (a command and its output line, a step skipped, a wrong record).
+    validations:
+      required: true
+  - type: textarea
+    id: should
+    attributes:
+      label: What should happen
+      description: What the project needed instead. A proposed fix is welcome, not required.
+    validations:
+      required: true
+  - type: textarea
+    id: found-in
+    attributes:
+      label: Found in
+      description: "The project that found it, described generically: kind of project, the plugins and kit.json options in play, the stage or command that ran. No names."
+      placeholder: "A TypeScript web app with sdlc and session enabled, ledger on, during /sdlc-finish."
+    validations:
+      required: true

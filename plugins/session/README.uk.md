@@ -98,6 +98,7 @@ Checkout визначається з `cwd` у даних хука (або з р�
 | 7 | `scan-ledger-secrets` | Запобіжник для pre-commit: падає на тексті, схожому на секрет, у staged-записах (без шляхів — staged-файли в теці журналу) |
 | 8 | `preflight` | `status`, `run <id>`, `done <id>` для кроків `preflight` з `kit.json` |
 | 9 | `evolution` | `status [--since-release [<tag>] \| --base <ref>]`, `init`, `bump <page>`, `check` для сторінок еволюції; `--help` перелічує їх |
+| 10 | `kit-repo` | `<plugin\|plugin@marketplace\|path> [--json]`: репозиторій GitHub, у якому відкривають issue про прогалину набору, з джерела marketplace плагіна, для `/close-out` і `/handoff` |
 
 Поза сесією (у shell, у git-хуку) команд плагіна немає в PATH. Для перевірки секретів у git-хуку
 додайте цей репозиторій як dev-залежність (`github:3meyc/agent-kit#<ref>`) і викликайте
