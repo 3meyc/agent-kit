@@ -4,22 +4,39 @@
 
 ## 1. Install
 
-Pick a scope:
+Install the kit plugins once per machine, at user scope. A project only declares the marketplace
+and enables the plugins in its committed `.claude/settings.json`; it installs nothing.
 
-| ID | Scope | Effect | Command adds |
+| ID | Part | Where | Who |
 | --- | --- | --- | --- |
-| 1 | User | Every project on this machine | `~/.claude/settings.json` |
-| 2 | Project | Everyone who opens the repo is asked to install it | `.claude/settings.json` (commit it) |
+| 1 | The installed plugins | User scope (`~/.claude/plugins`) | Each user, once per machine |
+| 2 | The marketplace and the enabled plugins | `.claude/settings.json` of the project (commit it) | The project, once: `/core:kit-adopt` writes both |
 
 ```bash
-claude plugin marketplace add 3meyc/agent-kit#stable --scope project
+claude plugin marketplace add 3meyc/agent-kit#stable
 ```
 
 ```bash
-claude plugin install sdlc@agent-kit --scope project
+claude plugin install core@agent-kit --scope user
 ```
 
-Repeat the install for each plugin you want (`core`, `session`, `svelte`, `python`).
+Repeat the install for each plugin you want (`sdlc`, `session`, `svelte`, `python`).
+
+Why user scope only ([spikes](spikes.md) S11, tried with Claude Code 2.1.300 and 2.1.321):
+
+1. A session loads the first install record in `~/.claude/plugins/installed_plugins.json` that
+   applies to its folder. A user record always applies; a project record applies in every worktree
+   of the repository it was made in. New records go to the end, so whichever came first wins, not
+   the folder's own copy and not the newest one.
+2. `claude plugin update` without `--scope` updates a project-scope copy when there is one, and
+   `--scope project` updates the first copy of the repository, which may belong to another worktree.
+   An update can report "already at the latest version" while the copy that runs is old.
+3. Uninstalling a project-scope copy also removes the plugin from that folder's
+   `.claude/settings.json`, a tracked file.
+4. Claude Code still writes a project-scope record by itself in each folder whose settings enable
+   the plugin, every worktree included, at the version the session there loaded (seen with the
+   CLI the desktop app ships, 2.1.321). That is harmless while the user copy is current and comes
+   first; `kit installs` lists the copies that differ (§ 3).
 
 ## 2. Configure the project
 
@@ -40,21 +57,23 @@ pnpm add -D github:3meyc/agent-kit#stable
 
 ## 3. Take updates
 
-Update explicitly. A new `stable` takes two commands, then a new session:
+Update explicitly, at user scope. A new `stable` takes two commands, then a new session:
 
 ```bash
 claude plugin marketplace update agent-kit
 ```
 
 ```bash
-claude plugin update core@agent-kit
+claude plugin update core@agent-kit --scope user
 ```
 
 1. Run the second command for each kit plugin you installed (`sdlc`, `session`, …). The first one
    only moves the catalog; the installed plugin stays where it was until the second
-   ([spikes](spikes.md) S8).
-2. The `core` plugin checks for you: at session start it says when an installed kit plugin lags its
-   channel, and prints these two commands for it. `/core:kit-doctor` reports the same.
+   ([spikes](spikes.md) S8). Always pass `--scope user`: without it the command picks a
+   project-scope copy (§ 1).
+2. The `core` plugin checks for you: at session start it says when the copy the session loads, or
+   the user copy, lags its channel, and prints these commands for it. `/core:kit-doctor` reports
+   the same, plus every project-scope copy of this repository that differs.
 3. Auto-update can't be relied on: the desktop app turns it off, headless runs never update, and an
    interactive session applies an update only at the next launch (S8). Turning it on
    (`/plugin` → Marketplaces → `agent-kit`) is optional and doesn't replace the commands above.
@@ -65,13 +84,26 @@ claude plugin update core@agent-kit
    match that entry. Add `"ref": "stable"` to the user entry, then run the `add` command again.
    `/core:kit-doctor` warns about both cases (observed with one Claude Code version; the message
    may differ).
-5. Moving the marketplace to `stable` doesn't touch the installed plugins: each keeps its old copy
-   until `claude plugin update`. Run it once per plugin at user scope, and again for each
-   project-scope install, from that project:
+5. Project-scope copies from earlier installs, or written by Claude Code itself, stay at their old
+   version. Claude Code has no command that updates or removes one folder's copy reliably (§ 1), so
+   the kit clears them. After the user-scope update, from a Claude session's shell (`kit` is on
+   its PATH), list them and clear them, then start a new session:
 
 ```bash
-claude plugin update core@agent-kit --scope project
+kit installs
 ```
+
+```bash
+kit installs --clean
+```
+
+6. `--clean` leaves a copy whose plugin has no user-scope install, or whose user copy lags the
+   channel, and says which command to run first. For each other stale copy it runs
+   `claude plugin uninstall <plugin>@agent-kit --scope project` from that copy's folder and then
+   writes the folder's `.claude/settings.json` and `settings.local.json` back as they were; for a
+   folder that no longer exists, it creates the folder for the call and removes it again. By hand,
+   do the same: run the uninstall from the folder, then restore `.claude/settings.json`
+   (`git checkout -- .claude/settings.json` when it had no local edits).
 
 ## 4. Private overlay kits
 
@@ -93,6 +125,7 @@ the one git uses for it.
 | ID | Symptom | Check |
 | --- | --- | --- |
 | 1 | A skill or command is missing | `/plugin` lists the plugin as enabled for this project |
-| 2 | An old behaviour persists | `claude plugin marketplace update agent-kit`, `claude plugin update <plugin>@agent-kit`, then a new session |
+| 2 | An old behaviour persists | `claude plugin marketplace update agent-kit`, `claude plugin update <plugin>@agent-kit --scope user`, then a new session |
 | 3 | A rule seems ignored | `/core:kit-doctor`; a project copy of a kit file shadows the kit |
-| 4 | `marketplace add …#stable` is refused: its source doesn't match its `extraKnownMarketplaces` entry | Add `"ref": "stable"` to that marketplace in `~/.claude/settings.json`, run `add` again, then `claude plugin update` per plugin and scope (§ 3) |
+| 4 | `marketplace add …#stable` is refused: its source doesn't match its `extraKnownMarketplaces` entry | Add `"ref": "stable"` to that marketplace in `~/.claude/settings.json`, run `add` again, then `claude plugin update <plugin>@agent-kit --scope user` per plugin (§ 3) |
+| 5 | An update reports "already at the latest version", or a new session still runs the old kit | `kit installs`: a project-scope copy loads before the user copy or took the update; update at user scope, then `kit installs --clean` (§ 3) |

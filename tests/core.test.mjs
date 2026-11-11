@@ -281,11 +281,19 @@ describe("session-start", () => {
     }
   });
 
-  it("words an update notice with both commands", () => {
-    const text = updateText([{ plugin: "core", marketplace: "agent-kit", scope: "project", installed: "a".repeat(40), latest: "b".repeat(40), ref: "stable" }]);
-    assert.match(text, /core@agent-kit: aaaaaaaaaaaa installed, stable is bbbbbbbbbbbb/);
-    assert.match(text, /claude plugin marketplace update agent-kit/);
-    assert.match(text, /claude plugin update core@agent-kit --scope project/);
+  it("words an update notice for the user copy, and clears a project copy with kit installs", () => {
+    const user = updateText([{ plugin: "core", marketplace: "agent-kit", scope: "user", installed: "a".repeat(40), latest: "b".repeat(40), ref: "stable", loaded: true, userInstalled: "a".repeat(40) }]);
+    assert.match(user, /core@agent-kit: aaaaaaaaaaaa installed, stable is bbbbbbbbbbbb/);
+    assert.match(user, /claude plugin marketplace update agent-kit/);
+    assert.match(user, /claude plugin update core@agent-kit --scope user/);
+    assert.doesNotMatch(user, /kit installs/);
+    const project = updateText([{ plugin: "core", marketplace: "agent-kit", scope: "project", installed: "a".repeat(40), latest: "b".repeat(40), ref: "stable", loaded: true, userInstalled: "b".repeat(40) }]);
+    assert.match(project, /core@agent-kit \(project-scope copy, loaded instead of the user copy\): aaaaaaaaaaaa installed/);
+    assert.match(project, /claude plugin update core@agent-kit --scope user/);
+    assert.match(project, /^ {4}kit installs --clean$/m);
+    assert.doesNotMatch(project, /--scope project/);
+    const noUser = updateText([{ plugin: "core", marketplace: "agent-kit", scope: "project", installed: "a".repeat(40), latest: "b".repeat(40), ref: "stable", loaded: true, userInstalled: null }]);
+    assert.match(noUser, /claude plugin install core@agent-kit --scope user/);
     assert.equal(updateText([]), "");
   });
 });
@@ -327,7 +335,7 @@ describe("update-check", () => {
     assert.deepEqual(checked.map((item) => item.plugin), ["core", "sdlc"]);
     assert.deepEqual(lagging.map((item) => item.plugin), ["core"]);
     assert.deepEqual(asked, [{ url: "https://github.com/owner/agent-kit.git", ref: "stable" }]);
-    assert.deepEqual(updateCommands(lagging[0]), ["claude plugin marketplace update agent-kit", "claude plugin update core@agent-kit"]);
+    assert.deepEqual(updateCommands(lagging[0]), ["claude plugin marketplace update agent-kit", "claude plugin update core@agent-kit --scope user"]);
   });
 
   const sha = (c) => c.repeat(40);

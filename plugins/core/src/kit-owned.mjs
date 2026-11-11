@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { basename, delimiter, dirname, join, posix, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { readPluginState } from "./update-check.mjs";
+import { loadedRecord, readPluginState } from "./update-check.mjs";
 
 export const CORE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -109,12 +109,12 @@ export function pluginRoots(projectDir, state = readPluginState(), sessionDirs =
   };
   add(CORE_ROOT, "self");
   for (const dir of sessionDirs) add(dir, "session");
+  const keys = new Map();
   for (const [id, entries] of Object.entries(state.installed)) {
     if (!Array.isArray(entries)) continue;
-    for (const entry of entries) {
-      const scoped = entry.scope === "user" || entry.scope === "managed" || entry.projectPath === projectDir;
-      if (scoped && typeof entry.installPath === "string" && existsSync(entry.installPath)) add(entry.installPath, "installed", id);
-    }
+    // The copy a session here loads (docs/spikes.md S11), not every copy on the machine.
+    const entry = loadedRecord(entries, projectDir, keys);
+    if (entry && typeof entry.installPath === "string" && existsSync(entry.installPath)) add(entry.installPath, "installed", id);
   }
   const pluginsDir = dirname(CORE_ROOT);
   if (existsSync(join(pluginsDir, "..", ".claude-plugin", "marketplace.json"))) {

@@ -4,6 +4,8 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 ## Unreleased
 
+- core: kit plugins are installed at user scope only; a project declares the marketplace and enables the plugins (F46). A session loads the first install record that applies to its folder, a project-scope record applies in every worktree of its repository, and Claude Code 2.1.321 writes such a record per folder by itself, so an old project copy could run, or take the update, while the user copy stayed behind (docs/spikes.md S11). The SessionStart note and `kit doctor` now name the copy a session loads, update commands say `--scope user`, and `kit doctor` reports each project-scope copy of the repository that differs from the user copy or the channel, and counts those elsewhere. New `kit installs [--clean]` lists the stale project-scope copies on the machine and uninstalls them from their folders, putting each folder's `.claude/settings.json` back as it was (the CLI's uninstall drops the plugin from it). `docs/using.md` § 1 and § 3 and `/kit-adopt` say how to install and update, and why.
+
 ## 2026-11-11 — third `stable`
 
 `stable` points at the commit that adds this entry. Gaps from the rollout after the second `stable`.

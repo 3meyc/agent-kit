@@ -17,4 +17,6 @@ Arguments: $ARGUMENTS
 3. Ask before writing. On their yes, run the same command with `--write` added.
 4. After writing: run `node "${CLAUDE_PLUGIN_ROOT}/src/kit-cli.mjs" doctor --offline` and report what is still open. The listed kit-owned files stay in place: retiring each one (and any project hook entry that runs a kit-owned script) is a separate change the user decides on, after checking that the kit version covers what the local copy did.
 
+The project only declares the marketplaces and enables the plugins; it installs nothing. Each user installs the kit plugins once at user scope (`claude plugin install <plugin>@agent-kit --scope user`, docs/using.md § 1): a project-scope install shadows the user copy in every worktree of the repo and is skipped by later updates. When `doctor` reports project-scope copies, point to `kit installs`.
+
 An overlay kit needs both marketplaces declared (`--overlay name=owner/repo#ref` adds the overlay next to the base) and its plugins named with `--overlay-plugin plugin@name`.
