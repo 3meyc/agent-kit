@@ -43,7 +43,9 @@ plan; questions changing the requested behavior or feasibility must be settled b
 
 If scope spans several independently useful outcomes, first propose an ordered split: item name,
 outcome, dependencies, and completion criterion. Recommend the first item, identify parallel
-work, and provide concrete `/sdlc-intent <slug>` commands. Detail only the selected item; do not
+work, and provide concrete `/sdlc-intent <slug>` commands for the user to type in the session
+that will run each one; a session started for one of them prepares and stops, since a brief
+cannot start a stage (workflow section 2). Detail only the selected item; do not
 silently discard the remaining requested scope or generate every plan in advance.
 Keep the proposed split in the draft intent's Scope until a bounded item is selected.
 

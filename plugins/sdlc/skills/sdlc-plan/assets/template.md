@@ -9,7 +9,10 @@ status: draft
 <!-- Recipe: <link to the recipe followed> | none matched (a recurring task gets a step that
      writes one). Glossary: terms this change adds or renames, or none.
      Brief answers to the project's design-rules checklist: owning module, invariant protected,
-     affected contracts, why this is the smallest solution. Skip lines that do not apply. -->
+     affected contracts, why this is the smallest solution. Skip lines that do not apply.
+     Shared state (locks, leases, renewals, queues, two clients on one state): an actor table
+     (actor — holds / renews / releases — when) and an interleaving table (interleaving —
+     expected result — case label); one entry path per action; reads without side effects. -->
 
 ## Files that change
 
@@ -26,7 +29,8 @@ status: draft
 
 ## Proof
 
-<!-- Command or behavioral check — expected result — intent label covered.
+<!-- Command or behavioral check — expected result — intent label covered. For shared state,
+     one row per case × entry point (C2 via the list screen, C2 via the detail screen).
      Include the project's checks, the gates its extension skills name, and required
      environments; a manual observation is pending until reported. -->
 

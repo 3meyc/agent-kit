@@ -15,7 +15,8 @@ documents.
 2. Review the full item diff, including its records. Derive representative expected
    outcomes from each intent outcome (`O1` …) and important case (`C1` …) before reading its
    implementation and tests. Map outcomes, cases and changed contracts to code and meaningful
-   verification.
+   verification. When the plan models shared state, each case needs proof through every entry
+   point that reaches it.
 3. Check linked flows, recipes, documents and diagrams against the intent, the plan's Proof
    and the implementation. Broken links, omissions, and contradictory records are findings.
    For a fix or refactor, use the intent's expected outcome and constraints.
@@ -44,6 +45,8 @@ documents.
 ## Verdict
 
 Start with `PASS`, `FAIL`, or `PENDING`. Use `PASS` only when all required checks and
-independent review are complete. List checks with results and each defect or unavailable
-check with evidence and location. Name the verified revision. Report only; fixes belong
+independent review are complete. List checks with results and each finding or unavailable
+check with evidence and location. Label each finding `defect` (code behavior, a failing check,
+a contract or Proof mismatch, a missing gate) or `nit` (wording, a stale line or label in a
+record); finish caps reruns on nits. Name the verified revision. Report only; fixes belong
 to build.
