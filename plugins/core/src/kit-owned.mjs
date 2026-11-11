@@ -152,6 +152,25 @@ export function pluginRoots(projectDir, state = readPluginState(), sessionDirs =
   return [...byName.values()];
 }
 
+/**
+ * The marketplace whose source this project is, as a kit repo has it (the base kit, or an overlay
+ * kit's own repo): the `name` in its `.claude-plugin/marketplace.json` and the plugins listed there
+ * with a relative source folder that holds a plugin, by name. Null for a project that only uses kits.
+ * @param {string} projectDir @returns {{ name: string, plugins: Map<string, string> } | null}
+ */
+export function ownMarketplace(projectDir) {
+  const manifest = readJson(join(projectDir, ".claude-plugin", "marketplace.json"));
+  if (typeof manifest?.name !== "string" || !Array.isArray(manifest.plugins)) return null;
+  const plugins = new Map();
+  for (const entry of manifest.plugins) {
+    const source = entry?.source;
+    if (typeof entry?.name === "string" && typeof source === "string" && source.startsWith("./") && isPluginDir(join(projectDir, source))) {
+      plugins.set(entry.name, source.slice(2));
+    }
+  }
+  return { name: manifest.name, plugins };
+}
+
 /** A plugin's `dependencies` as `{ name, marketplace }`; a bare name has `marketplace: null`. */
 export function pluginDependencies(root) {
   const list = readJson(join(root, ".claude-plugin", "plugin.json"))?.dependencies;
@@ -332,7 +351,10 @@ export function enabledForProject(projectDir, plugins, { local = true } = {}) {
 }
 
 /**
- * Kit-owned files and hook entries the project still has, and tests of kit-owned scripts.
+ * Kit-owned files and hook entries the project still has, and tests of kit-owned scripts. In the
+ * repo a plugin comes from (`ownMarketplace`), the tests are not looked for: that repo tests the
+ * plugin's own source under its plugin folder, and its tests name the project paths a plugin owns
+ * as fixture data, which reads like an import of a deleted script.
  * @param {string} projectDir @param {Array<{ root: string, name: string }>} [plugins]
  * @returns {Array<{ path: string, plugin: string, note: string | null }>}
  */
@@ -340,6 +362,7 @@ export function findKitCopies(projectDir, plugins = enabledForProject(projectDir
   const found = [];
   const hooks = projectHookCommands(projectDir);
   const tests = projectTestFiles(projectDir);
+  const ownPlugins = ownMarketplace(projectDir)?.plugins ?? new Map();
   const read = (path) => {
     const file = join(projectDir, path);
     return statSync(file).size > MAX_TEST_BYTES ? "" : readFileSync(file, "utf8");
@@ -353,7 +376,7 @@ export function findKitCopies(projectDir, plugins = enabledForProject(projectDir
         found.push({ path: ownedLabel(path), plugin: owned.plugin, note });
       }
     }
-    for (const { test, of } of testsOfOwned(owned.files.map((file) => file.path), tests, read)) {
+    for (const { test, of } of ownPlugins.has(owned.plugin) ? [] : testsOfOwned(owned.files.map((file) => file.path), tests, read)) {
       if (seen.has(test)) continue;
       seen.add(test);
       const gone = existsSync(join(projectDir, of)) ? "" : ", which is already gone";
