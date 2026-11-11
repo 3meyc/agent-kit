@@ -168,7 +168,7 @@ export function doctorCommand(args, root = projectRoot(), cwd = process.cwd()) {
     for (const error of parsed.errors) console.error(`kit doctor: ${error}`);
     return 2;
   }
-  return runDoctor(root, { strict: parsed.strict, offline: parsed.offline, pluginDirs: parsed.pluginDirs, pluginRoots: roots });
+  return runDoctor(root, { strict: parsed.strict, offline: parsed.offline, pluginDirs: parsed.pluginDirs, pluginRoots: roots, cwd });
 }
 
 /** @param {string[]} argv */

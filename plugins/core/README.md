@@ -40,7 +40,7 @@ call starts one `node`, not two. No hook ever blocks a tool call; a failure is o
 | --- | --- | --- |
 | 1 | `/core:check [<command> \| all]` | Runs `kit.json` `commands.*` in the Haiku agent `check-runner`, which reports only failures. Empty: `check`, `lint`, `test` |
 | 2 | `/core:dev` | Starts the dev server on `devServer.port` through the matching `.claude/launch.json` entry, in the desktop app's Browser pane |
-| 3 | `/core:kit-doctor` | Checks `kit.json` against the schema, the needed plugins, both marketplaces declared and registered at the declared ref, kit-owned copies, installed versions against the remote |
+| 3 | `/core:kit-doctor` | Checks `kit.json` against the schema, the needed plugins, both marketplaces declared and registered at the declared ref, enabled plugins installed on this machine, a nested worktree whose outer checkout's `.claude/` differs, kit-owned copies, the installed versions of the project's plugins against the remote |
 | 4 | `/core:kit-adopt` | Drafts `kit.json`, declares marketplaces and plugins in `.claude/settings.json`, lists local files the kit now supplies; dry run first, deletes nothing |
 | 5 | `/core:kit-inventory [--out <dir>]` | Inventories agent tooling across your local repos and measures drift between copies |
 | 6 | `/core:sweep <question>` | Answers a read-only question across many files in the Haiku agent `repo-sweep` and returns a verdict, not excerpts |

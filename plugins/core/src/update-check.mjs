@@ -296,8 +296,9 @@ export function splitId(id) {
  * `channelResolver`). One item per install record that a session in `root` could load: the user
  * record, and each project or local record of the same repository. `loaded` marks the copy a
  * session there actually runs (`loadedRecord`, S11); `own` marks a record for `root` itself;
- * `userInstalled` is the user-scope copy's commit, or null when there is none.
- * @param {{ root?: string | null, cacheFile?: string | null, timeoutMs?: number, state?: ReturnType<typeof readPluginState>, declared?: Record<string, any>, fresh?: boolean, resolveSha?: (remote: {url: string, ref: string}) => string | null, now?: number }} [options]
+ * `userInstalled` is the user-scope copy's commit, or null when there is none. `include` keeps only
+ * the plugins it accepts, before any remote is read.
+ * @param {{ root?: string | null, cacheFile?: string | null, timeoutMs?: number, state?: ReturnType<typeof readPluginState>, declared?: Record<string, any>, fresh?: boolean, resolveSha?: (remote: {url: string, ref: string}) => string | null, now?: number, include?: (plugin: string, marketplace: string) => boolean }} [options]
  * @returns {{ lagging: Array<UpdateItem & { latest: string }>, checked: UpdateItem[] }}
  * @typedef {{ plugin: string, marketplace: string, scope: string, projectPath: string | null, installed: string, latest: string | null, ref: string, registeredRef: string, from: "remote" | "cache" | "none" | "pinned", cachedAt: number | null, source: string | null, loaded: boolean, own: boolean, userInstalled: string | null }} UpdateItem
  */
@@ -310,6 +311,7 @@ export function checkUpdates({
   fresh = false,
   resolveSha,
   now = Date.now(),
+  include,
 } = {}) {
   const channels = channelResolver({ cacheFile, timeoutMs, state, declared, fresh, resolveSha, now });
   const keys = new Map();
@@ -317,6 +319,7 @@ export function checkUpdates({
   for (const [id, entries] of Object.entries(state.installed)) {
     const name = splitId(id);
     if (!name || !Array.isArray(entries)) continue;
+    if (include && !include(name.plugin, name.marketplace)) continue;
     const records = entries.filter((entry) => isCommitVersioned(entry) && recordApplies(entry, root, keys));
     if (records.length === 0) continue;
     const channel = channels.channel(name.marketplace, name.plugin);

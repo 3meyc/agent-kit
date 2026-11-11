@@ -1,6 +1,6 @@
 ---
 name: vitest
-description: "Load before editing, writing or reviewing a .test or .spec file (.ts, .js) or the Vite/Vitest config, however small the change. Vitest conventions for TypeScript and JavaScript tests."
+description: "Load before editing, writing or reviewing a .test or .spec file (.ts, .js) or the Vite/Vitest config, however small the change. Vitest conventions for TypeScript and JavaScript tests; not for Playwright specs."
 paths:
   - "**/*.test.ts"
   - "**/*.spec.ts"
@@ -11,6 +11,10 @@ paths:
 ---
 
 # Vitest
+
+Not for Playwright specs: a `.spec.ts` that imports `@playwright/test` (usually under `e2e/`) also
+matches this skill's paths, but follows Playwright and the project's e2e conventions. Leave these
+rules aside for it.
 
 1. **New tests use Vitest.** Import `describe`, `it`, `expect`, `vi` and friends from `vitest`, explicitly, unless the project enables Vitest globals.
 2. **No Node test runner APIs** (`node:test`, `node:assert`) in these tests.
