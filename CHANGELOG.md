@@ -4,6 +4,8 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 ## Unreleased
 
+- session: a record whose `title:` (or `prompt:`) was typed without quotes no longer breaks the ledger. The claims check in `git-commit-session` read it with `JSON.parse` and stopped every commit in the checkout with a raw JSON error; every reader now takes a JSON-quoted, YAML single-quoted or plain value, and the next refresh writes the title back JSON-quoted.
+
 ## 2026-11-11 — seventh `stable`
 
 `stable` points at the commit that adds this entry. Pilot follow-ups: the doctor checks what the machine actually runs, and the ledger record rules reach every session.

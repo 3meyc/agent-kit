@@ -42,6 +42,27 @@ export const filePaths = (block) => parseFileLines(block).map(({ path }) => path
 const filesBlock = (text) => text.split(/^## Files(?: \(\d+\))?\s*$/m)[1]?.split(/^## /m)[0] ?? "";
 
 /**
+ * A front-matter string as written: the hook writes JSON (`"…"`), while a session or `/handoff`
+ * that types `title:` by hand may leave a plain scalar or a YAML single-quoted one. Every reader of
+ * `title` and `prompt` goes through here, so a hand-typed value never fails a read.
+ * @param {string | undefined} raw The text after `<field>: `.
+ * @returns {string}
+ */
+export function frontMatterString(raw) {
+  const value = String(raw ?? "").trim();
+  if (value.startsWith('"')) {
+    try {
+      const parsed = JSON.parse(value);
+      if (typeof parsed === "string") return parsed;
+    } catch {
+      /* `"quoted" then more` is a plain scalar that happens to open with a quote */
+    }
+  }
+  if (value.length >= 2 && value.startsWith("'") && value.endsWith("'")) return value.slice(1, -1).replace(/''/g, "'");
+  return value;
+}
+
+/**
  * What a re-render must keep from the record it replaces: the files it listed, with their times,
  * and the commits it stored. A shell edit attributed by mtime is matched against the dirty set, so
  * once committed it would drop out of the file list and rewrite the record after the commit.
@@ -142,13 +163,7 @@ export function parseAuthoredSections(text) {
   /** @type {Map<string, string>} */
   const authored = new Map();
   const title = text.match(/^title: (.+)$/m);
-  if (title) {
-    try {
-      authored.set("title", JSON.parse(title[1]));
-    } catch {
-      authored.set("title", title[1].trim());
-    }
-  }
+  if (title) authored.set("title", frontMatterString(title[1]));
   // Headings this format has used before. `Outcome` and `Result` were dropped once it was clear
   // they restate the commit message; `Open threads` became the imperative `Next`.
   const ALIASES = { "Open threads": "Next", Outcome: "Intent", Result: "Intent" };
@@ -287,8 +302,8 @@ export function parseFrontMatter(text, file) {
   }
   // A session that named itself gets that name in the index. Older records fall back to their
   // first prompt; a record with neither is shown by id rather than by a misleading quote.
-  meta.prompt = meta.prompt ? JSON.parse(meta.prompt) : "";
-  meta.label = meta.title ? JSON.parse(meta.title) : meta.prompt || `(unsummarized ${meta.file.slice(11, 19)})`;
+  meta.prompt = frontMatterString(meta.prompt);
+  meta.label = frontMatterString(meta.title) || meta.prompt || `(unsummarized ${meta.file.slice(11, 19)})`;
   meta.commits = (meta.commits ?? "[]")
     .replace(/^\[|\]$/g, "")
     .split(", ")
