@@ -9,7 +9,7 @@ Run the check from the repo root:
 node "${CLAUDE_PLUGIN_ROOT}/src/kit-cli.mjs" doctor
 ```
 
-(`kit doctor` is the same command on the Bash PATH. Add `--offline` to skip the remote version check; without it the remote is read every time, and a result that could only come from the cache says so. Plugins loaded with `--plugin-dir` are read from the running `claude` command line; when the report misses one, add `--plugin-dir <path>` for it.)
+(`kit doctor` is the same command on the Bash PATH. Add `--offline` to skip the remote version check; without it the remote is read every time, and a result that could only come from the cache says so. Plugins loaded with `--plugin-dir` are read from the running `claude` command line; when the report misses one, add `--plugin-dir <path>` for it. `--strict` is the CI form: repo state only, a kit-owned copy fails; see docs/using.md § 2.)
 
 Then report:
 

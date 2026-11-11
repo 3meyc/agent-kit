@@ -7,14 +7,17 @@ import { runAdopt } from "./adopt.mjs";
 import { runDoctor } from "./doctor.mjs";
 import { runInstalls } from "./installs.mjs";
 import { runInventory } from "./inventory.mjs";
+import { ownershipRootDirs } from "./kit-owned.mjs";
 import { readKit } from "../lib/kit-config.mjs";
 import { checkUpdates, defaultCacheFile, updateCommands } from "./update-check.mjs";
 
 const USAGE = `Usage: kit <command>
 
-  doctor [--offline] [--plugin-dir <path>]...
+  doctor [--strict] [--offline] [--plugin-dir <path>]... [--plugin-root <path>]...
                        Check kit.json, enabled and --plugin-dir plugins, marketplaces, kit-owned copies
-                       and their tests, installed versions (KIT_PLUGIN_DIRS adds plugin folders too)
+                       and their tests, installed versions (KIT_PLUGIN_DIRS adds plugin folders too).
+                       --strict judges repo state only and fails on a kit-owned copy (for CI);
+                       --plugin-root reads ownership from more plugin folders (an overlay's plugins)
   update-check         Installed kit plugins against their marketplace ref, with the update commands
   installs [--clean] [--offline]
                        Project-scope copies of kit plugins on this machine that differ from the user copy
@@ -126,13 +129,55 @@ export function optionValues(args, flag) {
   return values;
 }
 
+const DOCTOR_FLAGS = new Set(["--strict", "--offline"]);
+const DOCTOR_OPTIONS = ["--plugin-dir", "--plugin-root"];
+
+/**
+ * `kit doctor` arguments. An unknown argument or an option without its value is an error, so a
+ * mistyped flag in CI fails the job instead of running a weaker check.
+ * @param {string[]} args
+ * @returns {{ strict: boolean, offline: boolean, pluginDirs: string[], pluginRoots: string[], errors: string[] }}
+ */
+export function parseDoctorArgs(args) {
+  const errors = [];
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i];
+    if (DOCTOR_FLAGS.has(arg) || DOCTOR_OPTIONS.some((flag) => arg.startsWith(`${flag}=`) && arg.length > flag.length + 1)) continue;
+    if (DOCTOR_OPTIONS.includes(arg)) {
+      if (args[i + 1] === undefined || args[i + 1].startsWith("--")) errors.push(`${arg} needs a path`);
+      else i += 1;
+      continue;
+    }
+    errors.push(`unknown argument ${arg}`);
+  }
+  return {
+    strict: args.includes("--strict"),
+    offline: args.includes("--offline"),
+    pluginDirs: optionValues(args, "--plugin-dir"),
+    pluginRoots: optionValues(args, "--plugin-root"),
+    errors,
+  };
+}
+
+/** `kit doctor` (and `agent-kit doctor`): exit 2 on a usage error, else the report's code. @param {string[]} args */
+export function doctorCommand(args, root = projectRoot(), cwd = process.cwd()) {
+  const parsed = parseDoctorArgs(args);
+  const { roots, missing } = ownershipRootDirs(parsed.pluginRoots, cwd);
+  for (const path of missing) parsed.errors.push(`--plugin-root ${path} holds no plugin (no .claude-plugin/plugin.json in it or in a folder directly inside it)`);
+  if (parsed.errors.length > 0) {
+    for (const error of parsed.errors) console.error(`kit doctor: ${error}`);
+    return 2;
+  }
+  return runDoctor(root, { strict: parsed.strict, offline: parsed.offline, pluginDirs: parsed.pluginDirs, pluginRoots: roots });
+}
+
 /** @param {string[]} argv */
 export function main(argv) {
   const [command, ...args] = argv;
   const root = projectRoot();
   switch (command) {
     case "doctor":
-      return runDoctor(root, { offline: args.includes("--offline"), pluginDirs: optionValues(args, "--plugin-dir") });
+      return doctorCommand(args, root);
     case "update-check":
       return printUpdates(root);
     case "installs":
