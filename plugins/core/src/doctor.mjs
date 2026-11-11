@@ -6,7 +6,8 @@
 //    only when both are declared (docs/spikes.md S3a). Plugins this session loaded with
 //    `--plugin-dir` are listed, and every enabled or loaded plugin's `dependencies` are checked.
 //    A marketplace this machine registered, or the user's settings declare, at another ref than
-//    the project declares is a warning: plugins install from the registered ref.
+//    the project declares is a warning: plugins install from the registered ref. A kit repo's own
+//    marketplace and plugins (its `.claude-plugin/marketplace.json`) need no declaration there.
 // 3. Copies of kit-owned files in the repo, which shadow or duplicate the kit, and tests of
 //    kit-owned scripts, which go with them.
 // 4. Installed kit plugins against the commit their channel's ref points at on the remote now
@@ -21,7 +22,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { CORE_ROOT, enabledForProject, findKitCopies, pluginDependencies, pluginRoots, sessionPluginDirs } from "./kit-owned.mjs";
+import { CORE_ROOT, enabledForProject, findKitCopies, ownMarketplace, pluginDependencies, pluginRoots, sessionPluginDirs } from "./kit-owned.mjs";
 import { KIT_FILE } from "../lib/kit-config.mjs";
 import { validate } from "./schema-check.mjs";
 import { surveyInstalls, tilde } from "./installs.mjs";
@@ -78,9 +79,17 @@ export function checkSettings(projectDir, config, userDir = claudeDir(), { repoO
   const user = readJson(join(userDir, "settings.json")).value ?? {};
   const declared = new Set(Object.keys(project.extraKnownMarketplaces ?? {}));
   const enabledIn = (settings, id) => settings.enabledPlugins?.[id] === true;
+  // The repo a marketplace comes from runs its plugins from the working tree (`--plugin-dir`,
+  // docs/changing.md), so it neither declares that marketplace nor enables those plugins.
+  const own = ownMarketplace(projectDir);
+  const ownPlugin = (id) => {
+    const name = splitId(id);
+    return name && own?.name === name.marketplace && own.plugins.has(name.plugin) ? own.plugins.get(name.plugin) : null;
+  };
 
   for (const { id, why } of neededPlugins(config)) {
     if (enabledIn(project, id)) findings.push({ level: "ok", text: `${id} enabled in .claude/settings.json` });
+    else if (ownPlugin(id)) findings.push({ level: "ok", text: `${id} is this repo's own plugin (${ownPlugin(id)}), tried from the working tree with --plugin-dir; .claude/settings.json need not enable it` });
     else if (!repoOnly && (enabledIn(local, id) || enabledIn(user, id))) {
       findings.push({ level: "warn", text: `${id} (${why}) is enabled only for you (${enabledIn(local, id) ? "settings.local.json" : "user settings"}); add it to .claude/settings.json so the project gets it` });
     } else findings.push({ level: "fail", text: `${id} (${why}) is not enabled; add it to enabledPlugins in .claude/settings.json` });
@@ -99,6 +108,7 @@ export function checkSettings(projectDir, config, userDir = claudeDir(), { repoO
   const overlays = [...marketplaces].filter((name) => name !== BASE_MARKETPLACE);
   for (const name of [...marketplaces].sort()) {
     if (declared.has(name)) findings.push({ level: "ok", text: `marketplace ${name} declared in extraKnownMarketplaces` });
+    else if (own?.name === name) findings.push({ level: "ok", text: `marketplace ${name} is this repo's own (.claude-plugin/marketplace.json), so it is not declared here` });
     else {
       const why = name === BASE_MARKETPLACE && overlays.length > 0 ? `; overlay dependencies (${overlays.join(", ")}) resolve only with it (S3a)` : "";
       findings.push({ level: "fail", text: `marketplace ${name} is not declared in .claude/settings.json extraKnownMarketplaces${why}` });

@@ -537,6 +537,31 @@ describe("doctor settings", () => {
     assert.deepEqual(checkSettings(project, { project: "my-app" }, userDir).filter((finding) => finding.level !== "ok"), []);
   });
 
+  it("accepts the kit's own repo without declaring its marketplace, and only that repo", () => {
+    const home = tempProject("user-home-kit", { "settings.json": { enabledPlugins: { "core@agent-kit": true } } });
+    const kitRepo = (name, marketplace) =>
+      tempProject(name, {
+        ".claude-plugin/marketplace.json": { name: marketplace, plugins: [{ name: "core", source: "./plugins/core" }] },
+        "plugins/core/.claude-plugin/plugin.json": { name: "core" },
+      });
+    const levels = (dir) => checkSettings(dir, { project: "my-kit" }, home).map((finding) => `${finding.level} ${finding.text}`);
+    for (const strict of [false, true]) {
+      const findings = checkSettings(kitRepo("doctor-kit-repo", "agent-kit"), { project: "my-kit" }, home, { repoOnly: strict });
+      assert.deepEqual(findings.filter((finding) => finding.level !== "ok"), [], `strict: ${strict}`);
+      assert.ok(findings.some((finding) => /core@agent-kit is this repo's own plugin \(plugins\/core\)/.test(finding.text)));
+      assert.ok(findings.some((finding) => /marketplace agent-kit is this repo's own/.test(finding.text)));
+    }
+    // A consumer project, and an overlay kit's repo, still need the base kit declared and enabled.
+    for (const dir of [tempProject("doctor-consumer", {}), kitRepo("doctor-overlay-repo", "overlay")]) {
+      const found = levels(dir);
+      assert.ok(found.some((line) => line.startsWith("warn core@agent-kit (always) is enabled only for you")), found.join("\n"));
+      assert.ok(found.some((line) => line.startsWith("fail marketplace agent-kit is not declared")), found.join("\n"));
+    }
+    // A marketplace.json whose core source is not a plugin folder does not make the repo the kit.
+    const broken = tempProject("doctor-kit-no-source", { ".claude-plugin/marketplace.json": { name: "agent-kit", plugins: [{ name: "core", source: "./plugins/core" }] } });
+    assert.ok(levels(broken).some((line) => line.startsWith("warn core@agent-kit")));
+  });
+
   it("warns when this machine or the user's settings hold the marketplace at another ref", () => {
     const stable = { source: { source: "github", repo: "owner/agent-kit", ref: "stable" } };
     const refless = { source: { source: "github", repo: "owner/agent-kit" } };
@@ -776,6 +801,25 @@ describe("kit-owned tests and ownership fixes", () => {
     const copies = findKitCopies(project, [{ root: session, name: "session" }]);
     assert.deepEqual(copies.map((copy) => copy.path).sort(), ["scripts/hooks/session-ledger.test.ts", "test/flow.test.mjs"]);
     assert.ok(copies.every((copy) => copy.note.includes("already gone")));
+  });
+
+  it("skips tests of kit-owned scripts in the repo the plugin comes from, and keeps its other copies", () => {
+    const session = join(repo, "plugins", "session");
+    const files = {
+      // Fixture data in the kit's own tests: an import of a kit-owned script inside a string.
+      "tests/session.test.mjs": "const fixture = `import { a } from \"../scripts/git-commit-session.mjs\";`;",
+      ".claude/commands/handoff.md": "x",
+    };
+    const kit = tempProject("owned-tests-kit-repo", {
+      ...files,
+      ".claude-plugin/marketplace.json": { name: "agent-kit", plugins: [{ name: "session", source: "./plugins/session" }] },
+      "plugins/session/.claude-plugin/plugin.json": { name: "session" },
+    });
+    const consumer = tempProject("owned-tests-consumer", files);
+    for (const dir of [kit, consumer]) spawnSync("git", ["init", "-q"], { cwd: dir });
+    const paths = (dir) => findKitCopies(dir, [{ root: session, name: "session" }]).map((copy) => copy.path).sort();
+    assert.deepEqual(paths(kit), [".claude/commands/handoff.md"]);
+    assert.deepEqual(paths(consumer), [".claude/commands/handoff.md", "tests/session.test.mjs"]);
   });
 
   it("names the worktree set-up hook where projects keep it, and leaves design-language rules to an overlay", () => {

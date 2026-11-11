@@ -45,6 +45,10 @@ sequenceDiagram
 1. **Note it.** In the project session, record the gap and carry on with the current behaviour.
    Don't patch locally to unblock yourself.
 2. **Open a session in agent-kit** (its own worktree). Edit the plugin under `plugins/<name>/`.
+   The kit's repo keeps no `.claude/settings.json`: `kit doctor` reads its
+   `.claude-plugin/marketplace.json` and treats that marketplace and its plugins as the repo's
+   own, so it asks neither to declare nor to enable them, and does not take the repo's tests for
+   tests of kit-owned scripts.
 3. **Try it from the project.** Start Claude in the project with the local plugin loaded:
    `claude --plugin-dir ~/path/to/agent-kit/plugins/sdlc` _(unverified: that it overrides the
    installed copy of the same name)_.
