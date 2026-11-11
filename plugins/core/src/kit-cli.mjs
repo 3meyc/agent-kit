@@ -98,7 +98,7 @@ function printUpdates(root, print = console.log) {
     print("No kit plugins installed from a git marketplace for this project.");
     return 0;
   }
-  const unread = relevant.filter((item) => item.from !== "remote");
+  const unread = relevant.filter((item) => item.from !== "remote" && item.from !== "pinned");
   if (unread.length > 0) {
     print(`Could not read the remote for ${[...new Set(unread.map((item) => item.marketplace))].join(", ")}; those results ${unread.some((item) => item.from === "cache") ? "come from the cache" : "are missing"}.`);
   }

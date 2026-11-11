@@ -6,7 +6,8 @@
 // (S3c); a plugin with its own version is skipped, since its marketplace HEAD moves for reasons
 // unrelated to it. The channel is the ref the project declares in `.claude/settings.json`
 // `extraKnownMarketplaces` when it declares one, else the ref this machine registered the
-// marketplace at. Which install record a session loads, when one plugin is installed at several
+// marketplace at; a plugin whose catalog entry names a git repository of its own follows that
+// repository's ref instead (`pluginRemote`). Which install record a session loads, when one plugin is installed at several
 // scopes, follows S11 (`loadedRecord`). Node built-ins only.
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
@@ -61,6 +62,34 @@ export function declaredMarketplaces(root) {
   const declared = readJson(join(root, ".claude", "settings.json"))?.extraKnownMarketplaces;
   if (!declared || typeof declared !== "object") return {};
   return Object.fromEntries(Object.entries(declared).map(([name, entry]) => [name, entry?.source]));
+}
+
+/**
+ * The plugin's entry in its marketplace's local catalog
+ * (`<installLocation>/.claude-plugin/marketplace.json`), or null when the catalog is not on disk.
+ * @param {ReturnType<typeof readPluginState>} state @param {string} marketplace @param {string} plugin
+ */
+export function catalogEntry(state, marketplace, plugin) {
+  const location = state.marketplaces[marketplace]?.installLocation;
+  if (typeof location !== "string") return null;
+  const plugins = readJson(join(location, ".claude-plugin", "marketplace.json"))?.plugins;
+  return Array.isArray(plugins) ? (plugins.find((entry) => entry?.name === plugin) ?? null) : null;
+}
+
+/**
+ * Where a plugin's commits come from when its catalog entry names a git repository of its own
+ * (`github` or `url` source) rather than a path inside the marketplace: the clone URL, the ref
+ * the entry names (`HEAD` when none), and the commit it pins with `sha`, if any. Null otherwise,
+ * so the plugin follows its marketplace's ref.
+ * @param {any} source
+ */
+export function pluginRemote(source) {
+  if (!source || typeof source !== "object") return null;
+  let url = null;
+  if (source.source === "github" && typeof source.repo === "string") url = `https://github.com/${source.repo}.git`;
+  else if (source.source === "url" && typeof source.url === "string" && !source.url.endsWith(".json")) url = source.url;
+  if (!url) return null;
+  return { url, ref: sourceRef(source), pinned: typeof source.sha === "string" && source.sha ? source.sha : null };
 }
 
 /** The ref a marketplace source names, or `HEAD` when it names none (Claude Code's default). */
@@ -223,13 +252,25 @@ export function channelResolver({ cacheFile = null, timeoutMs = 4000, state, dec
     return result;
   };
   return {
-    /** @returns {{ ref: string, registeredRef: string, latest: string | null, from: "remote" | "cache" | "none", cachedAt: number | null } | null} */
-    channel(marketplace) {
+    /**
+     * The channel of `plugin` from `marketplace`: the plugin's own repository and ref when its
+     * catalog entry names one (`pluginRemote`; a pinned `sha` is the answer, with `from: "pinned"`),
+     * else the marketplace's ref.
+     * @param {string} marketplace @param {string} [plugin]
+     * @returns {{ ref: string, registeredRef: string, latest: string | null, from: "remote" | "cache" | "none" | "pinned", cachedAt: number | null, source: string | null } | null}
+     */
+    channel(marketplace, plugin) {
+      const own = plugin ? pluginRemote(catalogEntry(state, marketplace, plugin)?.source) : null;
+      if (own?.pinned) return { ref: own.ref, registeredRef: own.ref, latest: own.pinned, from: "pinned", cachedAt: null, source: own.url };
+      if (own) {
+        const { sha, from, cachedAt } = shaFor(`${marketplace}/${plugin}`, own);
+        return { ref: own.ref, registeredRef: own.ref, latest: sha, from, cachedAt, source: own.url };
+      }
       const registered = state.marketplaces[marketplace]?.source;
       const remote = marketplaceRemote(declared[marketplace]) ?? marketplaceRemote(registered);
       if (!remote) return null;
       const { sha, from, cachedAt } = shaFor(marketplace, remote);
-      return { ref: remote.ref, registeredRef: registered ? sourceRef(registered) : remote.ref, latest: sha, from, cachedAt };
+      return { ref: remote.ref, registeredRef: registered ? sourceRef(registered) : remote.ref, latest: sha, from, cachedAt, source: null };
     },
     save() {
       if (!cacheFile || !cacheDirty) return;
@@ -258,7 +299,7 @@ export function splitId(id) {
  * `userInstalled` is the user-scope copy's commit, or null when there is none.
  * @param {{ root?: string | null, cacheFile?: string | null, timeoutMs?: number, state?: ReturnType<typeof readPluginState>, declared?: Record<string, any>, fresh?: boolean, resolveSha?: (remote: {url: string, ref: string}) => string | null, now?: number }} [options]
  * @returns {{ lagging: Array<UpdateItem & { latest: string }>, checked: UpdateItem[] }}
- * @typedef {{ plugin: string, marketplace: string, scope: string, projectPath: string | null, installed: string, latest: string | null, ref: string, registeredRef: string, from: "remote" | "cache" | "none", cachedAt: number | null, loaded: boolean, own: boolean, userInstalled: string | null }} UpdateItem
+ * @typedef {{ plugin: string, marketplace: string, scope: string, projectPath: string | null, installed: string, latest: string | null, ref: string, registeredRef: string, from: "remote" | "cache" | "none" | "pinned", cachedAt: number | null, source: string | null, loaded: boolean, own: boolean, userInstalled: string | null }} UpdateItem
  */
 export function checkUpdates({
   root = null,
@@ -278,7 +319,7 @@ export function checkUpdates({
     if (!name || !Array.isArray(entries)) continue;
     const records = entries.filter((entry) => isCommitVersioned(entry) && recordApplies(entry, root, keys));
     if (records.length === 0) continue;
-    const channel = channels.channel(name.marketplace);
+    const channel = channels.channel(name.marketplace, name.plugin);
     if (!channel) continue;
     const loaded = loadedRecord(entries, root, keys);
     const user = entries.find((entry) => entry.scope === "user");
