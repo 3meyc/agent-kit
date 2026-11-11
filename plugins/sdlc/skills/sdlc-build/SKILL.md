@@ -62,12 +62,19 @@ compatibility). Then run `sdlc-kit` for this project's paths and commands. If th
 1. When all implementation steps are committed, run the plan's Proof and required
    project checks. Reuse results only when they cover the unchanged revision and scope.
    Commit any final record updates before delegation.
-2. Request a fresh simplification pass from this plugin's `sdlc-simplifier` agent. Give it the
+2. **Shared state** (the plan has an actor and interleaving table): before simplification, give
+   a fresh read-only sub-agent the item, base and revision and ask it to break the concurrency
+   model: interleavings the table misses, a second entry path, a read with a side effect, a
+   failed release or renewal that re-takes state, a case proved through one entry point only.
+   It may write scratch tests in a throwaway copy of the revision (a temporary worktree or
+   folder), never in the checkout. Each substantiated finding becomes a correction step built
+   like any other; record the review and its dispositions in evidence for finish.
+3. Request a fresh simplification pass from this plugin's `sdlc-simplifier` agent. Give it the
    item path, repository, base and revision, and tell it to read its contract with
    `sdlc-kit show simplification` and the workflow with `sdlc-kit show workflow`. It may use
    the host `simplify` skill within the contract's limits. Wait for its result. Run
    shared-checkout checks sequentially. Where the agent is unavailable, run the contract and
    the shared workflow in a fresh session by hand.
-3. Simplification is optional; report an unavailable or skipped pass. Required Proof
-   remains a gate. Summarize changes, checks, and remaining issues, then name
+4. Simplification is optional; report an unavailable or skipped pass. Required Proof and,
+   for shared state, the adversarial review remain gates. Summarize changes, checks, and remaining issues, then name
    `/sdlc-finish <slug>` as the next stage when ready.

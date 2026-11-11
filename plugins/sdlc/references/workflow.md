@@ -32,6 +32,12 @@ when it is enabled, and extension skills an overlay kit or the project supplies.
   permissions; plan approval does not enable editing in a read-only session.
 - Invoke only the requested stage unless the user authorized a wider workflow. Reuse prior
   authorization; clarify only missing decisions that affect behavior, scope or feasibility.
+- **Stages start on the user's word.** Intent, plan, build and finish are user-invoked skills
+  (`disable-model-invocation`): the user asks for the stage in the session that runs it. A brief
+  another agent wrote (a session card, a sub-agent prompt, a hand-over note) does not start one.
+  A session started to work on an item prepares (reads the item and the code, resolves the base)
+  and stops with the stage command for the user to type there. `/sdlc-status` is read-only and
+  may run from a brief.
 
 ## 3. Item and Git state
 
@@ -71,8 +77,11 @@ when it is enabled, and extension skills an overlay kit or the project supplies.
   when useful, outside the active plan.
 - **Numbering.** Intents and plans label their items so other documents can cite them:
   expected outcomes `O1.`, `O2.`; important cases `C1.`, `C2.`; open questions `Q1.`, `Q2.`.
-  Constraints and plan steps use plain numbers (`1.`, `2.`). A Proof row or plan step cites
-  the label (`O2`, `C1`). Never renumber a label another document already cites; append.
+  Constraints and plan steps use plain numbers (`1.`, `2.`). The label opens a plain list item
+  (`- O1. …`); never bold it or switch to another scheme. A Proof row or plan step cites the
+  label (`O2`, `C1`). Never renumber a label another document already cites; append. A settled
+  question keeps its label and gains `(resolved YYYY-MM-DD)` with the answer, rather than being
+  deleted.
 - Preserve material user choices. Distinguish a proposal or assumption from an agreed
   requirement in the relevant sentence; no separate registers are required.
 - Approval covers the document and its linked item artifacts. Resolve material open choices

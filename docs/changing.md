@@ -49,9 +49,66 @@ sequenceDiagram
    `claude --plugin-dir ~/path/to/agent-kit/plugins/sdlc` _(unverified: that it overrides the
    installed copy of the same name)_.
 4. **Merge** through a pull request. The naming check in CI must pass (see below).
-5. **Release** by moving `stable` to the merged commit and adding a line to
-   [CHANGELOG.md](../CHANGELOG.md). A release script _(planned)_ does both.
+5. **Release** with `kit release` (next section): it moves the `## Unreleased` lines of
+   [CHANGELOG.md](../CHANGELOG.md) under a dated entry, commits, and moves `stable` to that commit.
 6. **Roll back** by moving `stable` back to the previous release.
+
+## Releasing
+
+`kit release` (core plugin) cuts a release of a kit repo in one checked step. Run it in the kit's
+checkout, on `main`, after the work is merged and pulled:
+
+```bash
+kit release --summary "<one line on what this release changes>"
+```
+
+Without `--yes` it is a dry run: it runs every check and prints each step it would take. Run it
+again with `--yes` and the same arguments to release. Outside Claude Code, where `kit` is not on
+the PATH, `agent-kit release …` (the root package) or `node <agent-kit>/plugins/core/src/kit-cli.mjs
+release …` runs the same command.
+
+| ID | Step | Refuses when |
+| --- | --- | --- |
+| 1 | Tree | Not on the release branch; uncommitted or untracked files; `HEAD` ahead of or behind the remote branch |
+| 2 | Tag on the remote | `stable` already points at `HEAD`, or at a commit outside the branch's history |
+| 3 | Notes | `## Unreleased` is missing or empty; a release table has no summary for its new row; the notes files disagree on the release number |
+| 4 | Base kit (overlay only) | The base kit's `stable` does not contain `release.base.needs` |
+| 5 | Check | No check is set, or it fails. The dry run checks the tree as it is; `--yes` checks the written notes and puts them back on a failure |
+| 6 | Commit and push | Commits only the notes as `chore(release): <nth> stable release` and pushes the branch, never forced |
+| 7 | Move the tag | `git tag -fa stable -m "<date>: <nth> release"`, then `git push origin +refs/tags/stable`: the one forced push |
+| 8 | Confirm | Reads the remote back: `stable^{}` and the branch must both name the release commit |
+
+The release number is the count of existing entries plus one (dated `## YYYY-MM-DD` headings of a
+changelog, or the last id of a release table), written as a word (`ninth`); the date is today's.
+In a changelog, `--summary` follows the line "`stable` points at the commit that adds this entry."
+and may be left out; a release table needs it, and a file with `lang` takes `--summary-<lang>`.
+
+`kit.json` `release` sets the rest; every field is optional:
+
+| ID | Field | Default | Meaning |
+| --- | --- | --- | --- |
+| 1 | `notes` | `["CHANGELOG.md"]` | Files that record releases, cut in one commit. A string is a changelog; `{ "path", "format": "table", "lang" }` is a release table: the file's last table gets a row like the one before it, with the id counted up, today's date and the summary in the last cell |
+| 2 | `check` | `commands.check` | The command that must pass on the written notes |
+| 3 | `branch`, `remote`, `tag` | `baseBranch`, `origin`, `stable` | What is released, where, under which tag |
+| 4 | `base` | none | For an overlay: `{ "repo": "<git URL>", "needs": "ninth" }`. `needs` is a base release number or ordinal word (matched against the base's `chore(release): <nth> stable release` commits) or a commit; raise it when the overlay starts to use something newer |
+
+An overlay that records its releases in a table and its Ukrainian mirror:
+
+```json
+{
+  "release": {
+    "notes": [
+      { "path": "docs/evolution.md", "format": "table" },
+      { "path": "docs/evolution.uk.md", "format": "table", "lang": "uk" }
+    ],
+    "base": { "repo": "https://github.com/owner/agent-kit.git", "needs": "ninth" }
+  }
+}
+```
+
+A push that fails leaves the release commit local and the tag unmoved; a tag push that fails
+leaves the branch released and says how to move the tag by hand. Rolling back stays a manual tag
+move.
 
 ## Common cases
 

@@ -32,7 +32,7 @@ flowchart BT
 | --- | --- | --- |
 | 1 | `core` | Постійні правила, агенти `check-runner` і `repo-sweep`, хуки редагування й оболонки, `kit doctor`, `/kit-inventory`, `/kit-adopt`, перевірка парності документації |
 | 2 | `sdlc` | П'ять скілів `/sdlc-*`, агенти `sdlc-simplifier` і `sdlc-verifier` |
-| 3 | `session` | Хуки й скрипти журналу сесій, `/handoff`, `/close-out`, `/close-siblings`, `/git` з агентом `git-ops`, підготовка й злиття worktree |
+| 3 | `session` | Хуки й скрипти журналу сесій, `/handoff`, `/close-out`, `/close-siblings`, `/git` з агентом `git-ops`, підготовка й злиття worktree, сторінки `evolution` |
 | 4 | `svelte` | Домовленості для Svelte 5 |
 | 5 | `python` | Домовленості для Python |
 
@@ -79,7 +79,8 @@ SDLC читають глосарій, коли робочий елемент з�
     "sdlc": "docs/sdlc",
     "glossary": "docs/glossary.md",
     "recipes": "docs/recipes",
-    "ledger": ".claude/ledger"
+    "ledger": ".claude/ledger",
+    "evolution": "docs/evolution"
   },
   "commands": {
     "install": "pnpm install --frozen-lockfile",

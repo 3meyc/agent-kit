@@ -32,7 +32,9 @@ created: YYYY-MM-DD
 ## Important cases and open questions
 
 <!-- Cases labelled C1., C2. …: material cases and expected behavior, including failure paths.
-     Open questions labelled Q1., Q2. …: impact, recommendation, blocks plan yes/no. Label
+     Open questions labelled Q1., Q2. …: impact, recommendation, blocks plan yes/no; a settled
+     one keeps its label and adds "(resolved YYYY-MM-DD)" with the answer. Each label opens a
+     plain list item ("- C1. …"), never bold. Label
      proposals or unverified assumptions beside the statement they affect; none if absent. -->
 
 ## References

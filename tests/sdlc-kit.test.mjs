@@ -132,6 +132,32 @@ test("show prints every bundled document and rejects an unknown one", () => {
   assert.equal(main(["show"], { root: "/nowhere", out: () => {} }), 2);
 });
 
+test("templates keep their sections and the item-label conventions", () => {
+  const headings = (text) => text.split("\n").filter((l) => l.startsWith("## "));
+  const intent = show("intent-template");
+  assert.deepEqual(headings(intent), [
+    "## What to implement",
+    "## Expected outcome",
+    "## Scope",
+    "## Constraints",
+    "## Important cases and open questions",
+    "## References",
+  ]);
+  assert.match(intent, /O1\., O2\./);
+  assert.match(intent, /Plain numbers/);
+  assert.match(intent, /C1\., C2\./);
+  assert.match(intent, /Q1\., Q2\./);
+  assert.match(intent, /\(resolved YYYY-MM-DD\)/);
+  const plan = show("plan-template");
+  assert.deepEqual(headings(plan), ["## Design notes", "## Files that change", "## Order of work", "## Proof", "## Deviations"]);
+  assert.match(plan, /interleaving table/);
+  assert.match(plan, /case × entry point/);
+  const workflow = show("workflow");
+  assert.match(workflow, /\(resolved YYYY-MM-DD\)/);
+  assert.match(workflow, /Stages start on the user's word/);
+  assert.match(show("verification"), /`defect`.*`nit`/s);
+});
+
 test("main prints config by default and rejects an unknown command", () => {
   const dir = scratch();
   try {

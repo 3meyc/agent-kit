@@ -77,6 +77,23 @@ pnpm exec agent-kit doctor --strict --offline
 pnpm exec agent-kit doctor --strict --offline --plugin-root node_modules/my-overlay-tools/plugins
 ```
 
+6. Keep an evolution log (optional, `session`): two pages in `paths.evolution` (default
+   `docs/evolution`) draw how the project grew, one Mermaid flowchart each with a Sources table,
+   a `version:` and a `last_verified:`. `process-evolution.md` takes each change to the way of
+   working (agent rules, skills, hooks, CI, `kit.json`), stage by stage; `features-evolution.md`
+   takes each shipped feature, release by release. Start them from a Claude session's shell; it
+   adds a mirror per language the repo already keeps `*.<lang>.md` pages in (`--lang`,
+   `--no-mirror` to choose). Then replace the first boxes with the real history and commit.
+   From then on `/close-out` lists the branch's commits that are not on a page and adds them
+   before landing (the `evolution` skill), so nobody has to remember. Outside `/close-out`,
+   `evolution status` lists what changed after each page's `last_verified`. With a renderer for
+   a printable version, set `commands.evolutionRender` (`{page}` is the page path); `evolution
+   bump` runs it. `evolution check` fits a `checks` suite.
+
+```bash
+evolution init
+```
+
 ## 3. Take updates
 
 Update explicitly, at user scope. A new `stable` takes two commands, then a new session:

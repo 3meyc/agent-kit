@@ -78,6 +78,23 @@ pnpm exec agent-kit doctor --strict --offline
 pnpm exec agent-kit doctor --strict --offline --plugin-root node_modules/my-overlay-tools/plugins
 ```
 
+6. Ведіть журнал еволюції (необов'язково, `session`): дві сторінки в `paths.evolution` (типово
+   `docs/evolution`) показують, як зростав проєкт, — по одній Mermaid-схемі з таблицею джерел,
+   `version:` і `last_verified:`. `process-evolution.md` приймає кожну зміну способу роботи
+   (правила агента, скіли, хуки, CI, `kit.json`), етап за етапом; `features-evolution.md` —
+   кожну випущену функцію, реліз за релізом. Створіть їх з оболонки сесії Claude; команда додає
+   дзеркало для кожної мови, у якій репозиторій уже має сторінки `*.<мова>.md` (`--lang` і
+   `--no-mirror` — щоб вибрати). Потім замініть перші блоки справжньою історією й закомітьте.
+   Далі `/close-out` показує коміти гілки, яких ще немає на сторінці, і додає їх перед злиттям
+   (скіл `evolution`), тож пам'ятати про це нікому не треба. Поза `/close-out`
+   `evolution status` показує зміни після `last_verified` кожної сторінки. Якщо є рендерер
+   друкованої версії, задайте `commands.evolutionRender` (`{page}` — шлях сторінки);
+   `evolution bump` його запускає. `evolution check` підходить для набору `checks`.
+
+```bash
+evolution init
+```
+
 ## 3. Оновлення
 
 Оновлюйте явно, в області користувача. Новий `stable` — це дві команди, а потім нова сесія:

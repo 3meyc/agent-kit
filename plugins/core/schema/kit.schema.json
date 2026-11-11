@@ -57,7 +57,8 @@
         "sdlc": { "$ref": "#/$defs/relPath", "description": "SDLC work-item folders.", "default": "docs/sdlc" },
         "glossary": { "$ref": "#/$defs/relPath", "description": "Domain glossary file.", "default": "docs/glossary.md" },
         "recipes": { "$ref": "#/$defs/relPath", "description": "Step-by-step guides for recurring tasks.", "default": "docs/recipes" },
-        "ledger": { "$ref": "#/$defs/relPath", "description": "Session ledger records.", "default": ".claude/ledger" }
+        "ledger": { "$ref": "#/$defs/relPath", "description": "Session ledger records.", "default": ".claude/ledger" },
+        "evolution": { "$ref": "#/$defs/relPath", "description": "Evolution pages (process-evolution.md, features-evolution.md): how the way of working and the features grew. The session plugin's `evolution` command and /close-out keep them current once they exist.", "default": "docs/evolution" }
       }
     },
     "commands": {
@@ -74,7 +75,8 @@
         "commit": { "$ref": "#/$defs/command", "description": "Commit helper, when the project has its own." },
         "land": { "$ref": "#/$defs/command", "description": "Lands a finished branch on baseBranch." },
         "commitAudit": { "$ref": "#/$defs/command", "description": "Run after each commit that holds code; its output is shown to the agent. {files} is replaced by the committed paths, each quoted; the same paths are in KIT_COMMIT_PATHS, one per line. Leave out for none." },
-        "commitMessage": { "$ref": "#/$defs/command", "description": "Checks the commit message before the commit helper commits (the project's commit rules, as its CI checks them). {file} is replaced by the quoted path of a file holding the message; without it the path is appended. A non-zero exit refuses the commit and shows the output. Leave out for none." }
+        "commitMessage": { "$ref": "#/$defs/command", "description": "Checks the commit message before the commit helper commits (the project's commit rules, as its CI checks them). {file} is replaced by the quoted path of a file holding the message; without it the path is appended. A non-zero exit refuses the commit and shows the output. Leave out for none." },
+        "evolutionRender": { "$ref": "#/$defs/command", "description": "Renders one evolution page to its printable version (a PDF), run by `evolution bump` after a version change. {page} is replaced by the quoted repo-relative path of the page; without it the path is appended. Leave out when the project has no renderer." }
       }
     },
     "lintOnEdit": {
@@ -89,7 +91,7 @@
       "description": "Named check suites for /core:check <name>: each a list of commands run in order from the repo root. A name may not repeat a commands key or `all`.",
       "propertyNames": {
         "pattern": "^[a-z0-9][a-z0-9-]*$",
-        "not": { "enum": ["all", "install", "dev", "check", "lint", "test", "build", "commit", "land", "commitAudit", "commitMessage"] }
+        "not": { "enum": ["all", "install", "dev", "check", "lint", "test", "build", "commit", "land", "commitAudit", "commitMessage", "evolutionRender"] }
       },
       "additionalProperties": {
         "type": "array",
@@ -124,6 +126,48 @@
           "description": "Hook ids to skip in this project, as each plugin's docs name them.",
           "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
           "uniqueItems": true
+        }
+      }
+    },
+    "release": {
+      "type": "object",
+      "description": "How `kit release` cuts a release of a kit's own repo by moving its tag: where the notes live, what to check, and for an overlay the base-kit release it needs.",
+      "additionalProperties": false,
+      "properties": {
+        "branch": { "type": "string", "minLength": 1, "description": "Branch released. Default: baseBranch." },
+        "remote": { "type": "string", "minLength": 1, "default": "origin" },
+        "tag": { "type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$", "default": "stable" },
+        "check": { "$ref": "#/$defs/command", "description": "Run from the repo root before the release commit, on the written notes; a failure refuses. Default: commands.check." },
+        "notes": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Files that record each release, all cut in the same commit. Default: [\"CHANGELOG.md\"].",
+          "items": {
+            "anyOf": [
+              { "$ref": "#/$defs/relPath" },
+              {
+                "type": "object",
+                "required": ["path"],
+                "additionalProperties": false,
+                "properties": {
+                  "path": { "$ref": "#/$defs/relPath" },
+                  "format": { "enum": ["changelog", "table"], "default": "changelog", "description": "changelog: `## Unreleased` moves under a dated heading. table: the file's last table gets a row like the one before, with the id counted up, today's date and the summary in the last cell." },
+                  "lang": { "type": "string", "pattern": "^[a-z]{2,8}$", "description": "Takes its summary from --summary-<lang> instead of --summary, for a translated mirror." }
+                }
+              }
+            ]
+          }
+        },
+        "base": {
+          "type": "object",
+          "description": "For an overlay kit: the base kit release it needs. `kit release` refuses while the base kit's tag does not contain it.",
+          "required": ["repo", "needs"],
+          "additionalProperties": false,
+          "properties": {
+            "repo": { "type": "string", "minLength": 1, "description": "Git URL (or path) of the base kit.", "examples": ["https://github.com/owner/agent-kit.git"] },
+            "tag": { "type": "string", "minLength": 1, "default": "stable" },
+            "needs": { "type": "string", "minLength": 1, "description": "A commit, or a release number or ordinal word (ninth) matched against the base kit's `chore(release): <nth> <tag> release` commits.", "examples": ["ninth"] }
+          }
         }
       }
     },

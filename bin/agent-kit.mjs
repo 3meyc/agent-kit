@@ -5,7 +5,7 @@
 // lefthook. Each command runs the same script the plugin ships, so both stay one implementation.
 // `agent-kit doctor --strict` runs in CI with no Claude Code and no installed plugins: it reads
 // ownership from the plugin folders in this package and from each `--plugin-root`.
-import { doctorCommand } from "../plugins/core/src/kit-cli.mjs";
+import { doctorCommand, releaseCommand } from "../plugins/core/src/kit-cli.mjs";
 import { main as scanLedgerSecrets } from "../plugins/session/scripts/scan-ledger-secrets.mjs";
 
 const USAGE = `Usage: agent-kit <command>
@@ -17,6 +17,12 @@ const USAGE = `Usage: agent-kit <command>
         on a finding; installed versions and install scopes never fail it. --offline skips the
         remote version check. --plugin-root adds a plugin folder, or a folder of plugin folders,
         to read kit-owned files from (an overlay's plugins); repeatable.
+  release [--yes] [--summary <text>] [--summary-<lang> <text>]
+        The core plugin's \`kit release\` for a kit repo (the git checkout holding the current
+        directory): moves ## Unreleased (or adds a release-table row), runs the check, commits
+        chore(release): <nth> stable release, pushes, moves the stable tag and reads the remote
+        back. A dry run unless --yes. kit.json release sets the notes, the check and an overlay's
+        base-kit release (docs/changing.md, Releasing).
   ledger-scan-secrets [<path>...]
         Fail when a staged ledger record holds secret-shaped text (session plugin's scanner).
         Without paths: the staged files in kit.json paths.ledger.`;
@@ -24,6 +30,7 @@ const USAGE = `Usage: agent-kit <command>
 /** @type {Record<string, (args: string[]) => number>} */
 export const COMMANDS = {
   doctor: (args) => doctorCommand(args),
+  release: (args) => releaseCommand(args),
   "ledger-scan-secrets": (args) => scanLedgerSecrets(args),
 };
 

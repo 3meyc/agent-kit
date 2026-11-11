@@ -12,7 +12,7 @@ import { projectRoot } from "./hook-utils.mjs";
 export const KIT_FILE = "kit.json";
 
 /** The `commands` keys schema v1 defines, in the order tools list them. A `checks` suite may not reuse one. */
-export const KIT_COMMANDS = Object.freeze(["install", "dev", "check", "lint", "test", "build", "commit", "land", "commitAudit", "commitMessage"]);
+export const KIT_COMMANDS = Object.freeze(["install", "dev", "check", "lint", "test", "build", "commit", "land", "commitAudit", "commitMessage", "evolutionRender"]);
 
 /** Defaults for the fields the plugins read; they match `schema/kit.schema.json`. */
 export const KIT_DEFAULTS = Object.freeze({
@@ -27,6 +27,7 @@ export const KIT_DEFAULTS = Object.freeze({
     glossary: "docs/glossary.md",
     recipes: "docs/recipes",
     ledger: ".claude/ledger",
+    evolution: "docs/evolution",
   }),
   commands: Object.freeze({}),
   lintOnEdit: Object.freeze([]),

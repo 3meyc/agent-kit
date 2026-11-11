@@ -1,6 +1,6 @@
 {
   "name": "session",
-  "description": "Session ledger, hand-off and close-out, git operations and the worktree flow",
+  "description": "Session ledger, hand-off and close-out, git operations, the worktree flow and the evolution pages",
   "author": {
     "name": "3meyc"
   },

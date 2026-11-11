@@ -29,15 +29,20 @@ flowchart LR
 | ID | Skill or agent | Does | Writes |
 | --- | --- | --- | --- |
 | 1 | `/sdlc-intent` | Clarifies the request, reads the glossary, proposes a scope split | `<sdlc>/<slug>/intent.md` |
-| 2 | `/sdlc-plan` | Looks up a matching recipe, checks impact, orders steps, maps Proof to outcomes | `<sdlc>/<slug>/plan.md` |
-| 3 | `/sdlc-build` | Implements step by step, commits each step after its check, keeps glossary and recipes current | code, tests, ticks, Deviations |
-| 4 | `/sdlc-finish` | Preflight, recipe and glossary check, independent review, verifier gate, archive | `<sdlc>/archive/<date>-<slug>/` |
+| 2 | `/sdlc-plan` | Looks up a matching recipe, checks impact, orders steps, maps Proof to outcomes; for shared state (locks, renewals, queues) models actors and interleavings | `<sdlc>/<slug>/plan.md` |
+| 3 | `/sdlc-build` | Implements step by step, commits each step after its check, keeps glossary and recipes current; for shared state ends with an adversarial concurrency review | code, tests, ticks, Deviations |
+| 4 | `/sdlc-finish` | Preflight, recipe and glossary check, independent review, verifier gate (no rerun when only nits remain), archive | `<sdlc>/archive/<date>-<slug>/` |
 | 5 | `/sdlc-status` | Reports each item's stage and next command; changes nothing | — |
 | 6 | `sdlc-simplifier` agent | Simplifies the finished change without changing behavior | a commit, or nothing |
 | 7 | `sdlc-verifier` agent | Checks the item against intent and plan, read-only | `PASS`, `FAIL` or `PENDING` |
 
 Intents and plans label items so other documents can cite them: outcomes `O1.`, important cases
-`C1.`, open questions `Q1.`; constraints and plan steps use plain numbers.
+`C1.`, open questions `Q1.` (a settled one gains `(resolved <date>)`); constraints and plan steps
+use plain numbers.
+
+The user starts each of the four stages in the session that runs it. A brief another agent wrote
+(a session card, a sub-agent prompt) cannot start one, so a session started for an item prepares
+and stops with the command for the user to type there.
 
 ## What it reads from kit.json
 
