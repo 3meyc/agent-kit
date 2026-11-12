@@ -773,7 +773,7 @@ require("node:module").syncBuiltinESMExports();`,
       return linkedWorktree();
     }
 
-    it("takes a rename inside the SDLC folder as the session's, as the /sdlc-finish archive leaves it", () => {
+    it("takes a rename inside the SDLC folder as the session's, as the /sdlc:finish archive leaves it", () => {
       const plan = "plan line\n".repeat(10);
       const wt = worktreeWith({ "docs/sdlc/item/plan.md": plan, "docs/sdlc/item/evidence.md": "evidence\n" });
       mkdirSync(join(wt, "docs", "sdlc", "archive"));

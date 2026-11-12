@@ -1,5 +1,5 @@
 ---
-name: svelte-a11y
+name: a11y
 description: "Load before editing, writing or reviewing markup in any .svelte file, however small the change. Accessibility: semantic HTML, keyboard, form fields, dialogs, tabs, status and loading."
 paths:
   - "**/*.svelte"

@@ -54,7 +54,7 @@ _(unverified here)_. Agents:
 read-only sweeps that return a verdict).
 
 `/core:change-review` and `/core:repo-audit` complement the host `code-review` skill that
-`/sdlc-finish` uses: they judge behavior at the repo's expected load and say which load they
+`/sdlc:finish` uses: they judge behavior at the repo's expected load and say which load they
 assumed. Both run only when the user types them. The review runs in the session, so a follow-up
 such as "fix 2 and 5" has the code at hand; the audit reads far more files, so it runs in a
 forked `general-purpose` sub-agent (the session's model, not Haiku) and only its report comes
@@ -73,7 +73,7 @@ On the Bash tool's PATH while the plugin is enabled:
 | --- | --- | --- |
 | 1 | `count-lines <file>...` | Line counts, the same on every OS |
 | 2 | `git-branch-context` | Branch, upstream, default base and `kit.json` `baseBranch` as JSON |
-| 3 | `kit doctor \| adopt \| inventory \| drift \| fleet \| update-check \| installs \| commands \| dev \| dev-server \| release` | The commands behind the skills above; `kit fleet --source github --list <file>` checks a list of repos through the GitHub API (kit-owned copies, marketplace refs, lockfile pins against each kit's `stable`, drift) for the weekly `kit-fleet` workflow ([using](../../docs/using.md) § 5); `kit dev [--run]` prints (or starts) the `claude --plugin-dir …` command that loads the project's enabled kit plugins from local kit checkouts ([using](../../docs/using.md) § 7); `kit dev-server` backs `/core:dev`; `kit installs [--clean]` lists the project-scope copies of kit plugins that differ from the user copy or the channel, and clears them ([using](../../docs/using.md) § 3); `kit release [--yes]` cuts a kit repo's `stable` release ([changing](../../docs/changing.md), Releasing) |
+| 3 | `kit doctor \| adopt \| inventory \| drift \| update-check \| installs \| commands \| dev \| dev-server \| release` | The commands behind the skills above; `kit dev [--run]` prints (or starts) the `claude --plugin-dir …` command that loads the project's enabled kit plugins from local kit checkouts ([using](../../docs/using.md) § 7); `kit dev-server` backs `/core:dev`; `kit installs [--clean]` lists the project-scope copies of kit plugins that differ from the user copy or the channel, and clears them ([using](../../docs/using.md) § 3); `kit release [--yes]` cuts a kit repo's `stable` release ([changing](../../docs/changing.md), Releasing) |
 | 4 | `kit-docs-parity [path...]` | Checks that each `name.md` / `name.uk.md` pair keeps the same headings, tables, Mermaid blocks, command blocks and numbered items |
 
 Skills call `node "${CLAUDE_PLUGIN_ROOT}/src/kit-cli.mjs" …`, which needs no PATH.
@@ -123,7 +123,9 @@ is measured against; `extraRoots` and `extraFiles` add folders and files to scan
 A project that had its own copies of these files keeps them until someone retires them: `kit
 doctor` and `/core:kit-adopt` list each one. Kit-owned files are named in
 [kit-owned.json](kit-owned.json), plus every agent and skill of the plugin. Another plugin or an
-overlay can ship its own `kit-owned.json`. An entry `<file>#<key.path>` claims one key of a JSON
+overlay can ship its own `kit-owned.json`. Its `formerNames` (`skills` and `agents`, each old
+name to new) keep a project copy under a renamed skill's or agent's old name kit-owned. An entry
+`<file>#<key.path>` claims one key of a JSON
 file (`.mcp.json#mcpServers.<name>`), so the project keeps its own keys there. A plugin's rule or
 skill text copied under another name counts too: a `CLAUDE.md`, `AGENTS.md`, `.claude/rules/`,
 `.claude/commands/` or `.claude/skills/*/` Markdown file that holds at least half the lines of a

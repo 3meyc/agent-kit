@@ -1,5 +1,5 @@
 ---
-description: Close out a worktree session — resume of done / follow-up / not-done work, then land on the base branch, propose follow-up sessions, push on the user's word, and end with a where-what-why session resume before the archive. Runs after /sdlc-finish
+description: Close out a worktree session — resume of done / follow-up / not-done work, then land on the base branch, propose follow-up sessions, push on the user's word, and end with a where-what-why session resume before the archive. Runs after /sdlc:finish
 argument-hint: [slug] [land | land and push | land, push and archive] [with diagram]
 allowed-tools: Bash(worktree-flow:*), Bash(session-ledger:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/worktree-flow.mjs:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/session-ledger.mjs:*), Bash(git status:*), Bash(git log:*), Bash(git rev-parse:*), Bash(gh run list:*), Bash(gh run view:*), Bash(gh run watch:*), Bash(gh api repos/:*), Bash(kit-repo:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/kit-repo.mjs:*), Bash(gh repo view:*)
 ---
@@ -24,7 +24,7 @@ Files this session edited and still dirty, and its record:
 
 !`node ${CLAUDE_PLUGIN_ROOT}/scripts/session-ledger.mjs --record`
 
-Where things are comes from the project's `kit.json`: `baseBranch` (default `main`), the SDLC
+Where things are comes from the project's `kit.json`: `baseBranch` (default `dev`), the SDLC
 items in `paths.sdlc` (default `docs/sdlc`), the ledger in `paths.ledger` (default
 `.claude/ledger`, and only when `"ledger": true`), recipes in `paths.recipes`, and the checks in
 `commands` (`check`, `test`, `build`). Below, `<sdlc>` and `<ledger>` stand for those paths.
@@ -32,7 +32,7 @@ items in `paths.sdlc` (default `docs/sdlc`), the ledger in `paths.ledger` (defau
 ## 1. Resume
 
 Build it from evidence, not memory: the SDLC item when there is one (`<sdlc>/archive/*-<slug>/`
-after `/sdlc-finish`, else `<sdlc>/<slug>/` — unchecked plan steps, the Review's finding
+after `/sdlc:finish`, else `<sdlc>/<slug>/` — unchecked plan steps, the Review's finding
 dispositions, any `PENDING` gate), this session's record (`## Next`), the open `## Next` of every
 child it started (below), and what the user asked for in this conversation. Sort every item into
 exactly one bucket and show the three as numbered lists, empty ones as "None":
@@ -41,7 +41,7 @@ exactly one bucket and show the three as numbered lists, empty ones as "None":
 2. **Follow-ups** — real, self-contained work found along the way: deferred review findings,
    enhancements, inherited defects. Each gets a session proposal (step 3), not just a line.
 3. **Not done** — asked for but missed, failed, or with a gate still open, each with why and its
-   entry point (`/sdlc-build <slug>` …). Anything here blocks landing unless the user overrides.
+   entry point (`/sdlc:build <slug>` …). Anything here blocks landing unless the user overrides.
 
 **Children's follow-ups.** A child with an open parent leaves its follow-ups to that parent (§ 3),
 so the parent reads them. In the desktop app, `mcp__ccd_session_mgmt__list_sessions` with
@@ -90,7 +90,8 @@ a file a neighbour touched there is flagged here too.
 
 1. Uncommitted session files: commit them first through `/git commit`, with the ledger record
    written (format: `/handoff`) — an uncommitted record is lost when the worktree goes.
-   Commit only on the user's word, which the close-out question below asks for.
+   Commit only on the user's word: the close-out question below (§ 5) carries it, so one answer
+   commits and lands, never a commit question followed by a landing question.
 2. The landing preview above says the base has commits this branch lacks: bring them in here, so any
    conflict is resolved by this session, in this worktree — the app's `sync_with_base_branch` with
    `base: <base>`, or `git merge --no-edit <base>` when the app refuses that base. Resolve, run the
@@ -111,7 +112,7 @@ a file a neighbour touched there is flagged here too.
    user settles that checkout.
 5. Push the base (`/git push` from the checkout holding it, or `git push origin <base>`) only when
    the user's answer said push. Never push the session branch for a landed change: the base
-   carries it now.
+   carries it now. When it was pushed earlier, § 4 deletes it on origin, on that answer's word.
 6. After a push from a **top-level session**, wait for the CI run on the pushed commit, when the
    repository has CI. A **child session** skips this step: `mcp__ccd_session_mgmt__get_session`
    with `"self"` shows a `parentSessionId` and `detached` not `true` (a proposal card,
@@ -160,9 +161,9 @@ already holds this work. A proposal card may be cut from the repository's defaul
 than `<base>` when the user starts it, which is why its first line must be the `adopt <base>` line
 below; `adopt` steps past the files the SessionStart hooks already wrote (`.codegraph/`, the
 ledger's `INDEX.md`). Its `prompt` names the files, what done looks like, and the entry point
-(`/sdlc-intent <new-slug>` for anything that needs an agreed outcome first), opening with
+(`/sdlc:intent <new-slug>` for anything that needs an agreed outcome first), opening with
 `First run: worktree-flow adopt <base> — this worktree's base is <base>.`
-and closing with `When the work is done (after /sdlc-finish for an SDLC item), run /close-out.`
+and closing with `When the work is done (after /sdlc:finish for an SDLC item), run /close-out.`
 Three proposals per turn at most; any further ones go to the record's `## Next`.
 
 A **child with an open parent** (§ 2 step 6) proposes no cards: each follow-up goes to its
@@ -186,6 +187,14 @@ refused until unpinned, and the app then keeps the worktree detached in its reus
 deleting it; a worktree no session owns any more goes with `worktree-flow remove <path>`, which
 refuses anything unmerged or dirty. Never remove one marked `·`.
 
+**This session's branch on origin.** When this branch was pushed, nothing else deletes it there.
+Before § 5, `worktree-flow stale-remote --landing <this branch>` says whether it will be stale
+once landed and pushed, or why it is kept (unmerged commits, checked out in another worktree, a
+protected name). When it will be stale, § 5's push button also deletes it. After § 2 step 5's push,
+run the listing again without `--landing`; only when it still says stale,
+`git push origin --delete <this branch>`, one visible command, never forced. A button without a
+push deletes nothing here; a branch the listing kept stays, its reason in the resume.
+
 ## 5. Ask once
 
 End with `mcp__ccd_turn__wrap_up` (in the desktop app; elsewhere, one closing question): the
@@ -195,8 +204,13 @@ wait for its CI run, then archive this session) and the second "Land only". In a
 (§ 2 step 6) the first is "Land and archive" (message: land on `<base>`, then archive this
 session; the parent pushes and waits for the CI run); with Not done items, the first button
 continues the work and the second lands anyway. Drafted kit gaps (§ 1) ride on the first button:
-its message also says to open them; the other answers leave them in `## Next` as not opened. The
-user's click is the authorization for exactly what its message says, nothing more.
+its message also says to open them; the other answers leave them in `## Next` as not opened.
+Uncommitted session files (§ 2 step 1) ride on every landing button the same way: its message
+starts with committing them through `/git commit`, so the click accepts and commits in one
+answer. This branch on origin (§ 4) rides on the button that pushes: when the listing says it will
+be stale, the recap names it and that button's message adds "then delete origin/<branch>". The
+user's click is the authorization for exactly what its message says, nothing more; the
+`git push --delete` still goes through the normal permission ask.
 
 ## 6. Session resume, the last message before the archive
 

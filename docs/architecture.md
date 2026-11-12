@@ -31,7 +31,7 @@ flowchart BT
 | ID | Plugin | Contains |
 | --- | --- | --- |
 | 1 | `core` | Always-on rules, `check-runner` and `repo-sweep` agents, edit and shell hooks, `kit doctor`, `/kit-inventory`, `/kit-adopt`, `/change-review`, `/repo-audit`, docs parity check |
-| 2 | `sdlc` | Five `/sdlc-*` skills, `sdlc-simplifier` and `sdlc-verifier` agents |
+| 2 | `sdlc` | Five `/sdlc:*` skills, `sdlc:simplifier` and `sdlc:verifier` agents |
 | 3 | `session` | Ledger hooks and scripts, `/handoff`, `/close-out`, `/close-siblings`, `/git` with the `git-ops` agent, worktree set-up and landing, the `evolution` pages |
 | 4 | `svelte` | Svelte 5 conventions |
 | 5 | `python` | Python conventions |
@@ -69,7 +69,7 @@ commands the plugins use. Draft v1; the final shape lives in `schema/kit.schema.
 {
   "$schema": "https://raw.githubusercontent.com/3meyc/agent-kit/stable/schema/kit.schema.json",
   "project": "my-app",
-  "baseBranch": "main",
+  "baseBranch": "dev",
   "itemPrefix": "APP",
   "ledger": true,
   "paths": {
@@ -126,7 +126,7 @@ gitGraph
 
 | ID | Channel | Ref | Who uses it |
 | --- | --- | --- | --- |
-| 1 | latest | `main` | One pilot project, and anyone testing a change |
+| 1 | latest | `dev` (`#dev`: a marketplace added with no ref follows the GitHub default branch) | One pilot project, and anyone testing a change. `main` holds only released work, the same commit as `stable` |
 | 2 | stable | `stable` tag | Everyone else, and every overlay kit |
 
 Plugins carry no `version` field, so each commit a ref points at counts as a new version. Moving

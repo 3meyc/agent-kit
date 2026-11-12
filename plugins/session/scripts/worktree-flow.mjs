@@ -16,10 +16,13 @@ import { escapeRegExp, inLedger, readKit } from "../lib/kit-config.mjs";
  *   worktree-flow land [--dry-run]   fast-forward the base to this branch; never merges, never pushes
  *   worktree-flow land --dry-run --report   the same dry run, exiting 0 on a refusal too (close-out's preload)
  *   worktree-flow remove <path>      remove a clean worktree whose commits are all in its base
+ *   worktree-flow stale-remote [--base <b>] [--landing] [<branch>...]
+ *                                    which branches on origin the base already holds; deletes nothing
  *
  * A base comes from, in order: what `base <ref>` recorded (git config `branch.<name>.kitBase`), the
  * `base:` of the SDLC item whose `branch:` is this branch (`kit.json` `paths.sdlc`), else a
- * guess among the local branches, with `kit.json` `baseBranch` winning a tie.
+ * guess among the local branches, with `kit.json` `baseBranch` (default `dev`) winning a tie and
+ * `dev`, `develop` or `development` next.
  *
  * The desktop app cuts a worktree from the branch picked on its New session screen but knows
  * nothing about where the work lands afterwards; this fills that gap. `land` is fast-forward only
@@ -72,18 +75,25 @@ export function matchBranch(input, branches) {
 
 /**
  * The integration branch most likely meant when nothing recorded one: the candidate holding the
- * most of this branch, then the one this branch is least behind, then the project's `baseBranch`.
- * A fresh worktree cut from `main` is zero ahead of both `main` and an item branch that contains
- * `main`; the second key picks `main`.
+ * most of this branch, then the one this branch is least behind, then the project's `baseBranch`,
+ * then an integration branch (`dev`, `develop`, `development`) over any other. A fresh worktree cut
+ * from `main` is zero ahead of both `main` and an item branch that contains `main`; the second key
+ * picks `main`. A worktree cut from `dev` while `main` sits at the same commit picks `dev`.
  * @param {{ name: string, ahead: number, behind: number }[]} candidates ahead/behind of the worktree branch versus each
  * @param {string | null} [preferred] `kit.json` `baseBranch`, which wins a tie
  */
 export function guessBase(candidates, preferred = null) {
-  const sorted = [...candidates].sort(
-    (a, b) => a.ahead - b.ahead || a.behind - b.behind || (b.name === preferred) - (a.name === preferred),
-  );
+  const rank = (name) => {
+    if (name === preferred) return 0;
+    const integration = INTEGRATION_BRANCHES.indexOf(name);
+    return integration < 0 ? INTEGRATION_BRANCHES.length + 1 : integration + 1;
+  };
+  const sorted = [...candidates].sort((a, b) => a.ahead - b.ahead || a.behind - b.behind || rank(a.name) - rank(b.name));
   return sorted[0]?.name ?? null;
 }
+
+/** Integration branch names, in the order a tie prefers them after `kit.json` `baseBranch`. */
+const INTEGRATION_BRANCHES = ["dev", "develop", "development"];
 
 /**
  * What can happen to a worktree, from its facts. Pure, so the wording and the safety rule are tested.
@@ -517,6 +527,118 @@ function cmdRemove({ args, flags, cwd }) {
   );
 }
 
+/** Branch names never offered for deletion on the remote, whatever they hold. */
+const PROTECTED_BRANCHES = ["main", "master", ...INTEGRATION_BRANCHES];
+
+/**
+ * Whether a branch on origin is stale: safe to delete there because a base already holds its work.
+ * Pure, so the safety rule is tested. The order is the rule: a protected or checked-out branch is
+ * kept even when merged; a squash-merged PR counts only into this base and only when origin's tip
+ * is the PR's head, so a commit pushed after the merge is never lost.
+ * @param {{ branch: string, base: string, protectedBy?: string | null, onRemote: boolean, checkedOutAt?: string | null, inRef?: string | null, ahead?: number | null, baseRef: string, pr?: { number: number, baseRefName: string, headMatches: boolean } | null, ghError?: string | null }} f
+ * @returns {{ stale: boolean, reason: string }}
+ */
+export function staleVerdict(f) {
+  if (f.protectedBy) return { stale: false, reason: `protected: ${f.protectedBy}` };
+  if (!f.onRemote) return { stale: false, reason: "not on origin" };
+  if (f.checkedOutAt) return { stale: false, reason: `checked out in ${f.checkedOutAt}` };
+  if (f.inRef) return { stale: true, reason: `in ${f.inRef}` };
+  const behind = `${f.ahead ?? "?"} commit(s) not in ${f.baseRef}`;
+  if (f.pr && f.pr.baseRefName !== f.base)
+    return { stale: false, reason: `${behind}; PR #${f.pr.number} merged into ${f.pr.baseRefName}, not ${f.base}` };
+  if (f.pr && !f.pr.headMatches)
+    return { stale: false, reason: `${behind}; PR #${f.pr.number} merged, but origin has commits pushed after it` };
+  if (f.pr) return { stale: true, reason: `PR #${f.pr.number} merged into ${f.base} (squash or rebase)` };
+  return { stale: false, reason: `${behind}; ${f.ghError ?? "no merged PR"}` };
+}
+
+/**
+ * The merged PR of `branch`, by `gh pr list --head`: one into `base` first, the one whose head is
+ * origin's tip first among those. `gh` comes from `WORKTREE_FLOW_GH` (tests), else the PATH.
+ * @returns {{ pr: { number: number, baseRefName: string, headMatches: boolean } | null, ghError: string | null }}
+ */
+function mergedPr(branch, base, tip, cwd) {
+  const gh = process.env.WORKTREE_FLOW_GH || "gh";
+  const args = ["pr", "list", "--head", branch, "--state", "merged", "--json", "number,baseRefName,headRefOid", "--limit", "20"];
+  const result = spawnSync(gh, args, { cwd, encoding: "utf8", timeout: 15000 });
+  if (result.error) return { pr: null, ghError: "gh not found, so a squash merge was not checked" };
+  if (result.status !== 0)
+    return { pr: null, ghError: `gh failed (${(result.stderr ?? "").trim().split("\n")[0] || `exit ${result.status}`})` };
+  let list;
+  try {
+    list = JSON.parse(result.stdout || "[]");
+  } catch {
+    return { pr: null, ghError: "gh answered something other than JSON" };
+  }
+  const prs = list.map((pr) => ({ number: pr.number, baseRefName: pr.baseRefName, headMatches: pr.headRefOid === tip }));
+  const rank = (pr) => (pr.baseRefName === base ? 0 : 2) + (pr.headMatches ? 0 : 1);
+  return { pr: prs.sort((a, b) => rank(a) - rank(b))[0] ?? null, ghError: null };
+}
+
+/**
+ * Every named branch on origin (all `claude/*` there when none is named), sorted into stale and
+ * kept. Read-only on the remote: one `git fetch --prune origin` refreshes the remote-tracking refs.
+ * With `landing`, HEAD counts as the base too, since landing fast-forwards the base to it and the
+ * push brings it to origin: the list a close-out question shows before it lands.
+ */
+function staleRemote({ branches, base, landing }, cwd) {
+  if (!gitOut(["remote", "get-url", "origin"], cwd)) fail("no origin remote");
+  const fetched = git(["fetch", "--quiet", "--prune", "origin"], cwd);
+  const baseRef = `origin/${base}`;
+  if (!gitOut(["rev-parse", "--verify", "--quiet", `refs/remotes/${baseRef}`], cwd)) fail(`origin has no ${base}`);
+  const remote = (gitOut(["for-each-ref", "--format=%(refname:short)", "refs/remotes/origin"], cwd) ?? "")
+    .split("\n")
+    .map((name) => name.replace(/^origin\//, ""))
+    .filter((name) => name && name !== "HEAD" && name !== "origin");
+  const names = branches.length ? [...new Set(branches)] : remote.filter((name) => name.startsWith("claude/"));
+  const self = resolve(gitOut(["rev-parse", "--show-toplevel"], cwd) ?? cwd);
+  const others = parseWorktrees(gitOut(["worktree", "list", "--porcelain"], cwd) ?? "").filter(
+    (tree) => tree.branch && resolve(tree.path) !== self,
+  );
+  const upstreamOf = (branch) => gitOut(["rev-parse", "--abbrev-ref", `${branch}@{upstream}`], cwd);
+  const defaultBranch = gitOut(["symbolic-ref", "--short", "-q", "refs/remotes/origin/HEAD"], cwd)?.replace(/^origin\//, "");
+  const guarded = new Map([
+    ...PROTECTED_BRANCHES.map((name) => [name, `${name} is an integration or release branch`]),
+    [kitOf(self).baseBranch, "kit.json baseBranch"],
+    [defaultBranch, "origin's default branch"],
+    [base, "the base"],
+  ]);
+  const rows = names.map((branch) => {
+    const tip = gitOut(["rev-parse", "--verify", "--quiet", `refs/remotes/origin/${branch}`], cwd);
+    const holder = others.find((tree) => tree.branch === branch || upstreamOf(tree.branch) === `origin/${branch}`);
+    const contains = (ref) => tip && git(["merge-base", "--is-ancestor", tip, ref], cwd).ok;
+    const inRef = !tip ? null : contains(baseRef) ? baseRef : landing && contains("HEAD") ? `HEAD, which lands on ${base}` : null;
+    const facts = {
+      branch,
+      base,
+      baseRef,
+      protectedBy: guarded.get(branch) ?? null,
+      onRemote: Boolean(tip),
+      checkedOutAt: holder?.path ?? null,
+      inRef,
+      ahead: tip ? countRange(`${baseRef}..${tip}`, cwd) : null,
+    };
+    const lookup = !guarded.has(branch) && tip && !holder && !inRef;
+    const { pr, ghError } = lookup ? mergedPr(branch, base, tip, cwd) : { pr: null, ghError: null };
+    return { branch, tip, ...staleVerdict({ ...facts, pr, ghError }) };
+  });
+  return { base, baseRef, landing, fetched: fetched.ok, stale: rows.filter((r) => r.stale), kept: rows.filter((r) => !r.stale) };
+}
+
+function cmdStaleRemote({ args, flags, values, cwd }) {
+  const base = values["--base"] ?? current(cwd).me.base;
+  if (!base) fail("no base found; pass --base <branch>");
+  const report = staleRemote({ branches: args, base, landing: flags.has("--landing") }, cwd);
+  if (flags.has("--json")) return console.log(JSON.stringify(report, null, 2));
+  const when = report.landing ? ` once HEAD lands on ${base} and is pushed` : "";
+  const fetch = report.fetched ? "" : " (fetch failed: from the last-fetched refs)";
+  console.log(`${report.baseRef}: ${report.stale.length} stale${when}, ${report.kept.length} kept${fetch}`);
+  for (const row of [...report.stale, ...report.kept]) console.log(`${row.stale ? "✓" : "·"} ${row.branch} — ${row.reason}`);
+  if (report.stale.length)
+    console.log(`to delete, on the user's word: git push origin --delete ${report.stale.map((r) => r.branch).join(" ")}`);
+  return undefined;
+}
+
 const COMMANDS = {
   status: cmdStatus,
   resolve: cmdResolve,
@@ -525,6 +647,7 @@ const COMMANDS = {
   conflicts: cmdConflicts,
   land: cmdLand,
   remove: cmdRemove,
+  "stale-remote": cmdStaleRemote,
 };
 
 /** The flags each command reads; any other is refused, so a typo such as `land --dryrun` never lands. */
@@ -533,6 +656,12 @@ const COMMAND_FLAGS = {
   conflicts: ["--json"],
   land: ["--dry-run", "--report"],
   remove: ["--drop-ledger"],
+  "stale-remote": ["--json", "--landing"],
+};
+
+/** The flags that take a value, the next argument. */
+const COMMAND_VALUES = {
+  "stale-remote": ["--base"],
 };
 
 const USAGE = `The branch-and-worktree side of a session, from start to close-out.
@@ -546,9 +675,19 @@ const USAGE = `The branch-and-worktree side of a session, from start to close-ou
   worktree-flow land --dry-run --report   the same dry run, but a refusal is printed and exits 0
   worktree-flow remove <path | branch> [--drop-ledger]
                                           remove a clean worktree whose commits are all in its base
+  worktree-flow stale-remote [--base <b>] [--landing] [--json] [<branch>...]
+                                          list the named branches on origin (every claude/* when none)
+                                          as stale (in origin/<base>, or a PR merged into <base>) or
+                                          kept with the reason; read-only, it deletes nothing
 
 With no command it runs status. The base is the recorded one (base <ref>), else the SDLC item's
-base:, else a guess, with kit.json baseBranch winning a tie.
+base:, else a guess, with kit.json baseBranch (default dev) winning a tie and dev, develop or
+development next.
+
+stale-remote fetches origin (with --prune) first. It keeps main, master, dev, develop,
+development, the base, kit.json baseBranch and origin's default branch, a branch checked out in
+another worktree, and one with commits the base lacks. --landing also counts what HEAD holds, as
+landing and pushing will bring it to origin/<base>.
 
 Flags:
   --help, -h   print this and exit 0 (any command)
@@ -566,14 +705,27 @@ Exit codes:
  */
 export function splitCommandArgs(command, rest) {
   const known = COMMAND_FLAGS[command] ?? [];
-  const unknown = rest.find((arg) => arg.startsWith("-") && !known.includes(arg));
-  return {
-    args: rest.filter((arg) => !arg.startsWith("-")),
-    flags: new Set(rest.filter((arg) => arg.startsWith("-"))),
-    error: unknown
-      ? `${command} does not take "${unknown}"${known.length ? ` (it takes ${known.join(", ")})` : ""}; --help prints the usage`
-      : "",
-  };
+  const valued = COMMAND_VALUES[command] ?? [];
+  const takes = [...known, ...valued];
+  const args = [];
+  const flags = new Set();
+  const values = {};
+  let error = "";
+  for (let i = 0; i < rest.length; i++) {
+    const arg = rest[i];
+    if (valued.includes(arg)) {
+      const value = rest[i + 1];
+      if (value === undefined || value.startsWith("-")) error ||= `${command} ${arg} needs a value`;
+      else values[arg] = value;
+      i++;
+    } else if (!arg.startsWith("-")) args.push(arg);
+    else {
+      flags.add(arg);
+      if (!known.includes(arg))
+        error ||= `${command} does not take "${arg}"${takes.length ? ` (it takes ${takes.join(", ")})` : ""}; --help prints the usage`;
+    }
+  }
+  return { args, flags, values, error };
 }
 
 function main(argv, cwd) {
@@ -585,9 +737,9 @@ function main(argv, cwd) {
   const [command = "status", ...rest] = argv;
   const run = COMMANDS[command];
   if (!run) fail(`unknown command "${command}" — ${Object.keys(COMMANDS).join(" | ")}; --help prints the usage`);
-  const { args, flags, error } = splitCommandArgs(command, rest);
+  const { args, flags, values, error } = splitCommandArgs(command, rest);
   if (error) fail(error);
-  run({ args, flags, cwd });
+  run({ args, flags, values, cwd });
 }
 
 if (isDirectRun(import.meta.url)) main(process.argv.slice(2), process.cwd());

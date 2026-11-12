@@ -1,5 +1,5 @@
 ---
-name: sdlc-status
+name: status
 description: >-
   Read SDLC work-item records and version history to report each item's current stage,
   blockers, drafts, and next action without changing anything. Read-only, so the agent may run
@@ -37,14 +37,14 @@ compatibility). Change nothing.
 
 | Committed evidence | Stage / next action |
 | --- | --- |
-| No item or draft only | Not started or working draft; `/sdlc-intent <slug>` |
-| Intent draft | Intent review; `/sdlc-intent <slug>` |
-| Intent accepted; no plan | Ready for plan; `/sdlc-plan <slug>` |
-| Plan draft | Plan review; `/sdlc-plan <slug>` |
-| Approved plan with unchecked implementation steps | Building; `/sdlc-build <slug>` |
+| No item or draft only | Not started or working draft; `/sdlc:intent <slug>` |
+| Intent draft | Intent review; `/sdlc:intent <slug>` |
+| Intent accepted; no plan | Ready for plan; `/sdlc:plan <slug>` |
+| Plan draft | Plan review; `/sdlc:plan <slug>` |
+| Approved plan with unchecked implementation steps | Building; `/sdlc:build <slug>` |
 | Unresolved blocker | Blocked; name what resolves it and the affected stage |
-| Approved plan with all steps committed | Ready to finish; `/sdlc-finish <slug>` |
-| Done metadata with incomplete archive | Finish incomplete; `/sdlc-finish <slug>` |
+| Approved plan with all steps committed | Ready to finish; `/sdlc:finish <slug>` |
+| Done metadata with incomplete archive | Finish incomplete; `/sdlc:finish <slug>` |
 | Archived, commit absent from base | Done, unmerged; authorized merge remains |
 | Archived, commit included in base | Done |
 
@@ -61,3 +61,8 @@ Keep the output short: current branch and dirty state, then one line per selecte
 Mention working drafts or ticks separately from committed progress. Include only
 actionable blocker details. Summarize older archives as a count when listing them
 would obscure current work. Do not run checks or modify files to improve the status.
+
+When one item is selected and its next action is a stage, offer it (workflow section 2, Each
+stage offers the next one): in the app, `wrap_up` with that stage's button first (`Start plan`
+…) and `Not now`; elsewhere, the command to type. Status never starts the stage itself: the
+user's click or typed command does.

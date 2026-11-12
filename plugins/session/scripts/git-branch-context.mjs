@@ -1,7 +1,7 @@
 /**
  * The branch facts `/git` reads before a git chore, as JSON (`git-branch-context` on the Bash PATH,
  * from the plugin's `bin/`): the current branch, its upstream, the project's base branch from
- * `kit.json` (`baseBranch`, default `main`) and whether it exists locally or on `origin`, the
+ * `kit.json` (`baseBranch`, default `dev`) and whether it exists locally or on `origin`, the
  * work-item prefix (`itemPrefix`), the commit subject form (`commitSubject`, null for Conventional
  * Commits), and whether this checkout is a linked worktree.
  */

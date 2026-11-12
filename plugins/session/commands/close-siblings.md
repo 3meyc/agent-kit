@@ -1,5 +1,5 @@
 ---
-description: Land the work of this session's side sessions — review each sub-session and its branch, merge the finished ones into this branch, run the checks on the merged tree, land this branch on its base, push on the user's word, and archive the merged sub-sessions
+description: Land the work of this session's side sessions — review each sub-session and its branch, merge the finished ones into this branch, run the checks on the merged tree, land this branch on its base, push on the user's word, archive the merged sub-sessions and delete their merged branches, locally and on origin
 argument-hint: [base] [land | land and push]
 allowed-tools: Bash(worktree-flow:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/worktree-flow.mjs:*), Bash(git status:*), Bash(git log:*), Bash(git merge-base:*), Bash(git rev-parse:*), Bash(git branch -d:*), Bash(gh run list:*), Bash(gh run view:*), Bash(gh run watch:*), Bash(gh api repos/:*)
 ---
@@ -86,15 +86,35 @@ Last, the merged sub-session branches that are left: list each local `refs/heads
 word delete them with `git branch -d <branch>`, never `-D`. Git refuses a branch still checked out
 in a worktree (an archived session's, kept in the app's reuse pool): leave it and name it.
 
+Then the same branches on `origin`, which nothing else deletes:
+
+1. **List.** `worktree-flow stale-remote --base <base> <branch>…` with § 1's branches and every
+   `claude/*` branch the sub-sessions pushed under another name (their reports name it; the
+   listing without names covers every `claude/*` on origin). It fetches origin and marks a
+   branch stale only when `origin/<base>` holds it, or when `gh` shows its PR merged into `<base>`
+   at origin's tip (a squash merge). It keeps `main`, `dev`, the base and the other integration
+   branches, a branch checked out in another worktree, and one with commits the base lacks, each
+   with the reason. It deletes nothing.
+2. **Ask.** § 6's question shows this list, run with `--landing` before § 4 (what HEAD holds counts,
+   since the landing and its push bring it to `origin/<base>`), so one click covers the archive and
+   the remote branches.
+3. **Delete.** After § 4, run the listing again without `--landing`. Delete only branches the click
+   covered and the second run still marks stale, in one visible command:
+   `git push origin --delete <b1> <b2> …`. Never force, never a branch the listing kept. Without a
+   push, only the ones already stale before the landing go.
+4. **Report** each deleted branch, and each one kept with the listing's reason.
+
 ## 6. Ask once, then report
 
 Before § 4, end the turn with `mcp__ccd_turn__wrap_up` (or one closing question outside the app):
 the recap is the review table's counts and the check result; the ask is the one decision left,
 with the buttons "Land, push, archive" (push, then wait for the CI run, § 4 step 4) and "Land and
-archive" (no push); a child session offers only the second. The user's click authorizes exactly
-what its message says.
+archive" (no push); a child session offers only the second. When § 5's listing names stale
+remote branches, the recap names them and each button's message ends with "delete the stale
+remote branches <b1> <b2> …", so the same click covers them. The user's click authorizes exactly
+what its message says; the `git push --delete` still goes through the normal permission ask.
 
 After it is carried out, report as numbered lists: merged (branch → commit), the base and its new
 tip, check results, pushed or not and the CI run's result, archived sessions (linked), the ones
-left alone with the reason, and the sub-sessions' follow-ups (done here, carded, or left in their
-record with `<id8> <n>`).
+left alone with the reason, the remote branches deleted and kept (with the reason), and the
+sub-sessions' follow-ups (done here, carded, or left in their record with `<id8> <n>`).

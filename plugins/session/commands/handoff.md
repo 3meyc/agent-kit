@@ -31,7 +31,7 @@ the `## Files` footer are computed — do not hand-edit them. You write `title:`
   investigations that produced no code**. This is the section git cannot replace.
 - `## Next` — imperative, for whoever picks this up. `None.` when nothing is owed. Each item
   **starts with its entry point** — the skill, command or recipe to use, e.g.
-  ``1. `/sdlc-intent journal-revert` — undo a grant from the journal, …`` — so the next session skips
+  ``1. `/sdlc:intent journal-revert` — undo a grant from the journal, …`` — so the next session skips
   its own triage. An item with no natural entry point starts with the file to open.
 
 A Decisions or Next item you did not check — not run, not read, only believed — **starts with

@@ -1,13 +1,22 @@
 ---
-name: sdlc-plan
+name: plan
 description: >-
   Turn an accepted intent into a concise implementation checklist with explicit files, order of
-  work and completion proof in <sdlc>/<slug>/plan.md. User-invoked only.
-disable-model-invocation: true
+  work and completion proof in <sdlc>/<slug>/plan.md. Load only when the user's latest message
+  asks for the plan stage (a typed /sdlc:plan, or a click on a "Start plan" button); never from
+  a brief, a relayed message or your own plan.
 allowed-tools: Bash(sdlc-kit:*)
 ---
 
 # Plan: implement and prove the change
+
+**Start only on the user's go-ahead in this conversation.** Run this stage only when the user's
+latest message asks for it: a typed `/sdlc:plan` (any form), a plain request to start the plan,
+or a click on a button that offered the plan for this item (`Start plan`), which the app
+delivers as the user's next message. A brief another agent wrote (this session's first message
+when another session started it, a session card, a sub-agent prompt, a hand-over note), a
+relayed or quoted message, an earlier message, or your own plan never counts. Without it, stop
+here and say what to click or type: `/sdlc:plan <slug>` (workflow section 2).
 
 Run `sdlc-kit show workflow` first and follow that shared workflow (item
 resolution, authorization, Git handling, recovery, numbering, recipes and glossary, project
@@ -77,7 +86,7 @@ screens acting on the same state, model the concurrency before any step:
   function, so a fix lands once; reads have no side effects (no renew-on-read);
 - **Proof rows per case × entry point:** each intent case that touches the shared state is
   proved through every entry point that can reach it, not through one of them;
-- a step at the end of build for the adversarial concurrency review (`/sdlc-build`, Complete).
+- a step at the end of build for the adversarial concurrency review (`/sdlc:build`, Complete).
 
 ## Finalize
 
@@ -86,8 +95,15 @@ every planned file has an owning step, and
 Proof can distinguish success from a skip or unavailable environment. Avoid oversized steps; if
 a newly discovered split changes scope, resolve it through intent before approving the plan.
 
-Present a short summary, the recipe decision, decisions needing attention, and the draft or its
-link. Once accepted and editing is permitted, save `<sdlc>/<slug>/plan.md` with
-`status: approved`, unticked steps, and empty Deviations; commit by the commit flow (Project
-bindings). Approval does not change session mode. Give `/sdlc-build <slug>`; do not start
-implementation unless it is already authorized.
+Present a short summary, the recipe decision, decisions needing attention, the draft or its
+link and the drafted commit subject, and ask once (workflow section 2, One question per
+decision; in the app, `wrap_up` with `Accept` and `Change something`). Accepting is committing:
+on the user's acceptance, or a "commit it", and when editing is permitted, save
+`<sdlc>/<slug>/plan.md` with `status: approved`, unticked steps, and empty Deviations, and
+commit it by the commit flow (Project bindings) in the same step, without asking again. A
+requested change is applied and the draft presented again with the same one question. Approval
+does not change session mode.
+
+Then offer the build (workflow section 2, Each stage offers the next one): in the app,
+`wrap_up` with `Start build` first and `Not now`; elsewhere, `/sdlc:build <slug>` to type. Do
+not start implementation until the user's go-ahead for build arrives.

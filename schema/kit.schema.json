@@ -19,9 +19,9 @@
     },
     "baseBranch": {
       "type": "string",
-      "description": "Branch that work items land on.",
+      "description": "Integration branch that feature and session branches are cut from and land back on by merge; releases go to main.",
       "minLength": 1,
-      "default": "main"
+      "default": "dev"
     },
     "itemPrefix": {
       "type": "string",
@@ -140,7 +140,8 @@
       "description": "How `kit release` cuts a release of a kit's own repo by moving its tag: where the notes live, what to check, and for an overlay the base-kit release it needs.",
       "additionalProperties": false,
       "properties": {
-        "branch": { "type": "string", "minLength": 1, "description": "Branch released. Default: baseBranch." },
+        "branch": { "type": "string", "minLength": 1, "default": "main", "description": "Release branch. When it differs from `from`, the release commit lands on `from` and this branch is fast-forwarded to it." },
+        "from": { "type": "string", "minLength": 1, "description": "Branch released from, where the release commit lands. Default: baseBranch." },
         "remote": { "type": "string", "minLength": 1, "default": "origin" },
         "tag": { "type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$", "default": "stable" },
         "check": { "$ref": "#/$defs/command", "description": "Run from the repo root before the release commit, on the written notes; a failure refuses. Default: commands.check." },

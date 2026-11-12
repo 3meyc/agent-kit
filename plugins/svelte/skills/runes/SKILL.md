@@ -1,5 +1,5 @@
 ---
-name: svelte-runes
+name: runes
 description: "Load before editing, writing or reviewing any .svelte, .svelte.ts or .svelte.js file, however small the change. Svelte 5 runes: $state, $derived, $effect, props, data flow."
 paths:
   - "**/*.svelte"

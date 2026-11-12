@@ -107,7 +107,7 @@ describe("worktree-setup-hook.mjs as a process", () => {
     try {
       const main = join(dir, "main");
       const wt = join(dir, "wt");
-      git(dir, "init", "-q", "-b", "main", main);
+      git(dir, "init", "-q", "-b", "dev", main);
       git(main, "-c", "user.email=t@example.com", "-c", "user.name=T", "commit", "-q", "--allow-empty", "-m", "a");
       git(main, "worktree", "add", "-q", "-b", "claude/wt", wt);
       const log = join(main, ".git", "worktree-setup-hook.log");
@@ -119,7 +119,7 @@ describe("worktree-setup-hook.mjs as a process", () => {
 
       expect(run().stdout).not.toContain("behind");
       git(main, "-c", "user.email=t@example.com", "-c", "user.name=T", "commit", "-q", "--allow-empty", "-m", "b");
-      expect(run().stdout).toContain("this worktree starts 1 commit(s) behind main; run `worktree-flow adopt main`");
+      expect(run().stdout).toContain("this worktree starts 1 commit(s) behind dev; run `worktree-flow adopt dev`");
       rmSync(log);
 
       writeFileSync(join(wt, "kit.json"), JSON.stringify({ project: "t", hooks: { off: ["worktree-setup"] } }));

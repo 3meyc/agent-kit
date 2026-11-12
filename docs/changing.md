@@ -30,7 +30,7 @@ flowchart TD
 sequenceDiagram
   participant P as Project session
   participant K as agent-kit session
-  participant M as main
+  participant M as dev
   participant S as stable
   P->>K: opens a kit-gap issue #n
   P->>K: open a worktree session in agent-kit
@@ -38,7 +38,7 @@ sequenceDiagram
   K->>P: try it: kit dev --run (claude --plugin-dir …)
   K->>M: commit "Fixes #n", merge
   M-->>P: pilot project gets it (latest channel)
-  M->>S: release: move stable
+  M->>S: release: fast-forward main, move stable
   S-->>P: every project, next session
 ```
 
@@ -56,7 +56,9 @@ sequenceDiagram
    replaces the installed plugin of the same name for that session, silently (Claude Code's plugin
    loading reference, Name conflicts), so check in that session that `/core:kit-doctor` lists it
    as loaded with `--plugin-dir`.
-4. **Merge** through a pull request. The naming check in CI must pass (see below). The commit
+4. **Land** on `dev` by merge, not by pull request: merge `dev` into the branch, run the checks,
+   then `worktree-flow land` (or `/close-out`) and push `dev`. CI and its naming check run on that
+   push and must pass (see below). `main` moves only at release. The commit
    that fixes a reported gap says `Fixes #n`, and its CHANGELOG line cites `#n`.
 5. **Release** with `kit release` (next section): it moves the `## Unreleased` lines of
    [CHANGELOG.md](../CHANGELOG.md) under a dated entry, commits, and moves `stable` to that commit.
@@ -77,13 +79,14 @@ one list gets taken for another, and nothing ties a gap to the commit that fixed
 | 4 | Fall back | `gh` missing or signed out, or the repo out of the account's reach (`gh repo view <owner/repo>` fails): the gap goes to the ledger `## Next` with the drafted title and the reason it was not opened, so a later session opens it |
 | 5 | Fix | In the kit's repo, the commit that fixes it says `Fixes #n` (GitHub closes the issue when the commit reaches the default branch), and its CHANGELOG `## Unreleased` line ends with `(#n)` |
 
-`/sdlc-build`, `/sdlc-finish`, `/close-out` and `/handoff` do steps 1–4 for every kit follow-up
+`/sdlc:build`, `/sdlc:finish`, `/close-out` and `/handoff` do steps 1–4 for every kit follow-up
 they find. An overlay kit keeps the same template and label in its own repo.
 
 ## Releasing
 
 `kit release` (core plugin) cuts a release of a kit repo in one checked step. Run it in the kit's
-checkout, on `main`, after the work is merged and pulled:
+checkout, on `dev` (`baseBranch`), after the work is landed and pulled. It commits the notes on
+`dev` and fast-forwards `main` to that commit, so `main` holds only released work:
 
 ```bash
 kit release --summary "<one line on what this release changes>"
@@ -96,15 +99,15 @@ release …` runs the same command.
 
 | ID | Step | Refuses when |
 | --- | --- | --- |
-| 1 | Tree | Not on the release branch; uncommitted or untracked files; `HEAD` ahead of or behind the remote branch |
+| 1 | Tree | Not on the branch released from (`dev`); uncommitted or untracked files; `HEAD` ahead of or behind the remote branch; the remote `main` holds a commit `dev` lacks (merge `main` into `dev` and land it first) |
 | 2 | Tag on the remote | `stable` already points at `HEAD`, or at a commit outside the branch's history |
 | 3 | Notes | `## Unreleased` is missing or empty; a release table has no summary for its new row; the notes files disagree on the release number |
 | 4 | Evolution pages (when kept) | Never: it names a page in `paths.evolution` not changed since `stable`, to bring up to date first (`evolution status --since-release`, the `evolution` skill) |
 | 5 | Base kit (overlay only) | The base kit's `stable` does not contain `release.base.needs` |
 | 6 | Check | No check is set, or it fails. The dry run checks the tree as it is; `--yes` checks the written notes and puts them back on a failure |
-| 7 | Commit and push | Commits only the notes as `chore(release): <nth> stable release` and pushes the branch, never forced |
+| 7 | Commit and push | Commits only the notes as `chore(release): <nth> stable release`, pushes `dev`, then fast-forwards `main` to that commit; neither push is forced |
 | 8 | Move the tag | `git tag -fa stable -m "<date>: <nth> release"`, then `git push origin +refs/tags/stable`: the one forced push |
-| 9 | Confirm | Reads the remote back: `stable^{}` and the branch must both name the release commit |
+| 9 | Confirm | Reads the remote back: `stable^{}`, `dev` and `main` must all name the release commit |
 
 The release number is the count of existing entries plus one (dated `## YYYY-MM-DD` headings of a
 changelog, or the last id of a release table), written as a word (`ninth`); the date is today's.
@@ -117,7 +120,7 @@ and may be left out; a release table needs it, and a file with `lang` takes `--s
 | --- | --- | --- | --- |
 | 1 | `notes` | `["CHANGELOG.md"]` | Files that record releases, cut in one commit. A string is a changelog; `{ "path", "format": "table", "lang" }` is a release table: the file's last table gets a row like the one before it, with the id counted up, today's date and the summary in the last cell |
 | 2 | `check` | `commands.check` | The command that must pass on the written notes |
-| 3 | `branch`, `remote`, `tag` | `baseBranch`, `origin`, `stable` | What is released, where, under which tag |
+| 3 | `from`, `branch`, `remote`, `tag` | `baseBranch`, `main`, `origin`, `stable` | The branch released from, the release branch fast-forwarded to it (the same branch when both name one: then nothing is fast-forwarded), the remote, the tag |
 | 4 | `base` | none | For an overlay: `{ "repo": "<git URL>", "needs": "ninth" }`. `needs` is a base release number or ordinal word (matched against the base's `chore(release): <nth> stable release` commits) or a commit; raise it when the overlay starts to use something newer |
 
 An overlay that records its releases in a table and its Ukrainian mirror:
@@ -142,7 +145,7 @@ move.
 
 | ID | Case | Do |
 | --- | --- | --- |
-| 1 | A step in `/sdlc-plan` is missing or wrong | Flow above, plugin `sdlc` |
+| 1 | A step in `/sdlc:plan` is missing or wrong | Flow above, plugin `sdlc` |
 | 2 | Only one project needs a different path or command | Change that project's `kit.json` |
 | 3 | A project needs an extra step the others don't | A local skill in the project; propose a `kit.json` option if a second project needs it |
 | 4 | Urgent fix during a release | Flow above, then release at once; roll back if it misbehaves |

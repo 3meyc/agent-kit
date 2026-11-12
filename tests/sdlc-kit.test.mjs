@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -81,7 +81,10 @@ test("resolveConfig merges path defaults and leaves absent commands null", () =>
   }
 });
 
-test("resolveBase falls back to origin/HEAD, then a local main", () => {
+test("resolveBase falls back to a dev branch, then origin/HEAD, then a local main", () => {
+  const devOnOrigin = (_root, args) => (args.includes("refs/remotes/origin/dev") ? "abc\n" : args[0] === "symbolic-ref" ? "origin/main\n" : null);
+  assert.deepEqual(resolveBase("/x", {}, devOnOrigin), { name: "dev", source: "dev branch" });
+  assert.deepEqual(resolveBase("/x", { baseBranch: "main" }, devOnOrigin), { name: "main", source: "kit.json" });
   const originHead = (_root, args) => (args[0] === "symbolic-ref" ? "origin/trunk\n" : null);
   assert.deepEqual(resolveBase("/x", {}, originHead), { name: "trunk", source: "origin/HEAD" });
   const localMain = (_root, args) => (args.includes("refs/heads/main") ? "abc\n" : null);
@@ -156,6 +159,41 @@ test("templates keep their sections and the item-label conventions", () => {
   assert.match(workflow, /\(resolved YYYY-MM-DD\)/);
   assert.match(workflow, /Stages start on the user's word/);
   assert.match(show("verification"), /`defect`.*`nit`/s);
+});
+
+const SKILLS = new URL("../plugins/sdlc/skills/", import.meta.url);
+const STAGES = [
+  ["intent", "Start intent", "Start plan"],
+  ["plan", "Start plan", "Start build"],
+  ["build", "Start build", "Start finish"],
+  ["finish", "Start finish", null],
+];
+
+test("stage skills are model-invocable behind the user's go-ahead and offer the next stage", () => {
+  for (const [name, own, next] of STAGES) {
+    const text = readFileSync(new URL(`${name}/SKILL.md`, SKILLS), "utf8");
+    const head = text.split("\n---\n")[0];
+    assert.doesNotMatch(head, /disable-model-invocation/, name);
+    assert.match(head, /Load only when the user's\s+latest message/, name);
+    assert.match(head, /never from\s+a\s+brief, a relayed message or your own plan/, name);
+    assert.match(text, /\*\*Start only on the user's go-ahead in this conversation\.\*\*/, name);
+    assert.ok(text.includes(`(\`${own}\`)`), `${name} names its own button`);
+    if (next) assert.ok(text.includes(`\`${next}\` first`), `${name} offers ${next}`);
+  }
+});
+
+test("intent and plan accept and commit on one answer", () => {
+  for (const name of ["intent", "plan"]) {
+    const text = readFileSync(new URL(`${name}/SKILL.md`, SKILLS), "utf8");
+    assert.match(text, /Accepting is committing/, name);
+    assert.match(text, /without asking again/, name);
+    assert.match(text, /`Accept` and\s+`Change something`/, name);
+  }
+  const workflow = show("workflow");
+  assert.match(workflow, /One answer accepts and commits/);
+  assert.match(workflow, /One question per decision/);
+  assert.match(workflow, /delivers a button click as the user's next\s+message/);
+  assert.doesNotMatch(workflow, /disable-model-invocation/);
 });
 
 test("main prints config by default and rejects an unknown command", () => {

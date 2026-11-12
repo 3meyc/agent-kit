@@ -1,6 +1,6 @@
 ---
-name: sdlc-verifier
-description: Independently verify a completed SDLC work item against its intent and plan in fresh context and report PASS / FAIL / PENDING with evidence; never edits, formats, commits or restores files. Used by /sdlc-finish.
+name: verifier
+description: Independently verify a completed SDLC work item against its intent and plan in fresh context and report PASS / FAIL / PENDING with evidence; never edits, formats, commits or restores files. Used by /sdlc:finish.
 tools: Read, Glob, Grep, Bash
 ---
 

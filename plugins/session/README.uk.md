@@ -12,8 +12,8 @@
 | --- | --- | --- |
 | 1 | Журнал сесій | На кожному Stop пише один Markdown-запис на сесію (намір, рішення, наступні кроки, змінені файли) у теку журналу й перебудовує її `INDEX.md`. На старті сесії додає в контекст короткий огляд недавніх записів і невиконаної роботи, без пунктів, які закрило правило автозакриття ([using § 6](../../docs/using.uk.md#6-тримайте-список-next-у-журналі-коротким)) |
 | 2 | Скрипт коміту | `git-commit-session` комітить лише шляхи цієї сесії через `git commit --only`, зупиняється, коли шлях заявляє інша сесія, додає трейлер `Session-Id`, запускає аудит коміту проєкту на закомічених шляхах і рахує пропущені необов'язкові кроки проєкту (`preflight`) |
-| 3 | Потік worktree | `worktree-flow` показує базу й вердикт кожного worktree, передбачає конфлікти, зливає гілку в базу лише перемоткою (fast-forward) і прибирає злиті worktree. Хук SessionStart готує кожен новий linked worktree |
-| 4 | Команди | `/handoff` пише запис посеред задачі; `/close-out` сортує роботу, зливає її й пише підсумок сесії; `/close-siblings` зливає роботу бічних сесій; `/git` виконує git-завдання в агенті `git-ops`, а `/git commit --review` переглядає diff перед комітом |
+| 3 | Потік worktree | `worktree-flow` показує базу й вердикт кожного worktree, передбачає конфлікти, зливає гілку в базу лише перемоткою (fast-forward), прибирає злиті worktree і показує гілки на origin, які база вже містить (`stale-remote`, лише читання). Хук SessionStart готує кожен новий linked worktree |
+| 4 | Команди | `/handoff` пише запис посеред задачі; `/close-out` сортує роботу, зливає її й пише підсумок сесії; `/close-siblings` зливає роботу бічних сесій і за словом користувача видаляє їхні злиті гілки, локально й на origin; `/git` виконує git-завдання в агенті `git-ops`, а `/git commit --review` переглядає diff перед комітом |
 | 5 | Сторінки еволюції | `process-evolution.md` і `features-evolution.md` у `paths.evolution`: по одній Mermaid-схемі того, як зростали спосіб роботи й функції, з таблицею джерел. `evolution` створює їх, показує, чого бракує, піднімає версію й перевіряє. Їх оновлюють раз на реліз — з рядків `## Unreleased` у changelog і комітів процесу від останнього тегу релізу — через скіл `evolution`; пробний запуск `kit release` з core називає сторінку, яку реліз не оновив |
 
 Claude Code дає командам простір імен: `/session:handoff`, `/session:close-out`,
@@ -50,7 +50,7 @@ Claude Code не вміє вимкнути один хук плагіна, то�
 | 2 | `paths.ledger` | `.claude/ledger` | Де лежать записи, `INDEX.md` і `archive/` |
 | 3 | `paths.sdlc` | `docs/sdlc` | `worktree-flow` читає `base:` елемента з `<item>/intent.md`; `git-commit-session --worktree` зараховує перейменування всередині сесії |
 | 4 | `paths.recipes` | `docs/recipes` | `/close-out` і `/handoff` називають області за рецептами |
-| 5 | `baseBranch` | `main` | `worktree-flow` віддає їй перевагу, коли вгадує базу; `/git branch` відгалужується від неї |
+| 5 | `baseBranch` | `dev` | `worktree-flow` віддає їй перевагу, коли вгадує базу; `/git branch` відгалужується від неї |
 | 6 | `itemPrefix` | немає | `/git branch <ITEM-ID>` і футери комітів |
 | 7 | `commands.commitAudit` | немає | Запускається після кожного коміту з кодом; показується вивід, код виходу — ніколи. `{files}` у ній стає закоміченими шляхами в лапках; вони також є в `KIT_COMMIT_PATHS`, по одному в рядку, тож аудит може показати лише знахідки в них |
 | 8 | `commands.check`, `lint`, `test`, `build` | немає | Перевірки, які `/close-out` і `/close-siblings` запускають перед злиттям |
@@ -92,7 +92,7 @@ Checkout визначається з `cwd` у даних хука (або з р�
 | --- | --- | --- |
 | 1 | `session-ledger` | `--files`, `--record`, `--refresh`, `--conflicts`, `--owed`, `--done`, `--sweep`, `--archive`, `--backfill`; `--help` перелічує їх |
 | 2 | `git-commit-session` | Коміт за шляхами; `--help` перелічує прапорці й коди виходу |
-| 3 | `worktree-flow` | `status`, `resolve`, `base`, `adopt`, `conflicts`, `land`, `remove` |
+| 3 | `worktree-flow` | `status`, `resolve`, `base`, `adopt`, `conflicts`, `land`, `remove`, `stale-remote`; `--help` перелічує їх |
 | 4 | `worktree-setup` | Підготовка, яку запускає хук `worktree-setup` |
 | 5 | `git-branch-context` | Гілка, upstream, базова гілка й префікс елементів у JSON, для `/git` |
 | 6 | `ledger-export` | Перетворює запис на файл передачі поза репозиторієм (`/handoff --export`) |
