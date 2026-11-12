@@ -61,3 +61,8 @@ Keep the output short: current branch and dirty state, then one line per selecte
 Mention working drafts or ticks separately from committed progress. Include only
 actionable blocker details. Summarize older archives as a count when listing them
 would obscure current work. Do not run checks or modify files to improve the status.
+
+When one item is selected and its next action is a stage, offer it (workflow section 2, Each
+stage offers the next one): in the app, `wrap_up` with that stage's button first (`Start plan`
+…) and `Not now`; elsewhere, the command to type. Status never starts the stage itself: the
+user's click or typed command does.

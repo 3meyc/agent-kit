@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -159,6 +159,41 @@ test("templates keep their sections and the item-label conventions", () => {
   assert.match(workflow, /\(resolved YYYY-MM-DD\)/);
   assert.match(workflow, /Stages start on the user's word/);
   assert.match(show("verification"), /`defect`.*`nit`/s);
+});
+
+const SKILLS = new URL("../plugins/sdlc/skills/", import.meta.url);
+const STAGES = [
+  ["sdlc-intent", "Start intent", "Start plan"],
+  ["sdlc-plan", "Start plan", "Start build"],
+  ["sdlc-build", "Start build", "Start finish"],
+  ["sdlc-finish", "Start finish", null],
+];
+
+test("stage skills are model-invocable behind the user's go-ahead and offer the next stage", () => {
+  for (const [name, own, next] of STAGES) {
+    const text = readFileSync(new URL(`${name}/SKILL.md`, SKILLS), "utf8");
+    const head = text.split("\n---\n")[0];
+    assert.doesNotMatch(head, /disable-model-invocation/, name);
+    assert.match(head, /Load only when the user's\s+latest message/, name);
+    assert.match(head, /never from\s+a\s+brief, a relayed message or your own plan/, name);
+    assert.match(text, /\*\*Start only on the user's go-ahead in this conversation\.\*\*/, name);
+    assert.ok(text.includes(`(\`${own}\`)`), `${name} names its own button`);
+    if (next) assert.ok(text.includes(`\`${next}\` first`), `${name} offers ${next}`);
+  }
+});
+
+test("intent and plan accept and commit on one answer", () => {
+  for (const name of ["sdlc-intent", "sdlc-plan"]) {
+    const text = readFileSync(new URL(`${name}/SKILL.md`, SKILLS), "utf8");
+    assert.match(text, /Accepting is committing/, name);
+    assert.match(text, /without asking again/, name);
+    assert.match(text, /`Accept` and\s+`Change something`/, name);
+  }
+  const workflow = show("workflow");
+  assert.match(workflow, /One answer accepts and commits/);
+  assert.match(workflow, /One question per decision/);
+  assert.match(workflow, /delivers a button click as the user's next\s+message/);
+  assert.doesNotMatch(workflow, /disable-model-invocation/);
 });
 
 test("main prints config by default and rejects an unknown command", () => {

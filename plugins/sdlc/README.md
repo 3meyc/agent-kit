@@ -2,8 +2,9 @@
 
 **English** · [Українська](README.uk.md)
 
-Spec-first work items in five skills (four the user invokes; the read-only `/sdlc-status` the agent
-may run too), with two fresh-context agents for the independent passes. Every work item is a folder
+Spec-first work items in five skills (four stages that start on the user's word; the read-only
+`/sdlc-status` the agent may run on its own), with two fresh-context agents for the independent
+passes. Every work item is a folder
 of short documents in the project: what to build and why (intent), how to build and prove it
 (plan), and the record of what happened.
 
@@ -40,9 +41,14 @@ Intents and plans label items so other documents can cite them: outcomes `O1.`, 
 `C1.`, open questions `Q1.` (a settled one gains `(resolved <date>)`); constraints and plan steps
 use plain numbers.
 
-The user starts each of the four stages in the session that runs it. A brief another agent wrote
-(a session card, a sub-agent prompt) cannot start one, so a session started for an item prepares
-and stops with the command for the user to type there.
+## Starting a stage and accepting a document
+
+| ID | Rule | How |
+| --- | --- | --- |
+| 1 | A stage starts only on the user's word | The agent loads a stage skill only when the user's latest message asks for it: a typed command (`/sdlc-plan <slug>`), a plain request, or a click on a button that offered that exact stage. A brief another agent wrote (a session card, a side session's first message, a sub-agent prompt), a relayed message or the agent's own plan never starts one; the session prepares and stops, saying what to click or type. Each stage skill carries this guard in its description and its first lines |
+| 2 | Each stage offers the next | In the desktop app the stage ends with the next-step box: the ask "Start the plan for `<slug>`?", buttons `Start plan` (first) and `Not now`. The app delivers a click as the user's next message, carrying the label, so the click is the confirmation. Elsewhere the stage ends with the command to type |
+| 3 | Accepting is committing | Intent and plan show the document with its drafted commit subject and ask once: `Accept` or `Change something`. Acceptance (or "commit it") sets the status and commits by the commit flow in the same step; there is no second question. The question names the commit; the button says `Accept` because the app keeps commit go-ahead buttons for its own commit action, which skips the project's commit flow |
+| 4 | Build and finish commit without asking | The go-ahead for the stage covers its step, fix and archive commits; merging and pushing stay with the close-out's one question |
 
 ## What it reads from kit.json
 
