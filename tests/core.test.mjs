@@ -2,13 +2,13 @@
 // which only the schema cross-check uses.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { after, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import Ajv2020 from "ajv/dist/2020.js";
-import { codegraphQueryDir } from "../plugins/core/hooks/codegraph-sync.mjs";
+import { codegraphQueryDir, syncWorktree } from "../plugins/core/hooks/codegraph-sync.mjs";
 import { lintCommandsFor, lintRootFor } from "../plugins/core/hooks/lint-edited-file.mjs";
 import { updateText } from "../plugins/core/hooks/session-start.mjs";
 import { dispatch } from "../plugins/core/hooks/shell-pre.mjs";
@@ -59,6 +59,13 @@ describe("kit-config", () => {
     assert.equal(globMatcher("src/**/*.ts").test("src/a/b.ts"), true);
     assert.equal(globMatcher("src/**/*.ts").test("src/b.ts"), true);
     assert.equal(globMatcher("*.{ts,svelte}").test("x/App.svelte"), true);
+    // Wildcards inside a brace part are converted too; they used to reach RegExp raw and throw.
+    assert.equal(globMatcher("{*.ts,*.svelte}").test("x/App.svelte"), true);
+    assert.equal(globMatcher("{*.ts,*.svelte}").test("x/App.js"), false);
+    assert.equal(globMatcher("{src/**/*.ts,docs/?.md}").test("src/a/b.ts"), true);
+    assert.equal(globMatcher("{src/**/*.ts,docs/?.md}").test("docs/a.md"), true);
+    assert.equal(globMatcher("{src/**/*.ts,docs/?.md}").test("docs/ab.md"), false);
+    assert.equal(globMatcher("{a.b,c}").test("axb"), false);
     assert.equal(matchesAny("README.md", []), true);
     assert.equal(matchesAny("README.md", ["*.ts"]), false);
   });
@@ -139,6 +146,17 @@ describe("lint-edited-file", () => {
     assert.equal(skipped.stderr, "");
   });
 
+  it("lints through a brace glob with wildcards, as a process", () => {
+    const project = tempProject("lint-brace", {
+      "kit.json": { project: "my-app", lintOnEdit: { command: `node -e "console.error('linted'); process.exit(1)" --`, match: ["{*.ts,*.svelte}"] } },
+      "src/App.svelte": "x",
+    });
+    const result = runHook("lint-edited-file.mjs", { tool_name: "Edit", tool_input: { file_path: join(project, "src/App.svelte") }, cwd: project }, { CLAUDE_PROJECT_DIR: project });
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, /linted/);
+    assert.doesNotMatch(result.stderr, /Nothing to repeat/);
+  });
+
   it("runs every matching rule and reports each failure, as a process", () => {
     const fail = (word) => `node -e "console.error('${word}'); process.exit(1)" --`;
     const project = tempProject("lint-rules", {
@@ -174,6 +192,9 @@ describe("codegraphQueryDir", () => {
   it("follows a leading cd", () => {
     assert.equal(codegraphQueryDir(bash("cd /repo/.claude/worktrees/y && codegraph query foo")), "/repo/.claude/worktrees/y");
     assert.equal(codegraphQueryDir(bash("cd '../y'; codegraph files")), "/repo/.claude/worktrees/y");
+    // A leading `~` is the home folder, as the shell expands it, not a folder named `~` under cwd.
+    assert.equal(codegraphQueryDir(bash("cd ~/code/app/.claude/worktrees/x && codegraph explore Foo")), join(homedir(), "code/app/.claude/worktrees/x"));
+    assert.equal(codegraphQueryDir(bash("cd ~ && codegraph files")), homedir());
   });
 
   it("ignores commands that only maintain the index or merely mention codegraph", () => {
@@ -187,6 +208,48 @@ describe("codegraphQueryDir", () => {
     assert.equal(codegraphQueryDir({ tool_name: "mcp__codegraph__codegraph_explore", tool_input: { projectPath: wt }, cwd: "/" }), wt);
     assert.equal(codegraphQueryDir({ tool_name: "mcp__codegraph__codegraph_explore", tool_input: {}, cwd: wt }), null);
     assert.equal(codegraphQueryDir({ tool_name: "Read", tool_input: {}, cwd: wt }), null);
+  });
+});
+
+describe("codegraph syncWorktree", () => {
+  const busy = { status: 1, stdout: "", stderr: "Error: could not acquire the file lock on the index" };
+  const done = { status: 0, stdout: "", stderr: "" };
+  const fake = (results) => {
+    const calls = [];
+    const sync = (top) => {
+      calls.push(top);
+      return results[Math.min(calls.length, results.length) - 1];
+    };
+    return { calls, sync };
+  };
+
+  it("waits out a busy lock and stays quiet once the sync succeeds", () => {
+    const { calls, sync } = fake([busy, busy, done]);
+    const waits = [];
+    const warnings = [];
+    assert.equal(syncWorktree("/wt", { sync, wait: (ms) => waits.push(ms), warn: (line) => warnings.push(line) }), 3);
+    assert.deepEqual(calls, ["/wt", "/wt", "/wt"]);
+    assert.deepEqual(waits, [500, 500]);
+    assert.deepEqual(warnings, []);
+  });
+
+  it("gives up after ten retries with one warning", () => {
+    const { calls, sync } = fake([busy]);
+    const warnings = [];
+    assert.equal(syncWorktree("/wt", { sync, wait: () => {}, warn: (line) => warnings.push(line) }), 11);
+    assert.equal(calls.length, 11);
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0], /sync of \/wt failed \(exit 1\)/);
+  });
+
+  it("does not retry another failure, and says nothing when the CLI is missing", () => {
+    const warnings = [];
+    const warn = (line) => warnings.push(line);
+    assert.equal(syncWorktree("/wt", { sync: fake([{ status: 2, stdout: "", stderr: "bad index" }]).sync, wait: () => {}, warn }), 1);
+    assert.equal(warnings.length, 1);
+    const missing = Object.assign(new Error("spawnSync codegraph ENOENT"), { code: "ENOENT" });
+    assert.equal(syncWorktree("/wt", { sync: fake([{ status: null, error: missing }]).sync, wait: () => {}, warn }), 1);
+    assert.equal(warnings.length, 1);
   });
 });
 
@@ -256,6 +319,46 @@ describe("shell-deletions", () => {
     writeFileSync(join(project, "kit.json"), JSON.stringify({ project: "my-app", ledger: true, hooks: { off: ["shell-deletions"] } }));
     assert.equal(runHook("shell-deletions.mjs", { ...payload("PreToolUse"), tool_use_id: "tool-2" }, env).status, 0);
     assert.equal(readFileSync(join(project, "t", "session-1", "shell-deletions.jsonl"), "utf8").includes("tool-2"), false);
+    // The session plugin's former copy had its own id; listing that one still switches this off.
+    writeFileSync(join(project, "kit.json"), JSON.stringify({ project: "my-app", ledger: true, hooks: { off: ["ledger-shell-deletions"] } }));
+    assert.equal(runHook("shell-deletions.mjs", { ...payload("PreToolUse"), tool_use_id: "tool-3" }, env).status, 0);
+    assert.equal(readFileSync(join(project, "t", "session-1", "shell-deletions.jsonl"), "utf8").includes("tool-3"), false);
+  });
+
+  it("credits the old side of a rename, not the entry after it", () => {
+    const project = tempProject("deletions-rename", { "kit.json": { project: "my-app", ledger: true }, "a.txt": "a", "b.txt": "b", "c.txt": "c" });
+    const git = (...args) => spawnSync("git", args, { cwd: project, encoding: "utf8" });
+    git("init", "-q");
+    git("add", ".");
+    git("-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false", "commit", "-qm", "init");
+    const transcript = join(project, "t", "session-1.jsonl");
+    const payload = (phase) => ({ hook_event_name: phase, tool_name: "Bash", tool_use_id: "tool-r", transcript_path: transcript, cwd: project, tool_input: { command: "node scripts/move.mjs" } });
+    const env = { CLAUDE_PROJECT_DIR: project };
+    assert.equal(runHook("shell-deletions.mjs", payload("PreToolUse"), env).status, 0);
+    // A staged rename prints `R  moved.txt\0a.txt`; a plain delete follows it in the same output.
+    git("mv", "a.txt", "moved.txt");
+    rmSync(join(project, "c.txt"));
+    assert.equal(runHook("shell-deletions.mjs", payload("PostToolUse"), env).status, 0);
+    const post = readFileSync(join(project, "t", "session-1", "shell-deletions.jsonl"), "utf8").trim().split("\n").map((line) => JSON.parse(line)).find((line) => line.phase === "post");
+    assert.deepEqual(post.deleted.map((path) => path.split(/[\\/]/).pop()).sort(), ["a.txt", "c.txt"]);
+  });
+
+  it("reads kit.json from the checkout holding the payload's cwd, not CLAUDE_PROJECT_DIR", () => {
+    const main = tempProject("deletions-main", { "kit.json": { project: "my-app", ledger: true }, "a.txt": "a" });
+    const git = (cwd, ...args) => spawnSync("git", args, { cwd, encoding: "utf8" });
+    git(main, "init", "-q");
+    git(main, "add", ".");
+    git(main, "-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false", "commit", "-qm", "init");
+    const worktree = join(scratch, "deletions-wt");
+    git(main, "worktree", "add", "-q", "-b", "wt", worktree);
+    writeFileSync(join(worktree, "kit.json"), JSON.stringify({ project: "my-app", ledger: true, hooks: { off: ["shell-deletions"] } }));
+    const transcript = join(scratch, "deletions-wt-t", "session-1.jsonl");
+    const payload = { hook_event_name: "PreToolUse", tool_name: "Bash", tool_use_id: "tool-w", transcript_path: transcript, cwd: worktree, tool_input: { command: "node x.mjs" } };
+    // The app may name the main checkout in CLAUDE_PROJECT_DIR for a worktree session (unverified).
+    for (const script of ["shell-deletions.mjs", "shell-pre.mjs"]) {
+      assert.equal(runHook(script, payload, { CLAUDE_PROJECT_DIR: main }).status, 0);
+    }
+    assert.equal(existsSync(join(scratch, "deletions-wt-t", "session-1", "shell-deletions.jsonl")), false);
   });
 });
 
@@ -369,6 +472,33 @@ describe("update-check", () => {
       [{ latest: sha("a"), from: "cache", cachedAt: now - 3 * 3600_000 }],
     );
     assert.equal(JSON.parse(readFileSync(cacheFile, "utf8"))[cacheKey("stable")].sha, sha("a"), "a failed fresh read keeps the last good SHA");
+  });
+
+  it("keeps all remote reads inside one budget and caches the skipped ones as misses", () => {
+    const cacheFile = join(tempProject("update-budget"), "update-check.json");
+    const names = ["a", "b", "c", "d"];
+    const state = {
+      marketplaces: Object.fromEntries(names.map((n) => [`mk-${n}`, { source: { source: "git", url: `https://example.com/${n}.git` } }])),
+      installed: Object.fromEntries(names.map((n) => [`p@mk-${n}`, [{ scope: "user", version: sha(n).slice(0, 12), gitCommitSha: sha(n) }]])),
+    };
+    let clock = 0;
+    const limits = [];
+    // Every remote hangs until its timeout, as on a network that drops packets.
+    const resolveSha = (_remote, timeoutMs) => {
+      limits.push(timeoutMs);
+      clock += timeoutMs;
+      return null;
+    };
+    const { checked } = checkUpdates({ state, cacheFile, timeoutMs: 4000, budgetMs: 10_000, clock: () => clock, now: 5, resolveSha });
+    assert.deepEqual(limits, [4000, 4000, 2000]);
+    assert.ok(clock <= 10_000);
+    assert.equal(checked.length, 4);
+    const cache = JSON.parse(readFileSync(cacheFile, "utf8"));
+    assert.equal(Object.keys(cache).length, 4, "the skipped remote is remembered as a miss, so the next start skips it too");
+    assert.ok(Object.values(cache).every((entry) => entry.sha === null));
+    limits.length = 0;
+    checkUpdates({ state, cacheFile, budgetMs: 10_000, clock: () => clock, now: 6, resolveSha });
+    assert.deepEqual(limits, [], "a fresh miss cache costs the next session start nothing");
   });
 
   it("compares against the project's declared ref and keeps the registered one", () => {
@@ -718,6 +848,13 @@ describe("kit text copied under another name", () => {
     assert.ok(paths.includes(".claude/skills/run-checks/SKILL.md"));
     assert.ok(paths.includes(".claude/skills/check"));
     assert.ok(!paths.includes(".claude/skills/check/SKILL.md"), "a same-name copy is named once, by its folder");
+  });
+
+  it("flags a copy in a folder whose name only starts with a kit skill's name", () => {
+    const skill = readFileSync(join(core, "skills", "check", "SKILL.md"), "utf8");
+    const project = tempProject("prefix-skill", { ".claude/skills/checks/SKILL.md": skill });
+    const paths = findKitCopies(project, [{ root: core, name: "core" }]).map((copy) => copy.path);
+    assert.deepEqual(paths, [".claude/skills/checks/SKILL.md"]);
   });
 });
 

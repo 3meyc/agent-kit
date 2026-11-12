@@ -84,10 +84,17 @@ function runLint(target, root) {
 }
 
 export async function main(input) {
-  const root = lintRootFor(input);
-  const failures = lintCommandsFor(input, readKit(root), root)
-    .map((target) => runLint(target, root))
-    .filter((failure) => failure !== null);
+  let failures;
+  try {
+    const root = lintRootFor(input);
+    failures = lintCommandsFor(input, readKit(root), root)
+      .map((target) => runLint(target, root))
+      .filter((failure) => failure !== null);
+  } catch (error) {
+    // A hook fault (a bad `match` glob, say) is one stderr line, never a stack trace on every edit.
+    console.error(`${HOOK_ID}: ${error instanceof Error ? error.message : error}`);
+    return;
+  }
   if (failures.length === 0) return;
   console.error(failures.join("\n\n"));
   process.exit(2);

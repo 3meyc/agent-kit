@@ -8,6 +8,15 @@
  */
 export function globMatcher(glob) {
   const anywhere = !glob.includes("/");
+  return new RegExp(`^${anywhere ? "(?:.*/)?" : ""}${globSource(glob, true)}$`);
+}
+
+/**
+ * RegExp source of one glob. Each `{…}` part goes through the same `**`, `*` and `?` conversion
+ * (`{*.ts,*.svelte}`); braces do not nest, so inside one a `{` is literal.
+ * @param {string} glob @param {boolean} braces
+ */
+function globSource(glob, braces) {
   let source = "";
   for (let i = 0; i < glob.length; i += 1) {
     const char = glob[i];
@@ -16,17 +25,17 @@ export function globMatcher(glob) {
       i += glob[i + 2] === "/" ? 2 : 1;
     } else if (char === "*") source += "[^/]*";
     else if (char === "?") source += "[^/]";
-    else if (char === "{" && glob.indexOf("}", i) > i) {
+    else if (braces && char === "{" && glob.indexOf("}", i) > i) {
       const end = glob.indexOf("}", i);
       source += `(?:${glob
         .slice(i + 1, end)
         .split(",")
-        .map((part) => part.replace(/[.+^$()|[\]\\]/g, "\\$&"))
+        .map((part) => globSource(part, false))
         .join("|")})`;
       i = end;
     } else source += char.replace(/[.+^${}()|[\]\\]/g, "\\$&");
   }
-  return new RegExp(`^${anywhere ? "(?:.*/)?" : ""}${source}$`);
+  return source;
 }
 
 /** Whether a repo-relative path matches any of the globs (true for an empty list). */

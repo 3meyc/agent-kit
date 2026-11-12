@@ -50,13 +50,26 @@ export function updateText(lagging) {
   return lines.join("\n");
 }
 
-export async function main(input) {
+/**
+ * All remote reads of the update check together stay under this, well inside the hook's 15 s
+ * timeout in hooks.json, so a run of slow remotes cannot get the hook killed.
+ */
+export const UPDATE_BUDGET_MS = 8000;
+
+export async function main(input, { budgetMs = UPDATE_BUDGET_MS } = {}) {
   const root = projectRoot();
   const config = readKit(root);
-  const parts = [];
+  let printed = false;
+  const print = (text) => {
+    if (!text) return;
+    process.stdout.write(`${printed ? "\n" : ""}${text}\n`);
+    printed = true;
+  };
   if (!hookOff("rules", config)) {
     try {
-      parts.push(rulesText());
+      // Written before the update check starts, so the rules reach the session even if the
+      // network makes that check slow.
+      print(rulesText());
     } catch (error) {
       console.error(`core rules: ${error instanceof Error ? error.message : error}`);
     }
@@ -65,14 +78,12 @@ export async function main(input) {
     try {
       // The copy this session runs and the user copy the kit installs; other worktrees' copies are
       // `kit doctor`'s and `kit installs`'s to report.
-      const { lagging } = checkUpdates({ root, cacheFile: defaultCacheFile() });
-      parts.push(updateText(lagging.filter((item) => item.loaded || item.scope === "user")));
+      const { lagging } = checkUpdates({ root, cacheFile: defaultCacheFile(), budgetMs });
+      print(updateText(lagging.filter((item) => item.loaded || item.scope === "user")));
     } catch (error) {
       console.error(`core update-check: ${error instanceof Error ? error.message : error}`);
     }
   }
-  const text = parts.filter(Boolean).join("\n\n");
-  if (text) process.stdout.write(`${text}\n`);
 }
 
 if (isDirectRun(import.meta.url)) await main(await readHookInput());

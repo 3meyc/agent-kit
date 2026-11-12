@@ -4,6 +4,14 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 ## Unreleased
 
+- core: a `lintOnEdit` or `preflight` glob with wildcards inside braces (`{*.ts,*.svelte}`) works; it used to throw "Nothing to repeat" and put a stack trace on every edit. `lint-edited-file` now turns a fault of its own into one stderr line.
+- core: the session-start hook prints the always-on rules before the update check, and the check's remote reads share one 8 s budget (each still at most 4 s). Four unreachable channels used to take 16 s, past the hook's 15 s timeout; a remote skipped for lack of time is cached as a miss like a failed one.
+- session: the plugin's own `ledger-shell-deletions` hook is gone; core's `shell-deletions` was doing the same work, so both ran and the deletions log got every snapshot twice. `ledger-shell-deletions` in `hooks.off` still switches core's off, and the log path helper lives once in `shared/hook-utils.mjs`.
+- core: `shell-deletions`, `codegraph-sync` and the shell dispatcher read `kit.json` from the checkout holding the call's working folder, as `lint-edited-file` does, so a linked worktree's `hooks.off` and `ledger` apply there even when `CLAUDE_PROJECT_DIR` names the main checkout.
+- core: `codegraph-sync` expands a leading `cd ~/…`, which it resolved under the working folder and so skipped the sync.
+- core: `kit doctor` reports a kit skill copied into a folder whose name only starts with a kit skill's name (`.claude/skills/checks/` beside skill `check`); a bare prefix test hid it.
+- core: the README says `kit.json` commands are executable config, run without a prompt, to be trusted like project hooks.
+
 ## 2026-11-12 — eleventh `stable`
 
 `stable` points at the commit that adds this entry. Skill and agent names drop the plugin prefix (/sdlc:plan, python:code, svelte:runes); dev integrates and main takes releases; accepting is committing in the SDLC stages.

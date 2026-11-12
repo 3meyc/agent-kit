@@ -1,10 +1,10 @@
 // Ledger-specific hook helpers: commit facts from git, the shell-edit tracker that attributes a
-// shell call's writes to the session, and the deletion snapshots `shell-deletions-hook.mjs` logs.
+// shell call's writes to the session, and the deletion snapshots core's `shell-deletions` hook logs.
 // Moved here from the source projects' `hook-utils.mjs`; the generic helpers are in
 // `../lib/hook-utils.mjs` (vendored from `shared/`).
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { basename, dirname, join } from "node:path";
+import { join } from "node:path";
 import {
   EDIT_TOOLS,
   SHELL_TOOLS,
@@ -12,6 +12,7 @@ import {
   projectRoot,
   readTranscriptLines,
   repoRelativePath,
+  shellDeletionsLog,
 } from "../lib/hook-utils.mjs";
 import { parseCommitLog } from "./ledger-claims.mjs";
 import { globToRegExp, shellWriteTargets } from "../lib/shell-edits.mjs";
@@ -71,7 +72,7 @@ export function readCommitFacts(root = projectRoot()) {
  *   it *and* whose mtime falls inside that command's run window;
  * - an opaque command (`node script.mjs`, `pnpm run …`, `git stash pop`, a `sed -i` over `"$f"`) is
  *   attributed only dirty files whose mtime falls inside its run window. A tracked file it deleted
- *   has no mtime, so it is attributed only when `shell-deletions-hook.mjs` saw it go missing
+ *   has no mtime, so it is attributed only when core's `shell-deletions` hook saw it go missing
  *   between the call's start and end (`deletions`, from `readShellDeletions`);
  * - a `git merge`, `pull`, `rebase` or `cherry-pick` is attributed nothing: what it writes is
  *   others' committed work, left dirty only while a conflict stops it. The session's resolution
@@ -291,17 +292,8 @@ function claimInWindow(ctx, call, window, matches) {
   }
 }
 
-/**
- * Where `shell-deletions-hook.mjs` logs a session's snapshots: in the session's folder beside its
- * transcript, next to `subagents/`, so a side chat (its own id, its own folder) never reads them.
- * A sub-agent's hook may name its own transcript under `<session>/subagents/`; the log is the session's.
- * @param {string} transcriptPath
- */
-export function shellDeletionsLog(transcriptPath) {
-  const dir = dirname(transcriptPath);
-  const sessionDir = basename(dir) === "subagents" ? dirname(dir) : join(dir, basename(transcriptPath, ".jsonl"));
-  return join(sessionDir, "shell-deletions.jsonl");
-}
+/** Where core's `shell-deletions` hook logs a session's snapshots (`lib/hook-utils.mjs`). */
+export { shellDeletionsLog };
 
 /**
  * Tracked files each script-running shell call deleted: the paths its `post` snapshot lists and

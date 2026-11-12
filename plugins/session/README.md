@@ -34,7 +34,7 @@ quiet unless `kit.json` sets `"ledger": true`.
 | --- | --- | --- | --- | --- |
 | 1 | `ledger-stop` | Stop | yes | Writes the session's record and `INDEX.md` |
 | 2 | `ledger-brief` | SessionStart | yes | Prints the brief of recent records into the session's context, then the record rules (also with an empty ledger) |
-| 3 | `ledger-shell-deletions` | PreToolUse, PostToolUse (Bash, PowerShell) | yes | Snapshots tracked files a script deletes, so the record credits the deletion |
+| 3 | `ledger-shell-deletions` | (none here: core's `shell-deletions`) | yes | Former copy of core's `shell-deletions` hook, which snapshots tracked files a script deletes so the record credits the deletion. Both ran and logged every snapshot twice, so only core's remains; listing this id still switches it off |
 | 4 | `ledger-summarize` | (spawned by `ledger-stop`) | yes | Fills a record nobody wrote with a cheap model through `claude -p`. Spends tokens; list it to turn it off, or set `LEDGER_NO_SUMMARY=1` |
 | 5 | `worktree-setup` | SessionStart | no | In a new linked worktree: installs dependencies (`commands.install`, else pnpm or npm from the lockfile), builds a CodeGraph index when the main checkout has one, trusts RTK filters already trusted elsewhere. Each step is skipped when its tool is not installed. A worktree the app cut from an older commit (no commits of its own, `baseBranch` moved past it) gets a line naming the `worktree-flow adopt <base>` that moves it to the current files |
 

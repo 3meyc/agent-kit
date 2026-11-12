@@ -15,27 +15,27 @@
  *
  * The log is `<transcript dir>/<session id>/shell-deletions.jsonl` (a sub-agent's transcript logs
  * into its parent session's folder), one JSON line `{ id, phase: "pre" | "post", deleted }` per
- * snapshot, `deleted` holding absolute paths. The session plugin reads it.
+ * snapshot, `deleted` holding absolute paths. The session plugin reads it; this is the only hook
+ * that writes it (the session plugin, which depends on core, has no copy of its own).
  *
  * At PreToolUse the dispatcher `shell-pre.mjs` calls `run()` in-process before the CodeGraph sync,
  * so the `pre` snapshot precedes anything the call does; PostToolUse runs this file directly.
  */
 import { spawnSync } from "node:child_process";
 import { appendFileSync, mkdirSync } from "node:fs";
-import { basename, dirname, join } from "node:path";
-import { SHELL_TOOLS, isDirectRun, projectRoot, readHookInput } from "../lib/hook-utils.mjs";
-import { ledgerHookOn, readKit } from "../lib/kit-config.mjs";
+import { dirname, join } from "node:path";
+import { SHELL_TOOLS, isDirectRun, readHookInput, shellDeletionsLog } from "../lib/hook-utils.mjs";
+import { hookOff, ledgerHookOn, readKit, rootFor } from "../lib/kit-config.mjs";
 import { shellWriteTargets } from "../lib/shell-edits.mjs";
 
+export { shellDeletionsLog };
 export const HOOK_ID = "shell-deletions";
+/**
+ * The id the session plugin's copy of this hook had; it was removed because both copies ran and
+ * logged every snapshot twice. Listing it in `hooks.off` still switches this one off.
+ */
+export const OLD_SESSION_HOOK_ID = "ledger-shell-deletions";
 const PHASES = { PreToolUse: "pre", PostToolUse: "post" };
-
-/** The deletions log beside a transcript; a sub-agent's transcript maps to its parent session. */
-export function shellDeletionsLog(transcriptPath) {
-  const dir = dirname(transcriptPath);
-  const sessionDir = basename(dir) === "subagents" ? dirname(dir) : join(dir, basename(transcriptPath, ".jsonl"));
-  return join(sessionDir, "shell-deletions.jsonl");
-}
 
 /**
  * Absolute paths of tracked files deleted in the tree containing `cwd`, staged or not, plus the old
@@ -72,8 +72,8 @@ function deletedTracked(cwd) {
  * @param {{ hook_event_name?: string, tool_name?: string, tool_input?: { command?: unknown }, tool_use_id?: unknown, transcript_path?: unknown, cwd?: string }} input
  * @param {import("../lib/kit-config.mjs").Kit} [config]
  */
-export async function run(input, config = readKit(projectRoot())) {
-  if (!ledgerHookOn(HOOK_ID, config)) return;
+export async function run(input, config = readKit(rootFor(input.cwd))) {
+  if (!ledgerHookOn(HOOK_ID, config) || hookOff(OLD_SESSION_HOOK_ID, config)) return;
   const phase = PHASES[input.hook_event_name];
   const command = input.tool_input?.command;
   if (!phase || !SHELL_TOOLS.has(input.tool_name ?? "") || typeof command !== "string") return;

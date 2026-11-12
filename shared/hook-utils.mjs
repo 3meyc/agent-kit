@@ -153,6 +153,19 @@ export function transcriptRoot(transcriptPath, root = projectRoot()) {
 }
 
 /**
+ * Where core's `shell-deletions` hook logs a session's snapshots and the session ledger reads
+ * them: in the session's folder beside its transcript, next to `subagents/`, so a side chat (its
+ * own id, its own folder) never reads them. A sub-agent's hook may name its own transcript under
+ * `<session>/subagents/`; the log is the session's.
+ * @param {string} transcriptPath
+ */
+export function shellDeletionsLog(transcriptPath) {
+  const dir = dirname(transcriptPath);
+  const sessionDir = basename(dir) === "subagents" ? dirname(dir) : join(dir, basename(transcriptPath, ".jsonl"));
+  return join(sessionDir, "shell-deletions.jsonl");
+}
+
+/**
  * The worktree a hook payload's `cwd` belongs to, when it lies under `<root>/.claude/worktrees/`
  * and that worktree holds its own copy of the script at `scriptRel`. For a hook that runs a script
  * kept in the project: the app may run the main checkout's copy for a worktree session, and the

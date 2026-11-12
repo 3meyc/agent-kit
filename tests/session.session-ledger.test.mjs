@@ -17,6 +17,8 @@ import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "./session/vitest-compat.mjs";
 
 const PLUGIN = fileURLToPath(new URL("../plugins/session/", import.meta.url));
+// The deletion snapshots the ledger reads are taken by core's hook (session depends on core).
+const CORE_SHELL_DELETIONS = fileURLToPath(new URL("../plugins/core/hooks/shell-deletions.mjs", import.meta.url));
 
 // The writer works on the checkout of its cwd (or the hook payload's) and reads transcripts under
 // HOME, so it runs against a throwaway repo with a fake HOME, never this repository's ledger. It
@@ -308,7 +310,7 @@ describe("session-ledger --files around a merge", () => {
 });
 
 describe("session-ledger --files on a file a script deleted", () => {
-  /** The Pre/PostToolUse shell-deletions hook, fed the payload Claude Code sends for a shell call. */
+  /** Core's Pre/PostToolUse shell-deletions hook, fed the payload Claude Code sends for a shell call. */
   function shellHook(event, id, command, sessionId = ID) {
     const payload = {
       hook_event_name: event,
@@ -319,7 +321,7 @@ describe("session-ledger --files on a file a script deleted", () => {
       tool_use_id: id,
       tool_input: { command },
     };
-    spawnSync(process.execPath, [join(plugin, "scripts", "shell-deletions-hook.mjs")], {
+    spawnSync(process.execPath, [CORE_SHELL_DELETIONS], {
       cwd: repo,
       input: JSON.stringify(payload),
       env: { ...process.env, HOME: home, USERPROFILE: home },

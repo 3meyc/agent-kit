@@ -8,11 +8,12 @@
  * 1. `shell-deletions` — the `pre` snapshot must be taken before anything the call does.
  * 2. `codegraph-sync` — may take seconds (sync, lock retries); nothing waits on it now.
  *
- * kit.json is read once and handed to both. Each duty runs behind its own try/catch: one failing
+ * kit.json is read once, from the checkout holding the payload's cwd (`rootFor`, as the lint hook
+ * does), and handed to both. Each duty runs behind its own try/catch: one failing
  * never skips the other, and neither ever blocks the tool call (one stderr line, exit 0).
  */
-import { isDirectRun, projectRoot, readHookInput } from "../lib/hook-utils.mjs";
-import { readKit } from "../lib/kit-config.mjs";
+import { isDirectRun, readHookInput } from "../lib/hook-utils.mjs";
+import { readKit, rootFor } from "../lib/kit-config.mjs";
 import { run as runSync } from "./codegraph-sync.mjs";
 import { run as runDeletions } from "./shell-deletions.mjs";
 
@@ -28,7 +29,7 @@ export const DUTIES = [
  * @param {Array<[string, (input: Record<string, unknown>, config: import("../lib/kit-config.mjs").Kit) => Promise<void> | void]>} [duties]
  * @param {import("../lib/kit-config.mjs").Kit} [config]
  */
-export async function dispatch(input, duties = DUTIES, config = readKit(projectRoot())) {
+export async function dispatch(input, duties = DUTIES, config = readKit(rootFor(input?.cwd))) {
   for (const [name, duty] of duties) {
     try {
       await duty(input, config);

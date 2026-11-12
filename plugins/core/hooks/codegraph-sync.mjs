@@ -20,9 +20,10 @@
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, statSync } from "node:fs";
+import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
-import { SHELL_TOOLS, isDirectRun, projectRoot, readHookInput } from "../lib/hook-utils.mjs";
-import { hookOff, readKit } from "../lib/kit-config.mjs";
+import { SHELL_TOOLS, isDirectRun, readHookInput } from "../lib/hook-utils.mjs";
+import { hookOff, readKit, rootFor } from "../lib/kit-config.mjs";
 import { stripHeredocs } from "../lib/shell-edits.mjs";
 
 export const HOOK_ID = "codegraph-sync";
@@ -53,7 +54,12 @@ export function codegraphQueryDir(input) {
   const shell = stripHeredocs(command);
   if (!READING_CALL.test(shell)) return null;
   const cd = shell.match(LEADING_CD)?.[1].replace(/^["']|["']$/g, "");
-  return cd ? resolve(cwd, cd) : cwd;
+  return cd ? resolve(cwd, expandHome(cd)) : cwd;
+}
+
+/** A leading `~` or `~/…` as the shell expands it (an unquoted one; the quote is gone by now). */
+function expandHome(dir, home = homedir()) {
+  return dir === "~" ? home : /^~[\\/]/.test(dir) ? join(home, dir.slice(2)) : dir;
 }
 
 /** Top of the linked worktree containing `dir` when it has its own index; null otherwise. */
@@ -75,22 +81,40 @@ function worktreeWithIndex(dir) {
 export async function run(input, config) {
   const dir = codegraphQueryDir(input);
   if (dir === null || !isAbsolute(dir) || !existsSync(dir)) return;
-  if (hookOff(HOOK_ID, config === undefined ? readKit(projectRoot()) : config)) return;
+  if (hookOff(HOOK_ID, config === undefined ? readKit(rootFor(input.cwd)) : config)) return;
   const top = worktreeWithIndex(dir);
   if (top === null) return;
-  let result = syncIndex(top);
+  syncWorktree(top);
+}
+
+/**
+ * Sync the index of `top`, waiting out a lock held by another sync; warns on stderr when it still
+ * fails. `sync` and `wait` stand in for the CLI and the pause in tests.
+ * @param {string} top
+ * @param {{ sync?: (top: string) => { status: number | null, stdout?: string, stderr?: string, error?: Error }, wait?: (ms: number) => void, warn?: (line: string) => void }} [options]
+ * @returns {number} how many times the sync ran
+ */
+export function syncWorktree(top, { sync = syncIndex, wait = pause, warn = console.error } = {}) {
+  let result = sync(top);
+  let attempts = 1;
   // A query that finds the index stale starts a background sync of its own after answering; its
   // lock makes ours fail. That sync is already bringing the index up to date, so wait it out.
-  for (let attempt = 0; attempt < LOCK_RETRIES && isLockBusy(result); attempt++) {
-    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, LOCK_RETRY_MS);
-    result = syncIndex(top);
+  for (let retry = 0; retry < LOCK_RETRIES && isLockBusy(result); retry++) {
+    wait(LOCK_RETRY_MS);
+    result = sync(top);
+    attempts += 1;
   }
   // No CLI on this machine: nothing can read the index either, so there is nothing to warn about.
-  if (result.error && "code" in result.error && result.error.code === "ENOENT") return;
+  if (result.error && "code" in result.error && result.error.code === "ENOENT") return attempts;
   if (result.status !== 0) {
     const reason = result.error ? result.error.message : `exit ${result.status}`;
-    console.error(`${HOOK_ID}: sync of ${top} failed (${reason}); the query may read a stale index`);
+    warn(`${HOOK_ID}: sync of ${top} failed (${reason}); the query may read a stale index`);
   }
+  return attempts;
+}
+
+function pause(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
 /** Not `-q`: the quiet flag also hides the lock message the retry looks for. */

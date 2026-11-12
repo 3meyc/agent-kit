@@ -16,6 +16,8 @@ import { basename, dirname, join, resolve } from "node:path";
 
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const MISS_TTL_MS = 30 * 60 * 1000;
+/** Below this, a remote read is not started: `git ls-remote` needs about this long even when fast. */
+const MIN_READ_MS = 250;
 
 /** Claude Code's config folder: `CLAUDE_CONFIG_DIR`, else `~/.claude`. */
 export function claudeDir() {
@@ -222,12 +224,21 @@ export function isCommitVersioned(entry) {
  * Remote SHAs are cached in `cacheFile`: for six hours, a failed lookup for thirty minutes. With
  * `fresh`, the cache is not trusted: every remote is read again, and only when that read fails does
  * a cached SHA stand in, with `from: "cache"` and its age in `cachedAt`. Call `save()` once done.
- * @param {{ cacheFile?: string | null, timeoutMs?: number, state: ReturnType<typeof readPluginState>, declared?: Record<string, any>, fresh?: boolean, resolveSha?: (remote: {url: string, ref: string}) => string | null, now?: number }} options
+ * `timeoutMs` caps one remote read; `budgetMs`, when set, caps all of them together: each read gets
+ * at most what is left, and once less than `MIN_READ_MS` is left the remaining remotes count as a
+ * failed lookup (and are cached as one), so a run of slow remotes cannot outlast a hook's timeout.
+ * @param {{ cacheFile?: string | null, timeoutMs?: number, budgetMs?: number | null, state: ReturnType<typeof readPluginState>, declared?: Record<string, any>, fresh?: boolean, resolveSha?: (remote: {url: string, ref: string}, timeoutMs: number) => string | null, now?: number, clock?: () => number }} options
  */
-export function channelResolver({ cacheFile = null, timeoutMs = 4000, state, declared = {}, fresh = false, resolveSha, now = Date.now() }) {
+export function channelResolver({ cacheFile = null, timeoutMs = 4000, budgetMs = null, state, declared = {}, fresh = false, resolveSha, now = Date.now(), clock = Date.now }) {
   const cache = cacheFile ? (readJson(cacheFile) ?? {}) : {};
   let cacheDirty = false;
   const looked = new Map();
+  const deadline = budgetMs === null ? null : clock() + budgetMs;
+  const readSha = (remote) => {
+    const limit = deadline === null ? timeoutMs : Math.min(timeoutMs, deadline - clock());
+    if (limit < MIN_READ_MS) return null;
+    return resolveSha ? resolveSha(remote, limit) : lsRemote(remote, limit);
+  };
   const shaFor = (name, remote) => {
     const key = `${name} ${remote.url} ${remote.ref}`;
     if (looked.has(key)) return looked.get(key);
@@ -238,7 +249,7 @@ export function channelResolver({ cacheFile = null, timeoutMs = 4000, state, dec
     if (!fresh && hit && now - hit.at < (hit.sha ? CACHE_TTL_MS : MISS_TTL_MS)) {
       result = { sha: hit.sha, from: hit.sha ? "cache" : "none", cachedAt: hit.at };
     } else {
-      const sha = resolveSha ? resolveSha(remote) : lsRemote(remote, timeoutMs);
+      const sha = readSha(remote);
       // A fresh read that fails keeps the last good SHA, so it can still be shown as the cache's.
       if (sha || !fresh || !hit?.sha) {
         cache[key] = { sha: sha ?? null, at: now };
@@ -298,7 +309,7 @@ export function splitId(id) {
  * session there actually runs (`loadedRecord`, S11); `own` marks a record for `root` itself;
  * `userInstalled` is the user-scope copy's commit, or null when there is none. `include` keeps only
  * the plugins it accepts, before any remote is read.
- * @param {{ root?: string | null, cacheFile?: string | null, timeoutMs?: number, state?: ReturnType<typeof readPluginState>, declared?: Record<string, any>, fresh?: boolean, resolveSha?: (remote: {url: string, ref: string}) => string | null, now?: number, include?: (plugin: string, marketplace: string) => boolean }} [options]
+ * @param {{ root?: string | null, cacheFile?: string | null, timeoutMs?: number, budgetMs?: number | null, state?: ReturnType<typeof readPluginState>, declared?: Record<string, any>, fresh?: boolean, resolveSha?: (remote: {url: string, ref: string}, timeoutMs: number) => string | null, now?: number, clock?: () => number, include?: (plugin: string, marketplace: string) => boolean }} [options]
  * @returns {{ lagging: Array<UpdateItem & { latest: string }>, checked: UpdateItem[] }}
  * @typedef {{ plugin: string, marketplace: string, scope: string, projectPath: string | null, installed: string, latest: string | null, ref: string, registeredRef: string, from: "remote" | "cache" | "none" | "pinned", cachedAt: number | null, source: string | null, loaded: boolean, own: boolean, userInstalled: string | null }} UpdateItem
  */
@@ -306,14 +317,16 @@ export function checkUpdates({
   root = null,
   cacheFile = null,
   timeoutMs = 4000,
+  budgetMs = null,
   state = readPluginState(),
   declared = declaredMarketplaces(root),
   fresh = false,
   resolveSha,
   now = Date.now(),
+  clock,
   include,
 } = {}) {
-  const channels = channelResolver({ cacheFile, timeoutMs, state, declared, fresh, resolveSha, now });
+  const channels = channelResolver({ cacheFile, timeoutMs, budgetMs, state, declared, fresh, resolveSha, now, clock });
   const keys = new Map();
   const checked = [];
   for (const [id, entries] of Object.entries(state.installed)) {

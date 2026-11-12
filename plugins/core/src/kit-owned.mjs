@@ -478,7 +478,9 @@ export function findKitCopies(projectDir, plugins = enabledForProject(projectDir
       found.push({ path: test, plugin: owned.plugin, note: `tests kit-owned ${of}${gone}; delete it with the script` });
     }
     for (const copy of ownPlugins.has(owned.plugin) ? [] : textCopies(projectDir, plugin)) {
-      if (seen.has(copy.path) || owned.files.some((file) => copy.path.startsWith(file.path))) continue;
+      // A copy inside an owned path is named once, by that path; a path segment must match in full,
+      // so skill `check` does not hide a copy in `.claude/skills/checks/`.
+      if (seen.has(copy.path) || owned.files.some((file) => copy.path === file.path || copy.path.startsWith(`${file.path}/`))) continue;
       seen.add(copy.path);
       found.push({ path: copy.path, plugin: owned.plugin, note: copy.note });
     }

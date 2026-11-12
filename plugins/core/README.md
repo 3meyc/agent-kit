@@ -26,13 +26,15 @@ quietly when its id is listed.
 | ID | Hook id | Event | Does | Does nothing when |
 | --- | --- | --- | --- | --- |
 | 1 | `rules` | SessionStart | Prints the always-on rules | listed in `hooks.off` |
-| 2 | `update-check` | SessionStart | One short note when the kit plugin copy this session loads, or the user-scope copy, differs from its channel (the project's declared marketplace ref, else the registered one; for a plugin whose catalog entry names its own repository, that repository's ref), with the update commands at `--scope user` and, for a project-scope copy, `kit installs --clean`; remote SHAs cached for six hours (`kit doctor` and `kit update-check` read the remote every time) | nothing lags, the remote is unreachable, or the session restarted after a compaction |
+| 2 | `update-check` | SessionStart | One short note when the kit plugin copy this session loads, or the user-scope copy, differs from its channel (the project's declared marketplace ref, else the registered one; for a plugin whose catalog entry names its own repository, that repository's ref), with the update commands at `--scope user` and, for a project-scope copy, `kit installs --clean`; remote SHAs cached for six hours, and all remote reads together stay inside 8 s so a slow network cannot outlast the hook (`kit doctor` and `kit update-check` read the remote every time) | nothing lags, the remote is unreachable, or the session restarted after a compaction |
 | 3 | `lint-edited-file` | PostToolUse Edit, Write, MultiEdit | Runs every `lintOnEdit` rule whose globs match the edited file, in order; any failure is shown to the agent (exit 2) without undoing the edit | no `lintOnEdit`, or the file matches no rule |
-| 4 | `shell-deletions` | PreToolUse and PostToolUse Bash, PowerShell | Snapshots tracked files a script-running command deletes, for the session ledger | `ledger` is not `true`, or the command runs no script |
+| 4 | `shell-deletions` | PreToolUse and PostToolUse Bash, PowerShell | Snapshots tracked files a script-running command deletes, for the session ledger; the only hook that does (the session plugin's former copy is gone) | `ledger` is not `true`, the command runs no script, or `hooks.off` lists it or `ledger-shell-deletions`, the former copy's id |
 | 5 | `codegraph-sync` | PreToolUse Bash, PowerShell, CodeGraph MCP tools | Syncs a linked worktree's own CodeGraph index before a query reads it | no `.codegraph/codegraph.db` in the worktree, or no `codegraph` CLI |
 
 Hooks 4 and 5 share one PreToolUse process for shell calls (`hooks/shell-pre.mjs`), so a shell
 call starts one `node`, not two. No hook ever blocks a tool call; a failure is one stderr line.
+Hooks 3 to 5 read `kit.json` from the checkout that holds the call's working folder, so a linked
+worktree's own `kit.json` (its `hooks.off`, its `ledger`) applies in that worktree.
 
 ## Commands
 
@@ -79,7 +81,8 @@ Skills call `node "${CLAUDE_PLUGIN_ROOT}/src/kit-cli.mjs" …`, which needs no P
 
 `lintOnEdit` takes one rule, or a list of rules so different files get different checks. A rule
 is a command and optional globs; `{file}` is replaced by the quoted repo-relative path, or the path
-is appended. A glob without `/` matches the file name anywhere. Every rule that matches runs, and
+is appended. A glob without `/` matches the file name anywhere; `{a,b}` alternates, and each part
+may hold wildcards (`{*.ts,*.svelte}`). Every rule that matches runs, and
 one failing does not stop the next. `checks` names suites of commands for `/core:check <suite>`;
 a suite name may not repeat a `commands` key or `all`, and `/core:check` with no name runs `check`,
 `lint` and `test` as before.
@@ -93,6 +96,12 @@ a suite name may not repeat a `commands` key or `all`, and `/core:check` with no
   "checks": { "i18n": ["pnpm run i18n:check", "pnpm run i18n:parity"], "docs": ["pnpm run docs:check"] }
 }
 ```
+
+**`kit.json` commands are executable config.** `lintOnEdit` commands run through the shell after
+every edit, with no prompt, and `commands.*` and `checks` run when `/core:check` or `/core:dev`
+asks. Trust a `kit.json` the way you trust project hooks in `.claude/settings.json`: read it in a
+branch or a clone you did not write before Claude edits files there. Claude Code's hook list does
+not show these commands, since the kit runs them _(unverified for `/hooks`)_.
 
 ## Inventory repo list
 
