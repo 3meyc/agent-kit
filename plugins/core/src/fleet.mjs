@@ -139,6 +139,43 @@ export function githubClient({ token, fetchImpl = fetch, api = process.env.GITHU
   };
 }
 
+/**
+ * Tokens per repo owner from `KIT_FLEET_TOKENS`: one `owner=token` per line (or separated by
+ * spaces or commas). A fine-grained token reads one owner's repos only, so a list across two
+ * owners needs one token each. Owner names compare case-insensitively.
+ * @param {string | undefined} text @returns {Map<string, string>}
+ */
+export function parseOwnerTokens(text) {
+  const tokens = new Map();
+  for (const pair of String(text ?? "").split(/[\s,]+/)) {
+    const eq = pair.indexOf("=");
+    if (eq > 0 && eq < pair.length - 1) tokens.set(pair.slice(0, eq).toLowerCase(), pair.slice(eq + 1));
+  }
+  return tokens;
+}
+
+/**
+ * One client per token: the owner's token from `owners` for a repo of that owner, else `token`.
+ * @param {{ token: string | null, owners: Map<string, string>, fetchImpl?: typeof fetch, api?: string }} options
+ */
+export function ownerClients({ token, owners, fetchImpl, api }) {
+  const clients = new Map();
+  const forToken = (value) => {
+    if (!clients.has(value)) clients.set(value, githubClient({ token: value, fetchImpl, api }));
+    return clients.get(value);
+  };
+  /** @param {string} repo `owner/name` */
+  const pick = (repo) => {
+    const value = owners.get(repo.split("/")[0].toLowerCase()) ?? token;
+    if (!value) throw new Error(`no token for ${repo.split("/")[0]}: add it to KIT_FLEET_TOKENS or set a default token`);
+    return forToken(value);
+  };
+  return {
+    json: (path) => pick(path.split("/").slice(2, 4).join("/")).json(path),
+    archive: (repo, sha) => pick(repo).archive(repo, sha),
+  };
+}
+
 /** The commit a ref (branch, tag or SHA) points at. */
 async function resolveRef(client, repo, ref) {
   const commit = await client.json(`/repos/${repo}/commits/${encodeURIComponent(ref)}`);
@@ -435,7 +472,8 @@ export function parseFleetArgs(args) {
 
 /**
  * `kit fleet --source github --list <file> [--repo [name=]owner/repo[#branch]]... [--kit owner/repo[#ref]]...
- * [--out <dir>] [--json]`. The token comes from KIT_FLEET_TOKEN, GH_TOKEN or GITHUB_TOKEN.
+ * [--out <dir>] [--json]`. The token comes from KIT_FLEET_TOKEN, GH_TOKEN or GITHUB_TOKEN;
+ * KIT_FLEET_TOKENS (`owner=token` lines) gives a repo owner its own token.
  * @param {string[]} args
  * @param {{ env?: NodeJS.ProcessEnv, fetchImpl?: typeof fetch, print?: (text: string) => void, now?: Date }} [io]
  */
@@ -448,9 +486,13 @@ export async function runFleet(args, { env = process.env, fetchImpl = fetch, pri
   if (options.errors.length > 0) return fail(options.errors.join("; "));
   const list = loadFleetList(options);
   if ("error" in list) return fail(list.error);
-  const token = env.KIT_FLEET_TOKEN || env.GH_TOKEN || env.GITHUB_TOKEN;
-  if (!token) return fail("no token: set KIT_FLEET_TOKEN, GH_TOKEN or GITHUB_TOKEN to a token that can read every listed repo and kit");
-  const report = await buildFleetReport(list, { client: githubClient({ token, fetchImpl, api: env.GITHUB_API_URL || "https://api.github.com" }), now });
+  const token = env.KIT_FLEET_TOKEN || env.GH_TOKEN || env.GITHUB_TOKEN || null;
+  const owners = parseOwnerTokens(env.KIT_FLEET_TOKENS);
+  if (!token && owners.size === 0) {
+    return fail("no token: set KIT_FLEET_TOKEN, GH_TOKEN or GITHUB_TOKEN to a token that can read every listed repo and kit, or KIT_FLEET_TOKENS to owner=token lines");
+  }
+  const client = ownerClients({ token, owners, fetchImpl, api: env.GITHUB_API_URL || "https://api.github.com" });
+  const report = await buildFleetReport(list, { client, now });
   const markdown = renderMarkdown(report);
   const json = `${JSON.stringify(report, null, 2)}\n`;
   if (options.out) {

@@ -34,7 +34,7 @@ const USAGE = `Usage: agent-kit <command>
         [--out <dir>] [--json]
         The core plugin's \`kit fleet\`: reads each listed repo (default branch, or the branch its
         entry names) and each kit at its stable ref through the GitHub API, with the token in
-        KIT_FLEET_TOKEN, GH_TOKEN or GITHUB_TOKEN. Reports kit-owned copies, kit marketplace refs,
+        KIT_FLEET_TOKEN, GH_TOKEN or GITHUB_TOKEN (KIT_FLEET_TOKENS: owner=token lines). Reports kit-owned copies, kit marketplace refs,
         lockfile pins against each kit's stable commit and drift of shared agent-tooling files, as
         Markdown (--json for JSON; --out writes both). Exit 1 on findings, 2 on a usage error.
         The reusable workflow .github/workflows/kit-fleet.yml runs it weekly (docs/using.md § 5).

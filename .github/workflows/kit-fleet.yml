@@ -47,6 +47,9 @@ on:
       fleet-token:
         description: A token that can read the contents of every listed repo and kit.
         required: false
+      fleet-tokens:
+        description: "Tokens per repo owner, one owner=token per line (a fine-grained token reads one owner only); fleet-token covers the other owners."
+        required: false
     outputs:
       findings:
         description: "1 when the check found something, 0 when clean."
@@ -72,8 +75,9 @@ jobs:
       - name: Check the read token
         env:
           FLEET_TOKEN: ${{ secrets.fleet-token }}
+          FLEET_TOKENS: ${{ secrets.fleet-tokens }}
         run: |
-          if [ -z "$FLEET_TOKEN" ]; then
+          if [ -z "$FLEET_TOKEN" ] && [ -z "$FLEET_TOKENS" ]; then
             echo "::error title=kit-fleet: secret missing::The fleet-token secret is empty. Add a repository secret with a token that can read every listed repo and kit, and pass it as fleet-token (docs/using.md § 5). Nothing was checked."
             exit 1
           fi
@@ -99,7 +103,8 @@ jobs:
       - name: Run kit fleet
         id: fleet
         env:
-          GH_TOKEN: ${{ secrets.fleet-token }}
+          KIT_FLEET_TOKEN: ${{ secrets.fleet-token }}
+          KIT_FLEET_TOKENS: ${{ secrets.fleet-tokens }}
           LIST: caller/${{ inputs.repo-list }}
         run: |
           set +e
