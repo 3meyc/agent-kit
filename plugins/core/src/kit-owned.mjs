@@ -385,12 +385,18 @@ export function textLines(text) {
   return lines;
 }
 
-/** The texts a plugin puts in front of the model: `rules/*.md` and `skills/<name>/SKILL.md`. @param {{ root: string }} plugin */
+/**
+ * The texts a plugin puts in front of the model: `rules/*.md`, and each skill's `SKILL.md` with the
+ * Markdown files beside it that the skill reads (`skills/<name>/*.md`; subfolders such as `assets/`
+ * hold templates, not instructions). @param {{ root: string }} plugin
+ */
 function kitTexts(plugin) {
   const texts = [];
   for (const name of listNames(join(plugin.root, "rules"), (_, n) => n.endsWith(".md"))) texts.push(`rules/${name}`);
   for (const name of listNames(join(plugin.root, "skills"), (path) => statSync(path).isDirectory())) {
-    if (existsSync(join(plugin.root, "skills", name, "SKILL.md"))) texts.push(`skills/${name}/SKILL.md`);
+    const dir = join(plugin.root, "skills", name);
+    if (!existsSync(join(dir, "SKILL.md"))) continue;
+    for (const file of listNames(dir, (path, n) => n.endsWith(".md") && statSync(path).isFile())) texts.push(`skills/${name}/${file}`);
   }
   return texts.map((source) => ({ source, lines: textLines(readFileSync(join(plugin.root, source), "utf8")) }));
 }
@@ -408,7 +414,7 @@ function instructionFiles(projectDir) {
   walk(".claude/rules");
   walk(".claude/commands");
   for (const name of listNames(join(projectDir, ".claude", "skills"), (path) => statSync(path).isDirectory())) {
-    if (existsSync(join(projectDir, ".claude", "skills", name, "SKILL.md"))) found.push(`.claude/skills/${name}/SKILL.md`);
+    if (existsSync(join(projectDir, ".claude", "skills", name, "SKILL.md"))) walk(`.claude/skills/${name}`);
   }
   return found;
 }

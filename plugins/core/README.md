@@ -47,11 +47,25 @@ worktree's own `kit.json` (its `hooks.off`, its `ledger`) applies in that worktr
 | 5 | `/core:kit-inventory [--out <dir>]` | Inventories agent tooling across your local repos and measures drift between copies |
 | 6 | `/core:sweep <question>` | Answers a read-only question across many files in the Haiku agent `repo-sweep` and returns a verdict, not excerpts |
 | 7 | `codegraph` skill | How to use the CodeGraph CLI (impact before changing a shared symbol; grep members read as `obj.prop`). Applies only where `.codegraph/` exists |
+| 8 | `/core:change-review [uncommitted \| staged \| last \| branch \| <commit or range> \| <PR> \| <path>]` | Reviews one change for behavior: bug, risk, scale, missing test, speed, lean. Reads the callers and tests the diff touches; numbered findings in Must fix / Should fix / Nice to have, each with a concrete case, then `Verdict:` and `Not checked:`. Empty: the uncommitted changes (untracked files included), else the last commit; `branch` diffs from the newer fork point of the local base and `origin/<base>`. Changes no code |
+| 9 | `/core:repo-audit [<folder> \| all]` | The same checks over a whole repo or folder, in a forked sub-agent: maps entry points and main flows first, goes deep where mistakes cost most, at most 20 ranked findings, and names what it did not read. Changes no code |
 
 The docs say the bare names (`/check`, `/dev`, …) work too while no other command has them
 _(unverified here)_. Agents:
 `check-runner` (runs check commands, reports failures only) and `repo-sweep` (multi-file
 read-only sweeps that return a verdict).
+
+`/core:change-review` and `/core:repo-audit` complement the host `code-review` skill that
+`/sdlc:finish` uses: they judge behavior at the repo's expected load and say which load they
+assumed. Both run only when the user types them. The review runs in the session, so a follow-up
+such as "fix 2 and 5" has the code at hand; the audit reads far more files, so it runs in a
+forked `general-purpose` sub-agent (the session's model, not Haiku) and only its report comes
+back. Their names avoid `review` and `audit`, which `kit doctor` would otherwise claim in every
+project that keeps its own `.claude/skills/review/` or `.claude/commands/audit.md`. What both
+look for, and the checks a finding passes, live once in
+[skills/change-review/checks.md](skills/change-review/checks.md), which each skill reads. Both are
+adapted from the MIT-licensed [ponytail](https://github.com/DietrichGebert/ponytail) skills; see
+[THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES).
 
 ## Shell commands
 
@@ -123,8 +137,9 @@ name to new) keep a project copy under a renamed skill's or agent's old name kit
 `<file>#<key.path>` claims one key of a JSON
 file (`.mcp.json#mcpServers.<name>`), so the project keeps its own keys there. A plugin's rule or
 skill text copied under another name counts too: a `CLAUDE.md`, `AGENTS.md`, `.claude/rules/`,
-`.claude/commands/` or `.claude/skills/*/SKILL.md` file that holds at least half the lines of a
-plugin's `rules/*.md` or `SKILL.md` (and five or more). Doctor also lists the tests of kit-owned scripts, so they
+`.claude/commands/` or `.claude/skills/*/` Markdown file that holds at least half the lines of a
+plugin's `rules/*.md`, `SKILL.md` or a Markdown file beside a `SKILL.md` (such as `checks.md`), and
+five or more. Doctor also lists the tests of kit-owned scripts, so they
 go with the script: a `*.test.*` or `*.spec.*` file beside a listed script with the same name, or
 one that imports it, even after the script itself is gone. It reads ownership from the plugins
 installed for the project and from those this session loaded with `--plugin-dir` (read from the
