@@ -1,11 +1,12 @@
 Third-party notices for the agent-kit core plugin
 ==================================================
 
-skills/change-review/SKILL.md and skills/repo-audit/SKILL.md are adapted from the
-skills ponytail-review and ponytail-audit of ponytail v5.3.3
-(https://github.com/DietrichGebert/ponytail), used under the MIT License below.
-Changes: the persona, comment-marker exception, levels and debt scan are removed; the
-targets, output and read-only rules are fitted to agent-kit.
+skills/change-review/SKILL.md, skills/change-review/checks.md and
+skills/repo-audit/SKILL.md are adapted from the skills ponytail-review and
+ponytail-audit of ponytail v5.3.3 (https://github.com/DietrichGebert/ponytail), used
+under the MIT License below. Changes: the persona, comment-marker exception, levels and
+debt scan are removed; the shared look-for and check lists are merged into checks.md;
+the targets, output and read-only rules are fitted to agent-kit.
 
 ---
 

@@ -45,7 +45,7 @@ call starts one `node`, not two. No hook ever blocks a tool call; a failure is o
 | 5 | `/core:kit-inventory [--out <dir>]` | Inventories agent tooling across your local repos and measures drift between copies |
 | 6 | `/core:sweep <question>` | Answers a read-only question across many files in the Haiku agent `repo-sweep` and returns a verdict, not excerpts |
 | 7 | `codegraph` skill | How to use the CodeGraph CLI (impact before changing a shared symbol; grep members read as `obj.prop`). Applies only where `.codegraph/` exists |
-| 8 | `/core:change-review [uncommitted \| staged \| branch \| <range> \| <PR> \| <path>]` | Reviews one change for behavior: bug, risk, scale, missing test, speed, lean. Reads the callers and tests the diff touches; numbered findings in Must fix / Should fix / Nice to have, each with a concrete case, then `Verdict:` and `Not checked:`. Empty: the uncommitted changes, else the last commit. Changes no code |
+| 8 | `/core:change-review [uncommitted \| staged \| last \| branch \| <commit or range> \| <PR> \| <path>]` | Reviews one change for behavior: bug, risk, scale, missing test, speed, lean. Reads the callers and tests the diff touches; numbered findings in Must fix / Should fix / Nice to have, each with a concrete case, then `Verdict:` and `Not checked:`. Empty: the uncommitted changes (untracked files included), else the last commit; `branch` diffs from the merge base with `origin/<base>` when it exists. Changes no code |
 | 9 | `/core:repo-audit [<folder> \| all]` | The same checks over a whole repo or folder, in a forked sub-agent: maps entry points and main flows first, goes deep where mistakes cost most, at most 20 ranked findings, and names what it did not read. Changes no code |
 
 The docs say the bare names (`/check`, `/dev`, …) work too while no other command has them
@@ -59,7 +59,9 @@ assumed. Both run only when the user types them. The review runs in the session,
 such as "fix 2 and 5" has the code at hand; the audit reads far more files, so it runs in a
 forked `general-purpose` sub-agent (the session's model, not Haiku) and only its report comes
 back. Their names avoid `review` and `audit`, which `kit doctor` would otherwise claim in every
-project that keeps its own `.claude/skills/review/` or `.claude/commands/audit.md`. Both are
+project that keeps its own `.claude/skills/review/` or `.claude/commands/audit.md`. What both
+look for, and the checks a finding passes, live once in
+[skills/change-review/checks.md](skills/change-review/checks.md), which each skill reads. Both are
 adapted from the MIT-licensed [ponytail](https://github.com/DietrichGebert/ponytail) skills; see
 [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES).
 
