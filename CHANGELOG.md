@@ -4,6 +4,10 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 ## Unreleased
 
+## 2026-11-12 — twelfth `stable`
+
+`stable` points at the commit that adds this entry.
+
 - core: a `lintOnEdit` or `preflight` glob with wildcards inside braces (`{*.ts,*.svelte}`) works; it used to throw "Nothing to repeat" and put a stack trace on every edit. `lint-edited-file` now turns a fault of its own into one stderr line.
 - core: the session-start hook prints the always-on rules before the update check, and the check's remote reads share one 8 s budget (each still at most 4 s). Four unreachable channels used to take 16 s, past the hook's 15 s timeout; a remote skipped for lack of time is cached as a miss like a failed one.
 - session: the plugin's own `ledger-shell-deletions` hook is gone; core's `shell-deletions` was doing the same work, so both ran and the deletions log got every snapshot twice. `ledger-shell-deletions` in `hooks.off` still switches core's off, and the log path helper lives once in `shared/hook-utils.mjs`.
