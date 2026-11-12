@@ -81,6 +81,18 @@ describe("guessBase", () => {
     );
   });
 
+  it("prefers dev over main on a tie when kit.json names neither", () => {
+    const tied = [
+      { name: "main", ahead: 0, behind: 0 },
+      { name: "dev", ahead: 0, behind: 0 },
+      { name: "feat/APP-427", ahead: 0, behind: 0 },
+    ];
+    expect(guessBase(tied)).toBe("dev");
+    expect(guessBase(tied, "dev")).toBe("dev");
+    expect(guessBase(tied, "main")).toBe("main");
+    expect(guessBase([{ name: "main", ahead: 0, behind: 0 }, { name: "develop", ahead: 0, behind: 0 }])).toBe("develop");
+  });
+
   it("returns null with no candidates", () => {
     expect(guessBase([])).toBeNull();
   });

@@ -24,7 +24,7 @@ Files this session edited and still dirty, and its record:
 
 !`node ${CLAUDE_PLUGIN_ROOT}/scripts/session-ledger.mjs --record`
 
-Where things are comes from the project's `kit.json`: `baseBranch` (default `main`), the SDLC
+Where things are comes from the project's `kit.json`: `baseBranch` (default `dev`), the SDLC
 items in `paths.sdlc` (default `docs/sdlc`), the ledger in `paths.ledger` (default
 `.claude/ledger`, and only when `"ledger": true`), recipes in `paths.recipes`, and the checks in
 `commands` (`check`, `test`, `build`). Below, `<sdlc>` and `<ledger>` stand for those paths.

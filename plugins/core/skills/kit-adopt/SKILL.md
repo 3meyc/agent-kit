@@ -13,7 +13,7 @@ Arguments: $ARGUMENTS
    node "${CLAUDE_PLUGIN_ROOT}/src/kit-cli.mjs" adopt $ARGUMENTS
    ```
 
-2. Show the user what it would write (the starter `kit.json`, the settings keys it adds) and the kit-owned local files it lists. Point out guesses they should check: `project`, `baseBranch`, the commands taken from `package.json`, `ledger: false`.
+2. Show the user what it would write (the starter `kit.json`, the settings keys it adds) and the kit-owned local files it lists. Point out guesses they should check: `project`, `baseBranch`, the commands taken from `package.json`, `ledger: false`. The guess for `baseBranch` takes `dev` (or `develop`, `development`) when the repo has one. When it falls back to `main`, say that the kit's model integrates on `dev` and releases from `main` (docs/using.md § 2, item 7), and offer to create `dev` from `main`. Create it only on the user's yes; changing the forge's default branch stays the user's step.
 3. Ask before writing. On their yes, run the same command with `--write` added.
 4. After writing: run `node "${CLAUDE_PLUGIN_ROOT}/src/kit-cli.mjs" doctor --offline` and report what is still open. The listed kit-owned files stay in place: retiring each one (and any project hook entry that runs a kit-owned script) is a separate change the user decides on, after checking that the kit version covers what the local copy did.
 

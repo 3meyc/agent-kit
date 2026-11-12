@@ -82,7 +82,7 @@ Intro.
 - core: the start.
 `;
 
-const changelogKit = (check = "node -e 0") => ({ "kit.json": { project: "base-kit", commands: { check } }, "CHANGELOG.md": CHANGELOG });
+const changelogKit = (check = "node -e 0") => ({ "kit.json": { project: "base-kit", baseBranch: "main", commands: { check } }, "CHANGELOG.md": CHANGELOG });
 
 describe("ordinals", () => {
   it("names release numbers in words and reads them back", () => {
@@ -231,7 +231,7 @@ describe("kit release", () => {
   });
 
   it("refuses without a check to run", () => {
-    const { dir } = kitRepo("no-check", { "kit.json": { project: "base-kit" }, "CHANGELOG.md": CHANGELOG.replace("## Unreleased\n", "## Unreleased\n\n- x\n") });
+    const { dir } = kitRepo("no-check", { "kit.json": { project: "base-kit", baseBranch: "main" }, "CHANGELOG.md": CHANGELOG.replace("## Unreleased\n", "## Unreleased\n\n- x\n") });
     land(dir, { "a.txt": "a" });
     assert.match(release(dir).out, /no check to run/);
   });
@@ -246,6 +246,7 @@ describe("kit release for an overlay", () => {
     const overlay = kitRepo("overlay", {
       "kit.json": {
         project: "my-overlay",
+        baseBranch: "main",
         commands: { check: "node -e 0" },
         release: {
           notes: [{ path: "docs/evolution.md", format: "table" }, { path: "docs/evolution.uk.md", format: "table", lang: "uk" }],
@@ -284,7 +285,7 @@ describe("kit release for an overlay", () => {
     land(base.dir, { "later.txt": "x" });
     const later = git(base.dir, "rev-parse", "HEAD");
     const files = (needs) => ({
-      "kit.json": { project: "my-overlay", commands: { check: "node -e 0" }, release: { notes: [{ path: "docs/evolution.md", format: "table" }], base: { repo: base.remote, needs } } },
+      "kit.json": { project: "my-overlay", baseBranch: "main", commands: { check: "node -e 0" }, release: { notes: [{ path: "docs/evolution.md", format: "table" }], base: { repo: base.remote, needs } } },
       "docs/evolution.md": TABLE,
     });
     const ok = kitRepo("overlay-sha-ok", files(tagged));

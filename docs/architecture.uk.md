@@ -70,7 +70,7 @@ SDLC читають глосарій, коли робочий елемент з�
 {
   "$schema": "https://raw.githubusercontent.com/3meyc/agent-kit/stable/schema/kit.schema.json",
   "project": "my-app",
-  "baseBranch": "main",
+  "baseBranch": "dev",
   "itemPrefix": "APP",
   "ledger": true,
   "paths": {

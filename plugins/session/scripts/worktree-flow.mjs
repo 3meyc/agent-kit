@@ -19,7 +19,8 @@ import { escapeRegExp, inLedger, readKit } from "../lib/kit-config.mjs";
  *
  * A base comes from, in order: what `base <ref>` recorded (git config `branch.<name>.kitBase`), the
  * `base:` of the SDLC item whose `branch:` is this branch (`kit.json` `paths.sdlc`), else a
- * guess among the local branches, with `kit.json` `baseBranch` winning a tie.
+ * guess among the local branches, with `kit.json` `baseBranch` (default `dev`) winning a tie and
+ * `dev`, `develop` or `development` next.
  *
  * The desktop app cuts a worktree from the branch picked on its New session screen but knows
  * nothing about where the work lands afterwards; this fills that gap. `land` is fast-forward only
@@ -72,18 +73,25 @@ export function matchBranch(input, branches) {
 
 /**
  * The integration branch most likely meant when nothing recorded one: the candidate holding the
- * most of this branch, then the one this branch is least behind, then the project's `baseBranch`.
- * A fresh worktree cut from `main` is zero ahead of both `main` and an item branch that contains
- * `main`; the second key picks `main`.
+ * most of this branch, then the one this branch is least behind, then the project's `baseBranch`,
+ * then an integration branch (`dev`, `develop`, `development`) over any other. A fresh worktree cut
+ * from `main` is zero ahead of both `main` and an item branch that contains `main`; the second key
+ * picks `main`. A worktree cut from `dev` while `main` sits at the same commit picks `dev`.
  * @param {{ name: string, ahead: number, behind: number }[]} candidates ahead/behind of the worktree branch versus each
  * @param {string | null} [preferred] `kit.json` `baseBranch`, which wins a tie
  */
 export function guessBase(candidates, preferred = null) {
-  const sorted = [...candidates].sort(
-    (a, b) => a.ahead - b.ahead || a.behind - b.behind || (b.name === preferred) - (a.name === preferred),
-  );
+  const rank = (name) => {
+    if (name === preferred) return 0;
+    const integration = INTEGRATION_BRANCHES.indexOf(name);
+    return integration < 0 ? INTEGRATION_BRANCHES.length + 1 : integration + 1;
+  };
+  const sorted = [...candidates].sort((a, b) => a.ahead - b.ahead || a.behind - b.behind || rank(a.name) - rank(b.name));
   return sorted[0]?.name ?? null;
 }
+
+/** Integration branch names, in the order a tie prefers them after `kit.json` `baseBranch`. */
+const INTEGRATION_BRANCHES = ["dev", "develop", "development"];
 
 /**
  * What can happen to a worktree, from its facts. Pure, so the wording and the safety rule are tested.
@@ -548,7 +556,8 @@ const USAGE = `The branch-and-worktree side of a session, from start to close-ou
                                           remove a clean worktree whose commits are all in its base
 
 With no command it runs status. The base is the recorded one (base <ref>), else the SDLC item's
-base:, else a guess, with kit.json baseBranch winning a tie.
+base:, else a guess, with kit.json baseBranch (default dev) winning a tie and dev, develop or
+development next.
 
 Flags:
   --help, -h   print this and exit 0 (any command)

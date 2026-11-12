@@ -50,7 +50,7 @@ quiet unless `kit.json` sets `"ledger": true`.
 | 2 | `paths.ledger` | `.claude/ledger` | Where records, `INDEX.md` and `archive/` live |
 | 3 | `paths.sdlc` | `docs/sdlc` | `worktree-flow` reads an item's `base:` from `<item>/intent.md`; `git-commit-session --worktree` accepts renames inside it as the session's |
 | 4 | `paths.recipes` | `docs/recipes` | `/close-out` and `/handoff` name areas by recipe |
-| 5 | `baseBranch` | `main` | `worktree-flow` prefers it when guessing a base; `/git branch` cuts from it |
+| 5 | `baseBranch` | `dev` | `worktree-flow` prefers it when guessing a base; `/git branch` cuts from it |
 | 6 | `itemPrefix` | none | `/git branch <ITEM-ID>` and commit footers |
 | 7 | `commands.commitAudit` | none | Run after each commit that holds code; its output is shown, never its exit code. `{files}` in it becomes the committed paths, quoted; they are also in `KIT_COMMIT_PATHS`, one per line, so the audit can report only findings in them |
 | 8 | `commands.check`, `lint`, `test`, `build` | none | The checks `/close-out` and `/close-siblings` run before landing |

@@ -50,7 +50,7 @@ Claude Code не вміє вимкнути один хук плагіна, то�
 | 2 | `paths.ledger` | `.claude/ledger` | Де лежать записи, `INDEX.md` і `archive/` |
 | 3 | `paths.sdlc` | `docs/sdlc` | `worktree-flow` читає `base:` елемента з `<item>/intent.md`; `git-commit-session --worktree` зараховує перейменування всередині сесії |
 | 4 | `paths.recipes` | `docs/recipes` | `/close-out` і `/handoff` називають області за рецептами |
-| 5 | `baseBranch` | `main` | `worktree-flow` віддає їй перевагу, коли вгадує базу; `/git branch` відгалужується від неї |
+| 5 | `baseBranch` | `dev` | `worktree-flow` віддає їй перевагу, коли вгадує базу; `/git branch` відгалужується від неї |
 | 6 | `itemPrefix` | немає | `/git branch <ITEM-ID>` і футери комітів |
 | 7 | `commands.commitAudit` | немає | Запускається після кожного коміту з кодом; показується вивід, код виходу — ніколи. `{files}` у ній стає закоміченими шляхами в лапках; вони також є в `KIT_COMMIT_PATHS`, по одному в рядку, тож аудит може показати лише знахідки в них |
 | 8 | `commands.check`, `lint`, `test`, `build` | немає | Перевірки, які `/close-out` і `/close-siblings` запускають перед злиттям |

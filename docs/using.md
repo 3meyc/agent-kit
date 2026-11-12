@@ -97,6 +97,23 @@ pnpm exec agent-kit doctor --strict --offline --plugin-root node_modules/my-over
 evolution init
 ```
 
+7. Branch the same way in every repo: personal, work and kit repos alike. A repo that has a
+   reason to differ sets `baseBranch` in `kit.json`.
+
+| ID | Branch | Role |
+| --- | --- | --- |
+| 1 | `dev` | The integration branch, and the `baseBranch` default. Feature and session branches are cut from it and land back on it |
+| 2 | `main` | Releases only. It moves forward from `dev` when a release is cut |
+| 3 | `feat/<slug>-<ITEM-ID>`, `claude/…` | One piece of work each, cut from `dev` |
+
+   Land by merge, not by pull request. In the branch's own worktree, merge `dev` into the
+   branch, so the session that made the change resolves any conflict there. Run the checks. Then
+   `worktree-flow land` fast-forwards `dev` to the branch; it never merges and never pushes.
+   `/close-out` runs these steps. Push `dev` on the user's word. `/core:kit-adopt` picks `dev`
+   (or `develop`, `development`) when the repo has one. `worktree-flow` prefers them when it guesses
+   a base. Setting the forge's default branch to `dev`, so new clones and pull requests start
+   there, is the repo owner's call.
+
 ## 3. Take updates
 
 Update explicitly, at user scope. A new `stable` takes two commands, then a new session:
@@ -251,7 +268,7 @@ that command, so you don't list every plugin folder by hand.
    adds the plugins they name in `dependencies`, and prints a numbered report: each plugin and the
    folder it loads from, the warnings, the `claude --plugin-dir …` command and the check.
 4. It warns when a checkout has uncommitted files, is not on its base branch (`kit.json`
-   `baseBranch`, else `main`), is missing or holds no marketplace, and when an enabled plugin has
+   `baseBranch`, else `dev`), is missing or holds no marketplace, and when an enabled plugin has
    no checkout: that one stays on the installed copy.
 5. `--checkout <marketplace>=<path>` (repeatable) overrides the file for one run, for example to
    load the worktree where the change is; `--config <file>` reads another file.

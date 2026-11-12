@@ -146,17 +146,17 @@ function git(cwd, ...args) {
 
 /**
  * A checkout's git state: branch (null when detached), the branch it should be on (its kit.json
- * `baseBranch`, else `main`), and how many files are uncommitted or untracked. `repo: false` when
+ * `baseBranch`, else `dev`, the schema default), and how many files are uncommitted or untracked. `repo: false` when
  * it is not a git checkout.
  * @param {string} checkout
  */
 export function checkoutState(checkout) {
   const top = git(checkout, "rev-parse", "--show-toplevel");
-  if (top === null) return { repo: false, branch: null, base: "main", dirty: 0 };
+  if (top === null) return { repo: false, branch: null, base: "dev", dirty: 0 };
   const branch = git(checkout, "symbolic-ref", "--quiet", "--short", "HEAD")?.trim() || null;
   const base = readJson(join(checkout, "kit.json")).value?.baseBranch;
   const status = git(checkout, "status", "--porcelain") ?? "";
-  return { repo: true, branch, base: typeof base === "string" && base ? base : "main", dirty: status.split("\n").filter(Boolean).length };
+  return { repo: true, branch, base: typeof base === "string" && base ? base : "dev", dirty: status.split("\n").filter(Boolean).length };
 }
 
 /** One shell word: as is when plain, else single-quoted. @param {string} word */

@@ -19,9 +19,9 @@
     },
     "baseBranch": {
       "type": "string",
-      "description": "Branch that work items land on.",
+      "description": "Integration branch that feature and session branches are cut from and land back on by merge; releases go to main.",
       "minLength": 1,
-      "default": "main"
+      "default": "dev"
     },
     "itemPrefix": {
       "type": "string",

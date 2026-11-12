@@ -4,6 +4,8 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 ## Unreleased
 
+- core, session, sdlc: one branching model is the default. `dev` is the integration branch, `main` takes releases, and feature and session branches are cut from `dev` and land back on it by merge (`worktree-flow land`), not by pull request (docs/using.md § 2, item 7). `kit.json` `baseBranch` defaults to `dev` (it was `main`), so a repo that integrates on `main` now sets `baseBranch: "main"`; agent-kit's own `kit.json` does. `worktree-flow` breaks a tie between candidate bases with `baseBranch`, then `dev`, `develop`, `development`. Without a `baseBranch`, `git-branch-context` (core) and the SDLC base take a `dev` branch before `origin/HEAD`, and `kit dev` expects a checkout on `dev`. `/core:kit-adopt` offers to create `dev` when the repo has none.
+
 ## 2026-11-12 — tenth `stable`
 
 `stable` points at the commit that adds this entry.

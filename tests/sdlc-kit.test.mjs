@@ -81,7 +81,10 @@ test("resolveConfig merges path defaults and leaves absent commands null", () =>
   }
 });
 
-test("resolveBase falls back to origin/HEAD, then a local main", () => {
+test("resolveBase falls back to a dev branch, then origin/HEAD, then a local main", () => {
+  const devOnOrigin = (_root, args) => (args.includes("refs/remotes/origin/dev") ? "abc\n" : args[0] === "symbolic-ref" ? "origin/main\n" : null);
+  assert.deepEqual(resolveBase("/x", {}, devOnOrigin), { name: "dev", source: "dev branch" });
+  assert.deepEqual(resolveBase("/x", { baseBranch: "main" }, devOnOrigin), { name: "main", source: "kit.json" });
   const originHead = (_root, args) => (args[0] === "symbolic-ref" ? "origin/trunk\n" : null);
   assert.deepEqual(resolveBase("/x", {}, originHead), { name: "trunk", source: "origin/HEAD" });
   const localMain = (_root, args) => (args.includes("refs/heads/main") ? "abc\n" : null);

@@ -58,7 +58,7 @@ GitHub, у якому відкривають issue про прогалину н�
 | 2 | `paths.glossary` | `docs/glossary.md` | Доменні терміни: intent читає, build і finish підтримують актуальними |
 | 3 | `paths.recipes` | `docs/recipes` | Індекс рецептів (`README.md` або `index.md`): plan шукає в ньому, finish перевіряє |
 | 4 | `paths.decisions`, `paths.docs` | `docs/decisions`, `docs` | Правила дизайну й документи, які зміна має тримати актуальними |
-| 5 | `baseBranch` | `origin/HEAD`, інакше локальна `main` або `master` | `base:` елемента й база для порівняння |
+| 5 | `baseBranch` | гілка `dev` (локальна чи на `origin`), інакше `origin/HEAD`, інакше локальна `main` або `master` | `base:` елемента й база для порівняння |
 | 6 | `itemPrefix` | немає | Номери задач (`APP-123`): `ticket:` в intent, slug і назва гілки |
 | 7 | `commands.check`, `lint`, `test`, `build` | немає (крок пропускається) | Перевірки кроків, Proof і шлюз finish |
 | 8 | `commands.commit`, `commitAudit` | немає | Коміти, коли плагін `session` не ввімкнено |

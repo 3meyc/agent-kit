@@ -69,7 +69,7 @@ commands the plugins use. Draft v1; the final shape lives in `schema/kit.schema.
 {
   "$schema": "https://raw.githubusercontent.com/3meyc/agent-kit/stable/schema/kit.schema.json",
   "project": "my-app",
-  "baseBranch": "main",
+  "baseBranch": "dev",
   "itemPrefix": "APP",
   "ledger": true,
   "paths": {

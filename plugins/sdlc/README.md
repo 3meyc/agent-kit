@@ -58,7 +58,7 @@ defaults.
 | 2 | `paths.glossary` | `docs/glossary.md` | Domain terms: intent reads it, build and finish keep it current |
 | 3 | `paths.recipes` | `docs/recipes` | Recipe index (`README.md` or `index.md`): plan looks it up, finish checks it |
 | 4 | `paths.decisions`, `paths.docs` | `docs/decisions`, `docs` | Design rules and documents a change must keep current |
-| 5 | `baseBranch` | `origin/HEAD`, else a local `main` or `master` | The item's `base:` and comparison base |
+| 5 | `baseBranch` | a `dev` branch (local or on `origin`), else `origin/HEAD`, else a local `main` or `master` | The item's `base:` and comparison base |
 | 6 | `itemPrefix` | none | Ticket ids (`APP-123`): the intent's `ticket:`, the slug and the branch name |
 | 7 | `commands.check`, `lint`, `test`, `build` | none (step skipped) | Step checks, Proof and the finish gate |
 | 8 | `commands.commit`, `commitAudit` | none | Commit flow when the `session` plugin is not enabled |

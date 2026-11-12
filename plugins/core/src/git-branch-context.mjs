@@ -1,6 +1,7 @@
 // `git-branch-context`: branch, upstream and default base as JSON, for PR and commit prep. Refs go
 // to git as argv, so `@{upstream}` needs no quoting on any shell. With a kit.json, its
-// `baseBranch` is reported as well.
+// `baseBranch` is reported as well. Without one, the default base is `dev` when the repo has it
+// (locally or on `origin`), else `origin/HEAD`, else `main` or `master`.
 import { execFileSync } from "node:child_process";
 import { readKit } from "../lib/kit-config.mjs";
 
@@ -26,9 +27,11 @@ export function main() {
   const remoteHead = git("symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD");
   const hasMain = refExists("refs/remotes/origin/main") || refExists("refs/heads/main");
   const hasMaster = refExists("refs/remotes/origin/master") || refExists("refs/heads/master");
+  const hasDev = refExists("refs/heads/dev") || refExists("refs/remotes/origin/dev");
   const kitBase = top ? readKit(top).raw?.baseBranch : undefined;
   let defaultBase = null;
   if (typeof kitBase === "string" && kitBase) defaultBase = kitBase;
+  else if (hasDev) defaultBase = "dev";
   else if (remoteHead) defaultBase = remoteHead.replace(/^origin\//, "");
   else if (hasMain) defaultBase = "main";
   else if (hasMaster) defaultBase = "master";
