@@ -4,6 +4,9 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 ## Unreleased
 
+- sdlc, session: accepting is committing. `/sdlc-intent` and `/sdlc-plan` show the document with its drafted commit subject and ask once (`Accept` / `Change something` in the desktop app's next-step box); the acceptance, or a "commit it", sets the status and commits in the same step. `/sdlc-finish` commits its fix and archive commits without a separate question, as `/sdlc-build` does its steps. `/close-out` folds the commit of leftover session files into its one landing answer.
+- sdlc: a stage starts with a button. Intent, plan, build and finish drop `disable-model-invocation`; the agent may load one only when the user's latest message asks for it (a typed command, a plain request, or a click on a button that offered that exact stage, which the app delivers as the user's next message), never from a brief, a relayed message or its own plan. Each stage, and `/sdlc-status` for one item, ends by offering the next stage as the box's first button (`Start plan`, `Start build`, `Start finish`); outside the app, the command to type.
+
 ## 2026-11-12 — tenth `stable`
 
 `stable` points at the commit that adds this entry.

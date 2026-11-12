@@ -90,7 +90,8 @@ a file a neighbour touched there is flagged here too.
 
 1. Uncommitted session files: commit them first through `/git commit`, with the ledger record
    written (format: `/handoff`) — an uncommitted record is lost when the worktree goes.
-   Commit only on the user's word, which the close-out question below asks for.
+   Commit only on the user's word: the close-out question below (§ 5) carries it, so one answer
+   commits and lands, never a commit question followed by a landing question.
 2. The landing preview above says the base has commits this branch lacks: bring them in here, so any
    conflict is resolved by this session, in this worktree — the app's `sync_with_base_branch` with
    `base: <base>`, or `git merge --no-edit <base>` when the app refuses that base. Resolve, run the
@@ -195,8 +196,10 @@ wait for its CI run, then archive this session) and the second "Land only". In a
 (§ 2 step 6) the first is "Land and archive" (message: land on `<base>`, then archive this
 session; the parent pushes and waits for the CI run); with Not done items, the first button
 continues the work and the second lands anyway. Drafted kit gaps (§ 1) ride on the first button:
-its message also says to open them; the other answers leave them in `## Next` as not opened. The
-user's click is the authorization for exactly what its message says, nothing more.
+its message also says to open them; the other answers leave them in `## Next` as not opened.
+Uncommitted session files (§ 2 step 1) ride on every landing button the same way: its message
+starts with committing them through `/git commit`, so the click accepts and commits in one
+answer. The user's click is the authorization for exactly what its message says, nothing more.
 
 ## 6. Session resume, the last message before the archive
 
