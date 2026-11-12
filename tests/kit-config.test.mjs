@@ -37,7 +37,7 @@ describe("readKit", () => {
     expect(kit.found).toBe(false);
     expect(kit.error).toBeNull();
     expect(kit.ledger).toBe(false);
-    expect(kit.baseBranch).toBe("main");
+    expect(kit.baseBranch).toBe("dev");
     expect(kit.paths).toEqual({ ...KIT_DEFAULTS.paths });
     expect(kit.hooks.off).toEqual([]);
   });
@@ -194,7 +194,7 @@ describe("lintOnEdit, kitCommand and raw", () => {
 
   it("keeps the parsed file, so a caller can tell a set value from a default", () => {
     expect(normalizeKit({ project: "x" }).raw).toEqual({ project: "x" });
-    expect(normalizeKit({ project: "x" }).baseBranch).toBe("main");
+    expect(normalizeKit({ project: "x" }).baseBranch).toBe("dev");
     expect(normalizeKit(null).raw).toBeNull();
   });
 

@@ -27,7 +27,7 @@ function write(dir, files) {
   }
 }
 
-/** A kit checkout: a git repo on main with one commit, its marketplace and plugins `{ name: deps }`. */
+/** A kit checkout: a git repo on dev (the default baseBranch) with one commit, its marketplace and plugins `{ name: deps }`. */
 function kitCheckout(dir, marketplace, plugins) {
   const files = {
     ".claude-plugin/marketplace.json": { name: marketplace, plugins: Object.keys(plugins).map((name) => ({ name, source: `./plugins/${name}` })) },
@@ -36,7 +36,7 @@ function kitCheckout(dir, marketplace, plugins) {
     files[`plugins/${name}/.claude-plugin/plugin.json`] = { name, ...(deps.length ? { dependencies: deps } : {}) };
   }
   write(dir, files);
-  git(dir, "init", "-q", "-b", "main");
+  git(dir, "init", "-q", "-b", "dev");
   git(dir, "config", "user.name", "Test");
   git(dir, "config", "user.email", "test@example.com");
   git(dir, "config", "commit.gpgsign", "false");
@@ -131,26 +131,26 @@ describe("kit dev", () => {
     assert.equal(plan.warnings[1], "gone@my-overlay has no local checkout and stays on the installed copy");
   });
 
-  it("warns when a checkout is dirty, off main or detached", () => {
+  it("warns when a checkout is dirty, off its base or detached", () => {
     write(overlay, { "plugins/review/notes.md": "wip\n" });
     git(overlay, "checkout", "-q", "-b", "feat/review");
     try {
       const real = checkoutState(overlay);
-      assert.deepEqual(real, { repo: true, branch: "feat/review", base: "main", dirty: 1 });
+      assert.deepEqual(real, { repo: true, branch: "feat/review", base: "dev", dirty: 1 });
       const dir = project("app-dirty", ["core@agent-kit", "review@my-overlay"]);
       const plan = devPlan(dir, { checkouts: loadCheckouts({ file: configFile }).checkouts });
       assert.deepEqual(plan.warnings.filter((line) => line.includes("my-overlay")), [
         `checkout my-overlay (${overlay}) has 1 uncommitted file`,
-        `checkout my-overlay (${overlay}) is on branch feat/review, not main`,
+        `checkout my-overlay (${overlay}) is on branch feat/review, not dev`,
       ]);
       assert.ok(!plan.warnings.some((line) => line.includes("checkout agent-kit")));
       const detached = devPlan(dir, { checkouts: loadCheckouts({ file: configFile }).checkouts, state: () => ({ repo: true, branch: null, base: "main", dirty: 0 }) });
       assert.ok(detached.warnings.includes(`checkout agent-kit (${base}) is on a detached HEAD, not main`));
     } finally {
-      git(overlay, "checkout", "-q", "main");
+      git(overlay, "checkout", "-q", "dev");
       rmSync(join(overlay, "plugins/review/notes.md"));
     }
-    assert.deepEqual(checkoutState(join(scratch, "config")), { repo: false, branch: null, base: "main", dirty: 0 });
+    assert.deepEqual(checkoutState(join(scratch, "config")), { repo: false, branch: null, base: "dev", dirty: 0 });
   });
 
   it("prints the numbered report with a quoted command and the kit doctor check", () => {

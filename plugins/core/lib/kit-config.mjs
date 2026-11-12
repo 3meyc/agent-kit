@@ -16,7 +16,7 @@ export const KIT_COMMANDS = Object.freeze(["install", "dev", "check", "lint", "t
 
 /** Defaults for the fields the plugins read; they match `schema/kit.schema.json`. */
 export const KIT_DEFAULTS = Object.freeze({
-  baseBranch: "main",
+  baseBranch: "dev",
   itemPrefix: null,
   commitSubject: null,
   ledger: false,

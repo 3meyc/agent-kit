@@ -39,9 +39,12 @@ function git(root, args) {
   return res.status === 0 ? res.stdout : null;
 }
 
-/** Base branch: kit.json, else origin/HEAD, else a local main or master. */
+/** Base branch: kit.json, else a `dev` branch (local or on origin), else origin/HEAD, else a local main or master. */
 export function resolveBase(root, kit, run = git) {
   if (typeof kit.baseBranch === "string" && kit.baseBranch) return { name: kit.baseBranch, source: "kit.json" };
+  for (const ref of ["refs/heads/dev", "refs/remotes/origin/dev"]) {
+    if (run(root, ["rev-parse", "--verify", "--quiet", ref]) !== null) return { name: "dev", source: "dev branch" };
+  }
   const head = run(root, ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"]);
   if (head && head.trim()) return { name: head.trim().replace(/^origin\//, ""), source: "origin/HEAD" };
   for (const name of ["main", "master"]) {
