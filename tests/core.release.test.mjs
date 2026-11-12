@@ -230,6 +230,48 @@ describe("kit release", () => {
     assert.match(dry.out, /on the current tree: failed/);
   });
 
+  it("releases from dev: commits there, fast-forwards main, and refuses a main that dev lacks", () => {
+    const devKit = { "kit.json": { project: "base-kit", baseBranch: "dev", commands: { check: "node -e 0" } }, "CHANGELOG.md": CHANGELOG };
+    const { dir, remote } = kitRepo("promote", devKit);
+    git(dir, "switch", "-q", "-c", "dev");
+    git(dir, "push", "-q", "origin", "dev");
+    write(dir, { "CHANGELOG.md": CHANGELOG.replace("## Unreleased\n", "## Unreleased\n\n- core: a fix.\n") });
+    git(dir, "commit", "-q", "-am", "fix: on dev");
+    git(dir, "push", "-q", "origin", "dev");
+
+    git(dir, "switch", "-q", "main");
+    assert.match(release(dir).out, /on main, not dev/);
+    git(dir, "switch", "-q", "dev");
+
+    const dry = release(dir);
+    assert.equal(dry.code, 0, dry.out);
+    assert.match(dry.out, /Release branch origin\/main: [0-9a-f]{12}, 1 commit\(s\) behind dev/);
+    assert.match(dry.out, /Would fast-forward origin main to the release commit/);
+
+    const { code, out } = release(dir, ["--yes", "--summary", "A fix."]);
+    assert.equal(code, 0, out);
+    const head = git(dir, "rev-parse", "HEAD");
+    assert.equal(git(dir, "log", "-1", "--format=%s"), "chore(release): second stable release");
+    assert.equal(remoteRef(remote, "refs/heads/dev"), head);
+    assert.equal(remoteRef(remote, "refs/heads/main"), head);
+    assert.equal(remoteRef(remote, "refs/tags/stable^{}"), head);
+    assert.equal(git(dir, "rev-parse", "refs/heads/main"), head);
+    assert.match(out, /all the release commit/);
+
+    // A commit that reached main but not dev stops the next release before anything moves.
+    const other = join(scratch, "promote-other");
+    git(scratch, "clone", "-q", "-b", "main", remote, other);
+    configure(other);
+    land(other, { "hotfix.txt": "x" }, "fix: straight on main");
+    write(dir, { "CHANGELOG.md": readFileSync(join(dir, "CHANGELOG.md"), "utf8").replace("## Unreleased\n", "## Unreleased\n\n- core: more.\n") });
+    git(dir, "commit", "-q", "-am", "fix: more on dev");
+    git(dir, "push", "-q", "origin", "dev");
+    const blocked = release(dir, ["--yes"]);
+    assert.equal(blocked.code, 1, blocked.out);
+    assert.match(blocked.out, /origin\/main has commits that dev lacks; merge main into dev/);
+    assert.equal(remoteRef(remote, "refs/tags/stable^{}"), head);
+  });
+
   it("refuses without a check to run", () => {
     const { dir } = kitRepo("no-check", { "kit.json": { project: "base-kit", baseBranch: "main" }, "CHANGELOG.md": CHANGELOG.replace("## Unreleased\n", "## Unreleased\n\n- x\n") });
     land(dir, { "a.txt": "a" });

@@ -1,7 +1,7 @@
 {
   "$schema": "./schema/kit.schema.json",
   "project": "agent-kit",
-  "baseBranch": "main",
+  "baseBranch": "dev",
   "commands": {
     "install": "npm ci",
     "check": "npm run check",

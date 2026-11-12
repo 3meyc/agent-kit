@@ -1,9 +1,10 @@
 // `kit release [--yes] [--summary <text>] [--summary-<lang> <text>]`: cut a release of a kit's own
 // repo by moving its `stable` tag, as one checked step. A dry run by default: it runs the checks
 // and prints each step it would take. With `--yes` it writes the release notes, runs the repo's
-// check on the result, commits `chore(release): <nth> stable release`, pushes the branch, moves
-// the annotated tag and pushes it, then reads the remote back to confirm the tag and the branch
-// name the release commit. `kit.json` `release` says where the notes live and what to check
+// check on the result, commits `chore(release): <nth> stable release` on the integration branch
+// (`baseBranch`, usually `dev`) and pushes it, fast-forwards the release branch (`main`) to that
+// commit when it is another branch, moves the annotated tag and pushes it, then reads the remote
+// back to confirm the tag and the branches name the release commit. `kit.json` `release` says where the notes live and what to check
 // (docs/changing.md, Releasing).
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -45,8 +46,10 @@ export function localDate(now = new Date()) {
 const FORMATS = new Set(["changelog", "table"]);
 
 /**
- * `kit.json` `release` with its defaults: the branch and remote released, the tag moved, the check
- * run before the commit, the notes files and, for an overlay, the base-kit release it needs.
+ * `kit.json` `release` with its defaults: the branch released from (`from`, the integration branch
+ * `baseBranch`) and the release branch (`branch`, `main`), the remote, the tag moved, the check run
+ * before the commit, the notes files and, for an overlay, the base-kit release it needs. When
+ * `from` and `branch` differ, the release commit lands on `from` and `branch` is fast-forwarded to it.
  * @param {ReturnType<typeof readKit>} kit
  */
 export function releaseConfig(kit) {
@@ -69,7 +72,8 @@ export function releaseConfig(kit) {
     else base = { repo, needs, tag: text(raw.base.tag, "stable") };
   }
   return {
-    branch: text(raw.branch, kit.baseBranch),
+    branch: text(raw.branch, "main"),
+    from: text(raw.from, kit.baseBranch),
     remote: text(raw.remote, "origin"),
     tag: text(raw.tag, "stable"),
     check: text(raw.check, kit.commands.check ?? null),
@@ -270,7 +274,9 @@ export function runRelease(root, args, options = {}) {
     for (const error of config.errors) print(`kit release: kit.json ${error}`);
     return 2;
   }
-  const { branch, remote, tag } = config;
+  const { branch, from, remote, tag } = config;
+  // Promote: the release commit lands on the integration branch, and the release branch follows it.
+  const promote = from !== branch;
   const today = options.today ?? localDate();
   const refusals = [];
   let step = 0;
@@ -282,19 +288,38 @@ export function runRelease(root, args, options = {}) {
 
   print(parsed.yes ? `kit release in ${root}` : `kit release in ${root} (dry run; --yes does it)`);
 
-  // 1. The tree: on the released branch, nothing uncommitted, level with the remote.
+  // 1. The tree: on the branch released from, nothing uncommitted, level with the remote.
   const current = git(root, ["symbolic-ref", "--short", "-q", "HEAD"]).out;
   const dirty = git(root, ["status", "--porcelain"]).out;
-  const fetched = git(root, ["fetch", "-q", remote, `+refs/heads/${branch}:refs/remotes/${remote}/${branch}`]);
+  const fetched = git(root, ["fetch", "-q", remote, `+refs/heads/${from}:refs/remotes/${remote}/${from}`]);
   const head = git(root, ["rev-parse", "HEAD"]).out;
-  say(`Tree: branch ${current || "(detached)"} at ${head.slice(0, 12)}, ${remote}/${branch}`);
-  if (current !== branch) refuse(`on ${current || "a detached HEAD"}, not ${branch}`);
+  say(`Tree: branch ${current || "(detached)"} at ${head.slice(0, 12)}, ${remote}/${from}`);
+  if (current !== from) refuse(`on ${current || "a detached HEAD"}, not ${from}`);
   if (dirty) refuse(`the tree has uncommitted or untracked files (${dirty.split("\n").length})`);
-  if (!fetched.ok) refuse(`cannot fetch ${branch} from ${remote}: ${fetched.err.split("\n").pop()}`);
+  if (!fetched.ok) refuse(`cannot fetch ${from} from ${remote}: ${fetched.err.split("\n").pop()}`);
   else {
-    const counts = git(root, ["rev-list", "--left-right", "--count", `HEAD...refs/remotes/${remote}/${branch}`]).out.split(/\s+/).map(Number);
-    if (counts[0] > 0) refuse(`HEAD is ${counts[0]} commit(s) ahead of ${remote}/${branch}; push or land them first`);
-    if (counts[1] > 0) refuse(`HEAD is ${counts[1]} commit(s) behind ${remote}/${branch}; pull first`);
+    const counts = git(root, ["rev-list", "--left-right", "--count", `HEAD...refs/remotes/${remote}/${from}`]).out.split(/\s+/).map(Number);
+    if (counts[0] > 0) refuse(`HEAD is ${counts[0]} commit(s) ahead of ${remote}/${from}; push or land them first`);
+    if (counts[1] > 0) refuse(`HEAD is ${counts[1]} commit(s) behind ${remote}/${from}; pull first`);
+  }
+
+  // 1b. The release branch, when it is not the one released from: it must fast-forward to HEAD.
+  if (promote) {
+    const target = remoteCommit(root, remote, `refs/heads/${branch}`);
+    if (target.error) {
+      say(`Release branch ${remote}/${branch}: unreadable`);
+      refuse(target.error);
+    } else if (target.commit === null) {
+      say(`Release branch ${remote}/${branch}: none yet; the release creates it from ${from}`);
+    } else {
+      const got = git(root, ["fetch", "-q", remote, `+refs/heads/${branch}:refs/remotes/${remote}/${branch}`]);
+      const behind = git(root, ["rev-list", "--count", `refs/remotes/${remote}/${branch}..HEAD`]).out;
+      say(`Release branch ${remote}/${branch}: ${target.commit.slice(0, 12)}, ${behind || "?"} commit(s) behind ${from}; fast-forwarded to the release commit`);
+      if (!got.ok) refuse(`cannot fetch ${branch} from ${remote}: ${got.err.split("\n").pop()}`);
+      else if (!git(root, ["merge-base", "--is-ancestor", `refs/remotes/${remote}/${branch}`, "HEAD"]).ok) {
+        refuse(`${remote}/${branch} has commits that ${from} lacks; merge ${branch} into ${from} and land that first`);
+      }
+    }
   }
 
   // 2. The tag on the remote: something to release, and the tag on this branch's history.
@@ -308,7 +333,7 @@ export function runRelease(root, args, options = {}) {
     const since = git(root, ["rev-list", "--count", `${tagged.commit}..HEAD`]);
     say(`${tag} on ${remote}: ${tagged.commit.slice(0, 12)}${since.ok ? `, ${since.out} commit(s) to release` : ""}`);
     if (tagged.commit === head) refuse(`nothing to release: ${tag} already points at HEAD`);
-    else if (!git(root, ["merge-base", "--is-ancestor", tagged.commit, "HEAD"]).ok) refuse(`${tag} (${tagged.commit.slice(0, 12)}) is not on ${branch}'s history`);
+    else if (!git(root, ["merge-base", "--is-ancestor", tagged.commit, "HEAD"]).ok) refuse(`${tag} (${tagged.commit.slice(0, 12)}) is not on ${from}'s history`);
   }
 
   // 3. The notes: each file cut in memory, all agreeing on the release number.
@@ -369,9 +394,10 @@ export function runRelease(root, args, options = {}) {
       }
     }
     for (const cut of cuts) say(`Would write ${cut.path}: ${cut.format === "table" ? `add row ${cut.next}` : `move ${cut.moved} line(s) from \`## Unreleased\` under \`## ${today} — ${word} \`${tag}\`\``}`);
-    say(`Would run the check again on the written notes, commit \`${subject ?? "chore(release): …"}\` and push ${remote} ${branch}`);
+    say(`Would run the check again on the written notes, commit \`${subject ?? "chore(release): …"}\` and push ${remote} ${from}`);
+    if (promote) say(`Would fast-forward ${remote} ${branch} to the release commit (never forced)`);
     say(`Would move the annotated tag ${tag} ("${tagMessage ?? "…"}") and push ${remote} +refs/tags/${tag}`);
-    say(`Would confirm ${tag}^{} and ${branch} on ${remote} both name the release commit`);
+    say(`Would confirm ${tag}^{}${promote ? `, ${from} and ${branch}` : ` and ${branch}`} on ${remote} all name the release commit`);
     print(refusals.length > 0 ? `Refused: ${refusals.length} reason(s) above.` : "Ready: run `kit release --yes` with the same arguments to release.");
     return refusals.length > 0 ? 1 : 0;
   }
@@ -403,14 +429,30 @@ export function runRelease(root, args, options = {}) {
   const release = git(root, ["rev-parse", "HEAD"]).out;
   say(`Committed ${release.slice(0, 12)} \`${subject}\``);
 
-  // 6. Push the branch (never forced), then move and push the tag (the one forced ref).
-  const pushed = git(root, ["push", "-q", remote, `refs/heads/${branch}:refs/heads/${branch}`]);
+  // 6. Push the branch released from (never forced), fast-forward the release branch to it (never
+  // forced), then move and push the tag (the one forced ref).
+  const pushed = git(root, ["push", "-q", remote, `refs/heads/${from}:refs/heads/${from}`]);
   if (!pushed.ok) {
-    print(`Failed: git push ${remote} ${branch}: ${pushed.err.split("\n").pop()}`);
+    print(`Failed: git push ${remote} ${from}: ${pushed.err.split("\n").pop()}`);
     print(`The release commit is local only; the tag was not moved. Pull, then rerun or push by hand.`);
     return 1;
   }
-  say(`Pushed ${remote} ${branch}`);
+  say(`Pushed ${remote} ${from}`);
+  if (promote) {
+    const forwarded = git(root, ["push", "-q", remote, `${release}:refs/heads/${branch}`]);
+    if (!forwarded.ok) {
+      print(`Failed: fast-forwarding ${remote} ${branch}: ${forwarded.err.split("\n").pop()}`);
+      print(`${from} holds the release commit; ${branch} and the tag were not moved. Fast-forward ${branch} by hand (git push ${remote} ${from}:${branch}), then move the tag: git tag -fa ${tag}, git push ${remote} +refs/tags/${tag}.`);
+      return 1;
+    }
+    say(`Fast-forwarded ${remote} ${branch} to the release commit`);
+    // The local release branch follows when it is behind and no worktree has it checked out.
+    const local = git(root, ["rev-parse", "--verify", "-q", `refs/heads/${branch}`]);
+    if (local.ok && local.out !== release) {
+      const moved = git(root, ["merge-base", "--is-ancestor", local.out, release]).ok && git(root, ["branch", "-f", branch, release]).ok;
+      if (!moved) print(`   note: local ${branch} was left as it is; pull it to follow ${remote}/${branch}`);
+    }
+  }
   const moved = git(root, ["tag", "-f", "-a", tag, "-m", tagMessage, release]);
   const tagPushed = moved.ok && git(root, ["push", "-q", remote, `+refs/tags/${tag}`]);
   if (!moved.ok || !tagPushed.ok) {
@@ -422,9 +464,11 @@ export function runRelease(root, args, options = {}) {
 
   // 7. Read the remote back.
   const after = remoteCommit(root, remote, `refs/tags/${tag}`);
-  const remoteBranch = remoteCommit(root, remote, `refs/heads/${branch}`);
-  const verified = after.commit === release && remoteBranch.commit === release;
-  say(`${remote}: ${tag}^{} ${after.commit?.slice(0, 12) ?? "?"}, ${branch} ${remoteBranch.commit?.slice(0, 12) ?? "?"}: ${verified ? "both the release commit" : "MISMATCH"}`);
+  const branches = promote ? [from, branch] : [branch];
+  const heads = branches.map((name) => ({ name, commit: remoteCommit(root, remote, `refs/heads/${name}`).commit }));
+  const verified = after.commit === release && heads.every((h) => h.commit === release);
+  const shown = heads.map((h) => `${h.name} ${h.commit?.slice(0, 12) ?? "?"}`).join(", ");
+  say(`${remote}: ${tag}^{} ${after.commit?.slice(0, 12) ?? "?"}, ${shown}: ${verified ? `${promote ? "all" : "both"} the release commit` : "MISMATCH"}`);
   print(verified ? `Released the ${word} \`${tag}\`.` : `Failed: ${remote} does not show the release; check by hand.`);
   return verified ? 0 : 1;
 }
