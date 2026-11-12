@@ -238,7 +238,9 @@ kit drift
    secret (here `KIT_FLEET_TOKEN`) holding a token with read access to the contents of every
    listed repo and kit: a fine-grained token, or a GitHub App's token for an organization. The
    workflow uses the run's own token only for the issue. Without the secret the run fails with
-   "secret missing" and checks nothing.
+   "secret missing" and checks nothing. A fine-grained token reads one owner's repos only (public
+   repos aside), so for a list across owners pass a second secret as `fleet-tokens`, one
+   `owner=token` per line (`KIT_FLEET_TOKENS` for the command); `fleet-token` covers the rest.
 
 ```yaml
 on:

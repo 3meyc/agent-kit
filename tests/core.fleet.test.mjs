@@ -223,6 +223,24 @@ describe("kit fleet --source github", () => {
     assert.match(out, /\| F1 \| unreadable \| hidden \| my-org\/hidden: GET \/repos\/my-org\/hidden: not found, or the token cannot read it \|/);
   });
 
+  it("reads each owner's repos with that owner's token from KIT_FLEET_TOKENS", async () => {
+    const seen = [];
+    const fetchImpl = mockFetch({ seen, repos: { "my-org/one": { branch: "main", sha: sha("e"), archive: repoClean }, "Other-Org/two": { branch: "main", sha: sha("f"), archive: repoClean } } });
+    const { code } = await run(["--repo", "my-org/one", "--repo", "Other-Org/two"], fetchImpl, { KIT_FLEET_TOKEN: "default", KIT_FLEET_TOKENS: "other-org=other\nunused=x" });
+    assert.equal(code, 0);
+    const auth = (part) => new Set(seen.filter((call) => call.url.includes(part)).map((call) => call.auth));
+    assert.deepEqual([...auth("/Other-Org/two")], ["Bearer other"]);
+    assert.deepEqual([...auth("/my-org/one")], ["Bearer default"]);
+    assert.deepEqual([...auth(`/${BASE}/`)], ["Bearer default"]);
+  });
+
+  it("names the owner it has no token for", async () => {
+    const fetchImpl = mockFetch({ repos: { "my-org/one": { branch: "main", sha: sha("e"), archive: repoClean } } });
+    const { code, out } = await run(["--repo", "my-org/one"], fetchImpl, { KIT_FLEET_TOKENS: "my-org=t" });
+    assert.equal(code, 1);
+    assert.match(out, /no token for 3meyc/);
+  });
+
   it("exits 2 without a token or a list", async () => {
     assert.equal((await run(["--repo", "my-org/one"], mockFetch(), {})).code, 2);
     assert.equal((await run([], mockFetch())).code, 2);
