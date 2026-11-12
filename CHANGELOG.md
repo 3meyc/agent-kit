@@ -4,6 +4,10 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 ## Unreleased
 
+## 2026-11-12 — eleventh `stable`
+
+`stable` points at the commit that adds this entry. Skill and agent names drop the plugin prefix (/sdlc:plan, python:code, svelte:runes); dev integrates and main takes releases; accepting is committing in the SDLC stages.
+
 - sdlc, python, svelte (breaking): skill and agent names no longer repeat their plugin. `/sdlc-intent`, `/sdlc-plan`, `/sdlc-build`, `/sdlc-finish` and `/sdlc-status` are now `/sdlc:intent`, `/sdlc:plan`, `/sdlc:build`, `/sdlc:finish` and `/sdlc:status`; type the plugin form, since a bare `/plan` or `/status` is Claude Code's own command. The agents are `sdlc:simplifier` and `sdlc:verifier`, the skills `python:code`, `python:tests`, `svelte:a11y` and `svelte:runes`. Extension skills keep their `sdlc-ext-<point>` names.
 - core: a plugin's `kit-owned.json` may list `formerNames` (`skills`, `agents`: old name to new), so `kit doctor` and `/core:kit-adopt` still report a project copy under a renamed skill's or agent's old name. sdlc, python and svelte list theirs.
 - core, session, sdlc: one branching model is the default. `dev` is the integration branch, `main` takes releases, and feature and session branches are cut from `dev` and land back on it by merge (`worktree-flow land`), not by pull request (docs/using.md § 2, item 7). `kit.json` `baseBranch` defaults to `dev` (it was `main`), so a repo that integrates on `main` now sets `baseBranch: "main"`; agent-kit's own `kit.json` does. `worktree-flow` breaks a tie between candidate bases with `baseBranch`, then `dev`, `develop`, `development`. Without a `baseBranch`, `git-branch-context` (core) and the SDLC base take a `dev` branch before `origin/HEAD`, and `kit dev` expects a checkout on `dev`. `/core:kit-adopt` offers to create `dev` when the repo has none.
