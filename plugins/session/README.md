@@ -12,8 +12,8 @@ flow from set-up to landing. Depends on `core`.
 | --- | --- | --- |
 | 1 | Session ledger | At every Stop, writes one Markdown record per session (intent, decisions, next, files touched) into the ledger folder and rebuilds its `INDEX.md`. At session start, puts a short brief of recent records and owed work into context, leaving out owed items that an auto-close rule settled ([using § 6](../../docs/using.md#6-keep-the-ledgers-next-list-short)) |
 | 2 | Commit script | `git-commit-session` commits only this session's paths with `git commit --only`, stops when another session claims a path, adds a `Session-Id` trailer, runs the project's commit audit on the committed paths, and counts the project's skipped optional steps (`preflight`) |
-| 3 | Worktree flow | `worktree-flow` shows every worktree's base and verdict, predicts conflicts, lands a branch on its base by fast-forward only, and removes merged worktrees. A SessionStart hook prepares each new linked worktree |
-| 4 | Commands | `/handoff` writes the record mid-task; `/close-out` sorts the work, lands it and writes the session resume; `/close-siblings` lands the side sessions' work; `/git` runs git chores in the `git-ops` agent, and `/git commit --review` reviews the diff before committing |
+| 3 | Worktree flow | `worktree-flow` shows every worktree's base and verdict, predicts conflicts, lands a branch on its base by fast-forward only, removes merged worktrees, and lists the branches on origin that the base already holds (`stale-remote`, read-only). A SessionStart hook prepares each new linked worktree |
+| 4 | Commands | `/handoff` writes the record mid-task; `/close-out` sorts the work, lands it and writes the session resume; `/close-siblings` lands the side sessions' work and deletes their merged branches, locally and on origin, on the user's word; `/git` runs git chores in the `git-ops` agent, and `/git commit --review` reviews the diff before committing |
 | 5 | Evolution pages | `process-evolution.md` and `features-evolution.md` in `paths.evolution`: one Mermaid flowchart each of how the way of working and the features grew, with a Sources table. `evolution` starts, lists what is missing, bumps and checks them. They are brought up to date once per release, from the changelog's `## Unreleased` lines and the process commits since the last release tag, through the `evolution` skill; core's `kit release` dry run names a page the release has not updated |
 
 Commands are namespaced by Claude Code as `/session:handoff`, `/session:close-out`,
@@ -92,7 +92,7 @@ a project may allow them in `.claude/settings.json` (`Bash(session-ledger --file
 | --- | --- | --- |
 | 1 | `session-ledger` | `--files`, `--record`, `--refresh`, `--conflicts`, `--owed`, `--done`, `--sweep`, `--archive`, `--backfill`; `--help` lists them |
 | 2 | `git-commit-session` | Commit by path; `--help` lists flags and exit codes |
-| 3 | `worktree-flow` | `status`, `resolve`, `base`, `adopt`, `conflicts`, `land`, `remove` |
+| 3 | `worktree-flow` | `status`, `resolve`, `base`, `adopt`, `conflicts`, `land`, `remove`, `stale-remote`; `--help` lists them |
 | 4 | `worktree-setup` | The set-up the `worktree-setup` hook runs |
 | 5 | `git-branch-context` | Branch, upstream, base branch and item prefix as JSON, for `/git` |
 | 6 | `ledger-export` | Renders a record as a hand-off file outside the repo (`/handoff --export`) |

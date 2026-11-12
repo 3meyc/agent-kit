@@ -4,6 +4,8 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 ## Unreleased
 
+- session: merged branches no longer pile up on `origin`. New `worktree-flow stale-remote [--base <b>] [--landing] [--json] [<branch>…]` (read-only) fetches origin and lists the named branches, every `claude/*` there when none is named, as stale when `origin/<base>` holds them or `gh` shows their PR merged into the base at origin's tip (a squash merge), and keeps `main`, `dev`, the base and other integration branches, a branch checked out in another worktree, and one with commits the base lacks, each with the reason. `/close-siblings` § 5 shows the sub-sessions' stale remote branches in the same question as the archive and, on that click, deletes them after the push with one `git push origin --delete …`; `/close-out` does the same for this session's own pushed branch on the button that pushes.
+
 ## 2026-11-12 — eleventh `stable`
 
 `stable` points at the commit that adds this entry. Skill and agent names drop the plugin prefix (/sdlc:plan, python:code, svelte:runes); dev integrates and main takes releases; accepting is committing in the SDLC stages.

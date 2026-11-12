@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "./session/vitest-compat.mjs";
@@ -13,6 +13,7 @@ import {
   parseMergeTree,
   parseStatusZ,
   splitCommandArgs,
+  staleVerdict,
   verdictFor,
 } from "../plugins/session/scripts/worktree-flow.mjs";
 
@@ -216,6 +217,204 @@ describe("splitCommandArgs", () => {
       'adopt does not take "--json"; --help prints the usage',
     );
     expect(splitCommandArgs("resolve", ["-x"]).error).toContain('"-x"');
+  });
+
+  it("reads a value flag's value, and refuses one without a value", () => {
+    const split = splitCommandArgs("stale-remote", ["--base", "dev", "claude/a", "--landing"]);
+    expect(split.args).toEqual(["claude/a"]);
+    expect(split.values).toEqual({ "--base": "dev" });
+    expect([...split.flags]).toEqual(["--landing"]);
+    expect(split.error).toBe("");
+    expect(splitCommandArgs("stale-remote", ["--base"]).error).toBe("stale-remote --base needs a value");
+    expect(splitCommandArgs("stale-remote", ["--base", "--json"]).error).toBe("stale-remote --base needs a value");
+    expect(splitCommandArgs("stale-remote", ["--force"]).error).toContain("it takes --json, --landing, --base");
+  });
+});
+
+describe("staleVerdict", () => {
+  const merged = {
+    branch: "claude/x",
+    base: "dev",
+    baseRef: "origin/dev",
+    onRemote: true,
+    inRef: "origin/dev",
+    ahead: 0,
+  };
+  const squashed = { ...merged, inRef: null, ahead: 2, pr: { number: 7, baseRefName: "dev", headMatches: true } };
+
+  it("marks a branch the base holds, or one whose PR into the base was merged at origin's tip", () => {
+    expect(staleVerdict(merged)).toEqual({ stale: true, reason: "in origin/dev" });
+    expect(staleVerdict(squashed)).toEqual({ stale: true, reason: "PR #7 merged into dev (squash or rebase)" });
+  });
+
+  it("keeps a protected, absent or checked-out branch even when the base holds it", () => {
+    expect(staleVerdict({ ...merged, protectedBy: "the base" })).toEqual({ stale: false, reason: "protected: the base" });
+    expect(staleVerdict({ ...merged, onRemote: false }).reason).toBe("not on origin");
+    expect(staleVerdict({ ...merged, checkedOutAt: "/w/busy" })).toEqual({
+      stale: false,
+      reason: "checked out in /w/busy",
+    });
+  });
+
+  it("keeps a branch with commits the base lacks, naming why a PR does not count", () => {
+    expect(staleVerdict({ ...merged, inRef: null, ahead: 3 })).toEqual({
+      stale: false,
+      reason: "3 commit(s) not in origin/dev; no merged PR",
+    });
+    expect(staleVerdict({ ...squashed, pr: { ...squashed.pr, headMatches: false } }).reason).toBe(
+      "2 commit(s) not in origin/dev; PR #7 merged, but origin has commits pushed after it",
+    );
+    expect(staleVerdict({ ...squashed, pr: { ...squashed.pr, baseRefName: "feat/APP-1" } }).reason).toBe(
+      "2 commit(s) not in origin/dev; PR #7 merged into feat/APP-1, not dev",
+    );
+    expect(staleVerdict({ ...merged, inRef: null, ahead: 1, ghError: "gh not found" })).toEqual({
+      stale: false,
+      reason: "1 commit(s) not in origin/dev; gh not found",
+    });
+  });
+});
+
+describe("worktree-flow stale-remote with a bare origin", () => {
+  let root;
+  let lead;
+  let gh;
+  const git = (cwd, ...args) => spawnSync("git", args, { cwd, encoding: "utf8" });
+  const stale = (env, ...args) =>
+    spawnSync(process.execPath, [SCRIPT, "stale-remote", ...args], {
+      cwd: lead,
+      encoding: "utf8",
+      env: { ...process.env, WORKTREE_FLOW_GH: gh, ...env },
+    });
+  const json = (...args) => {
+    const run = stale({}, ...args, "--json");
+    expect(run.stderr).toBe("");
+    const report = JSON.parse(run.stdout);
+    const pick = (rows) => Object.fromEntries(rows.map((row) => [row.branch, row.reason]));
+    return { stale: pick(report.stale), kept: pick(report.kept), fetched: report.fetched };
+  };
+  const remoteHeads = () =>
+    git(root, "ls-remote", "--heads", join(root, "origin.git"))
+      .stdout.split("\n")
+      .filter(Boolean)
+      .map((line) => line.split("refs/heads/")[1])
+      .sort();
+
+  beforeAll(() => {
+    root = realpathSync(mkdtempSync(join(tmpdir(), "worktree-flow-remote-")));
+    const main = join(root, "main");
+    spawnSync("git", ["init", "-q", "--bare", "-b", "main", join(root, "origin.git")]);
+    spawnSync("git", ["init", "-q", "-b", "main", main]);
+    git(main, "config", "user.email", "t@example.com");
+    git(main, "config", "user.name", "t");
+    git(main, "config", "commit.gpgsign", "false");
+    git(main, "remote", "add", "origin", join(root, "origin.git"));
+    const commit = (file, text, message = `edit ${file}`) => {
+      writeFileSync(join(main, file), text);
+      git(main, "add", file);
+      git(main, "commit", "-q", "-m", message);
+    };
+    const branchWith = (name, file) => {
+      git(main, "checkout", "-q", "-b", name, "dev");
+      commit(file, `${name}\n`);
+      git(main, "push", "-q", "-u", "origin", name);
+      git(main, "checkout", "-q", "dev");
+    };
+    commit("a.txt", "one\n");
+    git(main, "push", "-q", "origin", "main");
+    git(main, "checkout", "-q", "-b", "dev");
+    git(main, "push", "-q", "-u", "origin", "dev");
+
+    branchWith("claude/merged", "m.txt");
+    git(main, "merge", "-q", "--no-ff", "--no-edit", "claude/merged");
+    branchWith("claude/busy", "b.txt");
+    git(main, "merge", "-q", "--no-ff", "--no-edit", "claude/busy");
+    branchWith("claude/squash", "s.txt");
+    commit("s.txt", "claude/squash\n", "squash claude/squash (#7)"); // same change, another commit
+    branchWith("claude/late", "l.txt");
+    branchWith("claude/open", "o.txt");
+    branchWith("claude/landing", "n.txt");
+    git(main, "push", "-q", "origin", "dev");
+    git(main, "worktree", "add", "-q", join(root, "busy"), "claude/busy");
+    lead = join(root, "lead");
+    git(main, "worktree", "add", "-q", "-b", "claude/lead", lead, "dev");
+    git(lead, "merge", "-q", "--ff-only", "claude/landing");
+
+    const squashTip = git(main, "rev-parse", "claude/squash").stdout.trim();
+    gh = join(root, "gh");
+    writeFileSync(
+      gh,
+      [
+        "#!/bin/sh",
+        `echo "$@" >> "${join(root, "gh-calls")}"`,
+        'case "$*" in',
+        `  *"--head claude/squash --state"*) echo '[{"number":7,"baseRefName":"dev","headRefOid":"${squashTip}"}]' ;;`,
+        `  *"--head claude/late --state"*) echo '[{"number":8,"baseRefName":"dev","headRefOid":"0000000"}]' ;;`,
+        "  *) echo '[]' ;;",
+        "esac",
+        "",
+      ].join("\n"),
+    );
+    chmodSync(gh, 0o755);
+  });
+
+  afterAll(() => rmSync(root, { recursive: true, force: true }));
+
+  it("sorts every claude/* branch on origin into stale and kept, with the reason", () => {
+    const report = json("--base", "dev");
+    expect(report.fetched).toBe(true);
+    expect(report.stale).toEqual({
+      "claude/merged": "in origin/dev",
+      "claude/squash": "PR #7 merged into dev (squash or rebase)",
+    });
+    expect(report.kept["claude/busy"]).toBe(`checked out in ${join(root, "busy")}`);
+    expect(report.kept["claude/late"]).toBe(
+      "1 commit(s) not in origin/dev; PR #8 merged, but origin has commits pushed after it",
+    );
+    expect(report.kept["claude/open"]).toBe("1 commit(s) not in origin/dev; no merged PR");
+    expect(report.kept["claude/landing"]).toBe("1 commit(s) not in origin/dev; no merged PR");
+  });
+
+  it("counts what HEAD holds under --landing, and keeps protected and absent branches", () => {
+    const report = json("--base", "dev", "--landing", "claude/landing", "claude/merged", "dev", "main", "develop", "claude/gone");
+    expect(report.stale).toEqual({
+      "claude/landing": "in HEAD, which lands on dev",
+      "claude/merged": "in origin/dev",
+    });
+    expect(report.kept).toEqual({
+      dev: "protected: the base",
+      main: "protected: origin's default branch",
+      develop: "protected: develop is an integration or release branch",
+      "claude/gone": "not on origin",
+    });
+  });
+
+  it("takes this worktree's base when --base is left out, and prints the delete command without running it", () => {
+    git(lead, "config", "branch.claude/lead.kitBase", "dev");
+    const before = remoteHeads();
+    const run = stale({}, "claude/merged", "claude/open");
+    expect(run.status).toBe(0);
+    expect(run.stdout).toContain("origin/dev: 1 stale, 1 kept");
+    expect(run.stdout).toContain("✓ claude/merged — in origin/dev");
+    expect(run.stdout).toContain("· claude/open — 1 commit(s) not in origin/dev; no merged PR");
+    expect(run.stdout).toContain("to delete, on the user's word: git push origin --delete claude/merged");
+    expect(remoteHeads()).toEqual(before);
+    expect(before).toContain("claude/merged");
+  });
+
+  it("keeps a squash-merged branch when gh is missing, and names that", () => {
+    const run = stale({ WORKTREE_FLOW_GH: join(root, "no-such-gh") }, "--base", "dev", "--json", "claude/squash");
+    const { stale: none, kept } = JSON.parse(run.stdout);
+    expect(none).toEqual([]);
+    expect(kept.map(({ branch, reason }) => ({ branch, reason }))).toEqual([
+      { branch: "claude/squash", reason: "1 commit(s) not in origin/dev; gh not found, so a squash merge was not checked" },
+    ]);
+  });
+
+  it("asks gh only about branches the base does not already hold", () => {
+    const calls = readFileSync(join(root, "gh-calls"), "utf8");
+    expect(calls).toContain("pr list --head claude/squash --state merged");
+    expect(calls).not.toContain("--head claude/merged ");
+    expect(calls).not.toContain("--head claude/busy ");
   });
 });
 
