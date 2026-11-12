@@ -17,7 +17,7 @@ function readJson(file) {
 }
 
 /** The plugin's name: its manifest's, else the install id's, else the folder's. */
-export function pluginName(root, id = null) {
+function pluginName(root, id = null) {
   return readJson(join(root, ".claude-plugin", "plugin.json"))?.name ?? (id ? id.slice(0, id.lastIndexOf("@")) : null) ?? basename(root);
 }
 
@@ -226,7 +226,7 @@ function projectHookCommands(projectDir) {
 }
 
 const SCRIPT_FILE = /\.(?:[cm]?[jt]s|[jt]sx)$/;
-export const TEST_FILE = /\.(?:test|spec)\.(?:[cm]?[jt]s|[jt]sx)$/;
+const TEST_FILE = /\.(?:test|spec)\.(?:[cm]?[jt]s|[jt]sx)$/;
 const MAX_TEST_BYTES = 512 * 1024;
 
 /** A repo-relative path without its script extension. @param {string} path */
@@ -441,15 +441,13 @@ export function textCopies(projectDir, plugin, read = (path) => readFileSync(joi
  * repo a plugin comes from (`ownMarketplace`), the tests are not looked for: that repo tests the
  * plugin's own source under its plugin folder, and its tests name the project paths a plugin owns
  * as fixture data, which reads like an import of a deleted script.
- * `tests` replaces the git listing of test files, for a tree that is not a git checkout (`kit fleet`
- * reads a downloaded archive).
  * @param {string} projectDir @param {Array<{ root: string, name: string }>} [plugins]
- * @param {{ tests?: string[] }} [options]
  * @returns {Array<{ path: string, plugin: string, note: string | null }>}
  */
-export function findKitCopies(projectDir, plugins = enabledForProject(projectDir, pluginRoots(projectDir)), { tests = projectTestFiles(projectDir) } = {}) {
+export function findKitCopies(projectDir, plugins = enabledForProject(projectDir, pluginRoots(projectDir))) {
   const found = [];
   const hooks = projectHookCommands(projectDir);
+  const tests = projectTestFiles(projectDir);
   const ownPlugins = ownMarketplace(projectDir)?.plugins ?? new Map();
   const read = (path) => {
     const file = join(projectDir, path);

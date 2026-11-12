@@ -164,10 +164,8 @@ the one git uses for it.
 
 ## 5. Check your repos for drift
 
-Two checks cover this. The inventory reads your local clones by hand, for example after taking a
-new `stable` or before moving files into a kit (items 1 to 5). The fleet check reads the repos from
-GitHub on a weekly schedule that a private repo of yours runs, and keeps an issue open while
-something lags (items 6 to 9).
+The kit schedules no check: keeping each repo in step with the kit is the developer's job. Run the
+inventory by hand, for example after taking a new `stable` or before moving files into a kit.
 
 1. **Set up once.** List your local clones in `~/.config/agent-kit/inventory.json` (or under
    `$XDG_CONFIG_HOME`). The list is your configuration and never goes into the kit. `reference` is
@@ -196,73 +194,11 @@ kit drift
    2. `drift`: copies that differ. `kit drift` gives the changed lines per repo; large drift means a
       merge, not a copy.
    3. `single`: in one repo only, project-specific unless you decide otherwise.
-4. **Check each repo against `stable`.** The inventory does not compare a repo with `stable`; the
-   fleet check (item 6) does. In each repo, `/core:kit-doctor` reports kit-owned copies and
-   plugins that lag their channel; take updates as in § 3. CI with `kit doctor --strict` (§ 2)
-   keeps copies out on every push.
+4. **Check each repo against `stable`.** The inventory does not compare a repo with `stable`. In
+   each repo, `/core:kit-doctor` reports kit-owned copies and plugins that lag their channel; take
+   updates as in § 3. CI with `kit doctor --strict` (§ 2) keeps copies out on every push.
 5. **Keep it current.** Edit `inventory.json` when you add, move or retire a repo. The commands
    themselves update with the `core` plugin (§ 3).
-
-### Weekly fleet check
-
-6. **What it reads.** `kit fleet --source github` (also `agent-kit fleet`) reads each listed repo
-   at its default branch, or the branch its entry names, and each kit at its `stable` commit, as
-   archives through the GitHub API. Per repo it reports:
-   1. copies of kit-owned files, by the same check as `kit doctor --strict`, with ownership read
-      from every kit's plugins at `stable`;
-   2. the kit marketplaces `.claude/settings.json` declares, and whether each is on its channel;
-   3. the kit commits the root lockfiles pin (`agent-kit`, an overlay's tools package), and how
-      many commits each is behind that kit's `stable`;
-   4. drift: shared agent-tooling file groups (the inventory's folders, without per-project files
-      such as `CLAUDE.md` or `kit.json`) whose git blob fingerprints differ between repos.
-
-   The report is Markdown, numbered for replies (`K`, `F`, `R`, `D`); `--json` prints JSON and
-   `--out <dir>` writes both. The command exits 1 on findings (a repo it cannot read is one), 2 on a
-   usage error.
-7. **Write the repo list in a private repo.** The list names your repos, so it lives in a private
-   repo (an overlay kit, or a personal kit repo), never in this one. The base kit is always
-   checked; list overlay kits under `kits`, and groups that may differ under `ignoreDrift`:
-
-```json
-{
-  "repos": {
-    "app": "my-org/my-app",
-    "api": { "repo": "my-org/my-api", "branch": "dev" }
-  },
-  "kits": [{ "repo": "my-org/my-overlay", "ref": "stable" }],
-  "ignoreDrift": ["scripts/build.mjs"]
-}
-```
-
-8. **Schedule it.** In that private repo, call the reusable workflow weekly. Add a repository
-   secret (here `KIT_FLEET_TOKEN`) holding a token with read access to the contents of every
-   listed repo and kit: a fine-grained token, or a GitHub App's token for an organization. The
-   workflow uses the run's own token only for the issue. Without the secret the run fails with
-   "secret missing" and checks nothing. A fine-grained token reads one owner's repos only (public
-   repos aside), so for a list across owners pass a second secret as `fleet-tokens`, one
-   `owner=token` per line (`KIT_FLEET_TOKENS` for the command); `fleet-token` covers the rest.
-
-```yaml
-on:
-  schedule: [{ cron: "0 6 * * 1" }]
-  workflow_dispatch:
-permissions: { contents: read, issues: write }
-jobs:
-  fleet:
-    uses: 3meyc/agent-kit/.github/workflows/kit-fleet.yml@stable
-    with: { repo-list: .github/kit-fleet.json }
-    secrets: { fleet-token: "${{ secrets.KIT_FLEET_TOKEN }}" }
-```
-
-9. **Act on the issue.** A run with findings opens, or updates, one issue labelled `kit-fleet` in
-   the calling repo, with the report in its description and the run summary; a clean run closes
-   it. Fix a copy or a lagging pin in its repo (`kit doctor`, § 3); merge drifting copies, or list
-   the group under `ignoreDrift` when the repos may differ. Inputs `issue-title`, `issue-label`,
-   `kit-ref` and `fail-on-findings` adjust the workflow. To try a list before scheduling it:
-
-```bash
-GH_TOKEN=$(gh auth token) kit fleet --source github --list .github/kit-fleet.json
-```
 
 ## 6. Keep the ledger's Next list short
 
