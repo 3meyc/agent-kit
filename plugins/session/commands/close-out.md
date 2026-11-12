@@ -95,7 +95,11 @@ a file a neighbour touched there is flagged here too.
    conflict is resolved by this session, in this worktree — the app's `sync_with_base_branch` with
    `base: <base>`, or `git merge --no-edit <base>` when the app refuses that base. Resolve, run the
    project's checks, conclude the merge with `/git commit` (a conflicted path resolved by hand is
-   `git add`ed by the user first; exit 7 names any left), and dry-run again.
+   `git add`ed by the user first; exit 7 names any left), and dry-run again. When the session
+   started in a worktree cut from an older commit (its SessionStart said `starts <n> commit(s)
+   behind <base>` and it was not adopted), its work was done against older files: name that in
+   the resume, and check the merged base's changes to the files this session touched
+   (`git diff <merge-base>..<base> -- <those files>`) before step 3.
 3. Run the project's checks on the branch as it will land (after the base is merged in): every
    command in `kit.json` `commands` that CI also runs (`check`, `lint`, `test`, `build`), or the
    project's own `/check` command when it has one, so a failure is caught here rather than on the

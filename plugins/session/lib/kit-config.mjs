@@ -18,6 +18,7 @@ export const KIT_COMMANDS = Object.freeze(["install", "dev", "check", "lint", "t
 export const KIT_DEFAULTS = Object.freeze({
   baseBranch: "main",
   itemPrefix: null,
+  commitSubject: null,
   ledger: false,
   ledgerAutoClose: Object.freeze({ questionDays: 7 }),
   paths: Object.freeze({
@@ -130,7 +131,7 @@ export function preflightSteps(kit) {
 
 /**
  * @typedef {{ found: boolean, error: string | null, project: string | null, baseBranch: string,
- *   itemPrefix: string | null, ledger: boolean, ledgerAutoClose: { questionDays: number },
+ *   itemPrefix: string | null, commitSubject: string | null, ledger: boolean, ledgerAutoClose: { questionDays: number },
  *   paths: Record<string, string>,
  *   commands: Record<string, string>, lintOnEdit: Array<{ command: string, match: string[] }>,
  *   checks: Record<string, string[]>, preflight: ReturnType<typeof preflightSteps>,
@@ -160,6 +161,7 @@ export function normalizeKit(raw, error = null) {
     project: typeof kit.project === "string" ? kit.project : null,
     baseBranch: typeof kit.baseBranch === "string" && kit.baseBranch ? kit.baseBranch : KIT_DEFAULTS.baseBranch,
     itemPrefix: typeof kit.itemPrefix === "string" && kit.itemPrefix ? kit.itemPrefix : null,
+    commitSubject: typeof kit.commitSubject === "string" && kit.commitSubject.trim() ? kit.commitSubject.trim() : null,
     ledger: kit.ledger === true,
     ledgerAutoClose: {
       questionDays:

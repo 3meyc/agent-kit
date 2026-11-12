@@ -36,7 +36,7 @@ quiet unless `kit.json` sets `"ledger": true`.
 | 2 | `ledger-brief` | SessionStart | yes | Prints the brief of recent records into the session's context, then the record rules (also with an empty ledger) |
 | 3 | `ledger-shell-deletions` | PreToolUse, PostToolUse (Bash, PowerShell) | yes | Snapshots tracked files a script deletes, so the record credits the deletion |
 | 4 | `ledger-summarize` | (spawned by `ledger-stop`) | yes | Fills a record nobody wrote with a cheap model through `claude -p`. Spends tokens; list it to turn it off, or set `LEDGER_NO_SUMMARY=1` |
-| 5 | `worktree-setup` | SessionStart | no | In a new linked worktree: installs dependencies (`commands.install`, else pnpm or npm from the lockfile), builds a CodeGraph index when the main checkout has one, trusts RTK filters already trusted elsewhere. Each step is skipped when its tool is not installed |
+| 5 | `worktree-setup` | SessionStart | no | In a new linked worktree: installs dependencies (`commands.install`, else pnpm or npm from the lockfile), builds a CodeGraph index when the main checkout has one, trusts RTK filters already trusted elsewhere. Each step is skipped when its tool is not installed. A worktree the app cut from an older commit (no commits of its own, `baseBranch` moved past it) gets a line naming the `worktree-flow adopt <base>` that moves it to the current files |
 
 ```json
 { "hooks": { "off": ["ledger-summarize", "worktree-setup"] } }
@@ -60,6 +60,7 @@ quiet unless `kit.json` sets `"ledger": true`.
 | 11 | `commands.install` | lockfile guess | The worktree set-up's install step, run through the shell when a known lockfile is newer than the last install |
 | 12 | `preflight` | none | Optional steps to run now and then before committing; each commit they touch counts a skip, shown once it reaches `remindAfter` |
 | 13 | `paths.evolution` | `docs/evolution` | Where `evolution` and `kit release` find the evolution pages; none there means the project keeps none |
+| 14 | `commitSubject` | Conventional Commits | The subject form `/git commit` writes, a template such as `<slug>: <subject>` (`<type>`, `<scope>`, `<slug>`, `<ITEM-ID>`, `<subject>`); `git-branch-context` passes it to `git-ops` |
 | 14 | `commands.evolutionRender` | none | Renders a page's printable version after `evolution bump`; `{page}` becomes the quoted page path (appended without it) |
 | 15 | `ledgerAutoClose.questionDays` | `7` | Days after a record was last active before its `Open question at Stop` item counts as closed: hidden from the brief, listed apart by `--owed`, marked by `--sweep` |
 

@@ -11,7 +11,9 @@
  *
  * Silent in the main checkout. In a linked worktree it prints one line naming the CodeGraph index
  * the session will read (`codegraph: <top>, <n> files indexed`, or why there is none), after the
- * setup line when the setup ran. Without an index in either checkout the line is skipped.
+ * setup line when the setup ran. Without an index in either checkout the line is skipped. A
+ * worktree with no commits of its own that its local `baseBranch` has moved past (the app cut it
+ * from an older commit) gets a first line saying so, with the `worktree-flow adopt` that fixes it.
  *
  * The checkout is the session's, never this file's: a plugin's scripts live in the plugin cache.
  * The hook input's `cwd` comes first, then `CLAUDE_PROJECT_DIR`, then the process's cwd.
@@ -98,6 +100,27 @@ function printStatusLine(read) {
   console.log(codegraphStatusLine(read, text));
 }
 
+/**
+ * The warning for a worktree cut from an older commit of its base: it has no commits of its own
+ * and the base has moved past it, so step work would start from stale files. Null otherwise. Pure.
+ * @param {string} base @param {number | null} own commits in `<base>..HEAD` @param {number | null} behind commits in `HEAD..<base>`
+ */
+export function staleBaseLine(base, own, behind) {
+  if (own !== 0 || !behind) return null;
+  return `worktree-setup: this worktree starts ${behind} commit(s) behind ${base}; run \`worktree-flow adopt ${base}\` before any step work, so it starts from the current files.`;
+}
+
+/** `staleBaseLine` for the checkout at `top`, against the project's local `baseBranch`. */
+function staleBaseCheck(top) {
+  const base = readKit(top).baseBranch;
+  const count = (range) => {
+    const result = spawnSync("git", ["rev-list", "--count", range], { cwd: top, encoding: "utf8" });
+    return result.status === 0 ? Number(result.stdout.trim()) : null;
+  };
+  if (spawnSync("git", ["rev-parse", "--verify", "--quiet", `refs/heads/${base}`], { cwd: top }).status !== 0) return null;
+  return staleBaseLine(base, count(`refs/heads/${base}..HEAD`), count(`HEAD..refs/heads/${base}`));
+}
+
 function appendRunLog(commonDir, line) {
   try {
     appendFileSync(join(commonDir, RUN_LOG_NAME), line);
@@ -130,6 +153,8 @@ async function main() {
       }),
     );
   if (!read.facts.linked) return log("main-checkout");
+  const stale = staleBaseCheck(read.top);
+  if (stale) console.log(stale);
   const steps = planSetup(read.facts).filter((step) => !step.endsWith("-hint"));
   if (steps.length === 0) {
     log("already-set-up");

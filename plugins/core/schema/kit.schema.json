@@ -29,6 +29,12 @@
       "pattern": "^[A-Z][A-Z0-9]*$",
       "examples": ["APP"]
     },
+    "commitSubject": {
+      "type": "string",
+      "description": "The commit subject form the session plugin's commit flow writes, as a template: <type> and <scope> (Conventional Commits words), <slug> (the SDLC item), <ITEM-ID> (a work-item id), <subject> (the imperative summary). Leave out for Conventional Commits, `<type>(<scope>): <subject>`. commands.commitMessage, when set, still checks the result.",
+      "minLength": 1,
+      "examples": ["<slug>: <subject>", "[<ITEM-ID>] <subject>"]
+    },
     "ledger": {
       "type": "boolean",
       "description": "Whether the session plugin keeps a ledger record for each session.",

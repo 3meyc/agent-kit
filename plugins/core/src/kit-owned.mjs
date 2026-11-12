@@ -350,6 +350,92 @@ export function enabledForProject(projectDir, plugins, { local = true } = {}) {
   return plugins.filter((plugin) => plugin.source === "self" || plugin.source === "session" || enabled.has(plugin.name));
 }
 
+/** A kit text counts as copied when the project file holds this share of its lines, and at least `MIN_COPIED_LINES`. */
+const COPIED_SHARE = 0.5;
+const MIN_COPIED_LINES = 5;
+const MIN_LINE_CHARS = 25;
+
+/**
+ * The distinct lines of a Markdown text that say something: front matter dropped, list markers,
+ * heading marks and table pipes stripped, whitespace folded, lower-cased; lines shorter than
+ * `MIN_LINE_CHARS` left out, so blank lines, fences and short labels never make a match.
+ * @param {string} text
+ */
+export function textLines(text) {
+  const body = String(text).replace(/\r\n/g, "\n").replace(/^---\n[\s\S]*?\n---\n/, "");
+  const lines = new Set();
+  for (const raw of body.split("\n")) {
+    const line = raw
+      .replace(/^\s*(?:#+|[-*+]|\d+(?:\.\d+)*\.|>)\s*/, "")
+      .replace(/\|/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+    if (line.length >= MIN_LINE_CHARS) lines.add(line);
+  }
+  return lines;
+}
+
+/** The texts a plugin puts in front of the model: `rules/*.md` and `skills/<name>/SKILL.md`. @param {{ root: string }} plugin */
+function kitTexts(plugin) {
+  const texts = [];
+  for (const name of listNames(join(plugin.root, "rules"), (_, n) => n.endsWith(".md"))) texts.push(`rules/${name}`);
+  for (const name of listNames(join(plugin.root, "skills"), (path) => statSync(path).isDirectory())) {
+    if (existsSync(join(plugin.root, "skills", name, "SKILL.md"))) texts.push(`skills/${name}/SKILL.md`);
+  }
+  return texts.map((source) => ({ source, lines: textLines(readFileSync(join(plugin.root, source), "utf8")) }));
+}
+
+/** Project files an agent reads as instructions: `CLAUDE.md`, `AGENTS.md`, `.claude/rules/**`, skills and commands. */
+function instructionFiles(projectDir) {
+  const found = ["CLAUDE.md", "AGENTS.md"].filter((path) => existsSync(join(projectDir, path)));
+  const walk = (rel) => {
+    for (const name of listNames(join(projectDir, rel), () => true)) {
+      const path = `${rel}/${name}`;
+      if (statSync(join(projectDir, path)).isDirectory()) walk(path);
+      else if (name.endsWith(".md")) found.push(path);
+    }
+  };
+  walk(".claude/rules");
+  walk(".claude/commands");
+  for (const name of listNames(join(projectDir, ".claude", "skills"), (path) => statSync(path).isDirectory())) {
+    if (existsSync(join(projectDir, ".claude", "skills", name, "SKILL.md"))) found.push(`.claude/skills/${name}/SKILL.md`);
+  }
+  return found;
+}
+
+/**
+ * Project files that carry a plugin's rule or skill text under a name the kit does not list: at
+ * least half of the kit text's lines (and `MIN_COPIED_LINES`) appear in the project file. A copy
+ * under the kit's own name is caught by `ownedBy`; this catches the renamed one.
+ * @param {string} projectDir @param {{ root: string, name: string }} plugin
+ * @param {(path: string) => string} read
+ * @returns {Array<{ path: string, note: string }>}
+ */
+export function textCopies(projectDir, plugin, read = (path) => readFileSync(join(projectDir, path), "utf8")) {
+  const texts = kitTexts(plugin).filter((text) => text.lines.size >= MIN_COPIED_LINES);
+  if (texts.length === 0) return [];
+  const found = [];
+  for (const path of instructionFiles(projectDir)) {
+    let lines;
+    try {
+      if (statSync(join(projectDir, path)).size > MAX_TEST_BYTES) continue;
+      lines = textLines(read(path));
+    } catch {
+      continue;
+    }
+    for (const text of texts) {
+      let shared = 0;
+      for (const line of text.lines) if (lines.has(line)) shared += 1;
+      if (shared >= MIN_COPIED_LINES && shared >= text.lines.size * COPIED_SHARE) {
+        found.push({ path, note: `holds ${shared} of the ${text.lines.size} lines of ${plugin.name}'s ${text.source}; the plugin supplies that text, so remove the copy and keep only project-specific lines` });
+        break;
+      }
+    }
+  }
+  return found;
+}
+
 /**
  * Kit-owned files and hook entries the project still has, and tests of kit-owned scripts. In the
  * repo a plugin comes from (`ownMarketplace`), the tests are not looked for: that repo tests the
@@ -381,6 +467,11 @@ export function findKitCopies(projectDir, plugins = enabledForProject(projectDir
       seen.add(test);
       const gone = existsSync(join(projectDir, of)) ? "" : ", which is already gone";
       found.push({ path: test, plugin: owned.plugin, note: `tests kit-owned ${of}${gone}; delete it with the script` });
+    }
+    for (const copy of ownPlugins.has(owned.plugin) ? [] : textCopies(projectDir, plugin)) {
+      if (seen.has(copy.path) || owned.files.some((file) => copy.path.startsWith(file.path))) continue;
+      seen.add(copy.path);
+      found.push({ path: copy.path, plugin: owned.plugin, note: copy.note });
     }
     for (const script of owned.hookScripts) {
       for (const hook of hooks) {

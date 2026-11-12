@@ -47,6 +47,7 @@ describe("readKit", () => {
       project: "my-app",
       baseBranch: "develop",
       itemPrefix: "APP",
+      commitSubject: " <slug>: <subject> ",
       ledger: true,
       paths: { ledger: "notes/ledger/", sdlc: "work" },
       commands: { commitAudit: "npx audit", test: "" },
@@ -57,6 +58,7 @@ describe("readKit", () => {
     expect(kit.found).toBe(true);
     expect(kit.baseBranch).toBe("develop");
     expect(kit.itemPrefix).toBe("APP");
+    expect(kit.commitSubject).toBe("<slug>: <subject>");
     expect(kit.paths.ledger).toBe("notes/ledger");
     expect(kit.paths.sdlc).toBe("work");
     expect(kit.paths.docs).toBe("docs");

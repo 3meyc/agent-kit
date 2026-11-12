@@ -110,7 +110,10 @@ A project that had its own copies of these files keeps them until someone retire
 doctor` and `/core:kit-adopt` list each one. Kit-owned files are named in
 [kit-owned.json](kit-owned.json), plus every agent and skill of the plugin. Another plugin or an
 overlay can ship its own `kit-owned.json`. An entry `<file>#<key.path>` claims one key of a JSON
-file (`.mcp.json#mcpServers.<name>`), so the project keeps its own keys there. Doctor also lists the tests of kit-owned scripts, so they
+file (`.mcp.json#mcpServers.<name>`), so the project keeps its own keys there. A plugin's rule or
+skill text copied under another name counts too: a `CLAUDE.md`, `AGENTS.md`, `.claude/rules/`,
+`.claude/commands/` or `.claude/skills/*/SKILL.md` file that holds at least half the lines of a
+plugin's `rules/*.md` or `SKILL.md` (and five or more). Doctor also lists the tests of kit-owned scripts, so they
 go with the script: a `*.test.*` or `*.spec.*` file beside a listed script with the same name, or
 one that imports it, even after the script itself is gone. It reads ownership from the plugins
 installed for the project and from those this session loaded with `--plugin-dir` (read from the

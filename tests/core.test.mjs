@@ -12,13 +12,13 @@ import { codegraphQueryDir } from "../plugins/core/hooks/codegraph-sync.mjs";
 import { lintCommandsFor, lintRootFor } from "../plugins/core/hooks/lint-edited-file.mjs";
 import { updateText } from "../plugins/core/hooks/session-start.mjs";
 import { dispatch } from "../plugins/core/hooks/shell-pre.mjs";
-import { mergeSettings, parseAdoptArgs, repoName, starterKitJson } from "../plugins/core/src/adopt.mjs";
+import { baseBranch, mergeSettings, otherCommands, parseAdoptArgs, repoName, sdlcPath, starterKitJson } from "../plugins/core/src/adopt.mjs";
 import { compare, outline } from "../plugins/core/src/docs-parity.mjs";
 import { checkKitJson, checkLoadedPlugins, checkMarketplaceRefs, checkSettings, checkVersions } from "../plugins/core/src/doctor.mjs";
 import { collectInventory, groupOf, measureDrift, summarize } from "../plugins/core/src/inventory.mjs";
 import { hookOff, lintOnEdit } from "../plugins/core/lib/kit-config.mjs";
 import { globMatcher, matchesAny, withFile } from "../plugins/core/src/lint-match.mjs";
-import { enabledForProject, findKitCopies, isClaudeProcess, ownedBy, pluginDirArgs, pluginRoots, relativeImports, sessionPluginDirs, testsOfOwned } from "../plugins/core/src/kit-owned.mjs";
+import { enabledForProject, findKitCopies, isClaudeProcess, ownedBy, pluginDirArgs, pluginRoots, relativeImports, sessionPluginDirs, testsOfOwned, textCopies, textLines } from "../plugins/core/src/kit-owned.mjs";
 import { optionValues, printCommands } from "../plugins/core/src/kit-cli.mjs";
 import { validate } from "../plugins/core/src/schema-check.mjs";
 import { checkUpdates, pickRemoteSha, updateCommands } from "../plugins/core/src/update-check.mjs";
@@ -674,6 +674,37 @@ describe("kit-owned files", () => {
   });
 });
 
+describe("kit text copied under another name", () => {
+  const rule = readFileSync(join(core, "rules", "always-on.md"), "utf8");
+
+  it("textLines drops short lines, list marks and front matter", () => {
+    const lines = textLines("---\nname: x\n---\n# Title\n1. **Use English** in chat by default, always.\n- ok\n|  a table cell that is long enough |\n");
+    assert.deepEqual([...lines], ["**use english** in chat by default, always.", "a table cell that is long enough"]);
+  });
+
+  it("flags core's rule pasted into a renamed rule file or CLAUDE.md, not a file that quotes a line", () => {
+    const project = tempProject("renamed-rule", {
+      ".claude/rules/house-style.md": `# Our house style\n\n${rule}\n\nProject line that the kit does not have at all.\n`,
+      "CLAUDE.md": `# Project\n\n${rule.split("\n").slice(0, 3).join("\n")}\n`,
+      ".claude/rules/own.md": "# Own\n\nA rule only this project has, long enough to count as a line.\n",
+    });
+    const copies = textCopies(project, { root: core, name: "core" });
+    assert.deepEqual(copies.map((copy) => copy.path), [".claude/rules/house-style.md"]);
+    assert.match(copies[0].note, /of core's rules\/always-on\.md/);
+    const all = findKitCopies(project, [{ root: core, name: "core" }]);
+    assert.ok(all.some((copy) => copy.path === ".claude/rules/house-style.md" && copy.plugin === "core"));
+  });
+
+  it("flags a kit skill copied under a new folder name once", () => {
+    const skill = readFileSync(join(core, "skills", "check", "SKILL.md"), "utf8");
+    const project = tempProject("renamed-skill", { ".claude/skills/run-checks/SKILL.md": skill, ".claude/skills/check/SKILL.md": skill });
+    const paths = findKitCopies(project, [{ root: core, name: "core" }]).map((copy) => copy.path);
+    assert.ok(paths.includes(".claude/skills/run-checks/SKILL.md"));
+    assert.ok(paths.includes(".claude/skills/check"));
+    assert.ok(!paths.includes(".claude/skills/check/SKILL.md"), "a same-name copy is named once, by its folder");
+  });
+});
+
 describe("adopt", () => {
   it("drafts kit.json from package.json and launch.json", () => {
     const project = tempProject("My App", {
@@ -698,6 +729,42 @@ describe("adopt", () => {
     assert.equal(repoName(worktree), "named-repo");
     git("remote", "add", "origin", "git@github.com:owner/real-name.git");
     assert.equal(repoName(worktree), "real-name");
+  });
+
+  it("takes an integration branch before origin/HEAD", () => {
+    const main = tempProject("integration-branch", { "README.md": "x" });
+    const git = (...args) => spawnSync("git", args, { cwd: main, encoding: "utf8" });
+    git("init", "-q", "-b", "main");
+    git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "init");
+    assert.equal(baseBranch(main), "main");
+    git("branch", "dev");
+    assert.equal(baseBranch(main), "dev");
+    assert.equal(starterKitJson(main).baseBranch, "dev");
+  });
+
+  it("finds the SDLC folder that already holds items", () => {
+    const archived = tempProject("sdlc-archived", { "intent/archive/2026-01-01-x/intent.md": "x" });
+    assert.equal(sdlcPath(archived), "intent");
+    assert.deepEqual(starterKitJson(archived).paths, { sdlc: "intent" });
+    const active = tempProject("sdlc-active", { "docs/specs/login/intent.md": "x", "intent/notes.md": "x" });
+    assert.equal(sdlcPath(active), "docs/specs");
+    const plain = tempProject("sdlc-default", { "docs/sdlc/a/intent.md": "x" });
+    assert.equal(sdlcPath(plain), "docs/sdlc");
+    assert.equal(starterKitJson(plain).paths, undefined);
+    assert.equal(sdlcPath(tempProject("sdlc-none", { "README.md": "x" })), null);
+  });
+
+  it("guesses Python and Makefile commands when package.json has none", () => {
+    const py = tempProject("py-app", {
+      "pyproject.toml": "[project]\nname = 'x'\n\n[tool.ruff]\nline-length = 100\n\n[tool.mypy]\nstrict = true\n",
+      "uv.lock": "",
+      "tests/test_x.py": "",
+      Makefile: "build:\n\tpython -m build\n",
+    });
+    assert.deepEqual(starterKitJson(py).commands, { check: "uv run mypy .", lint: "uv run ruff check .", test: "uv run pytest", build: "make build" });
+    const plain = tempProject("py-plain", { ".python-version": "3.12", "pytest.ini": "" });
+    assert.deepEqual(otherCommands(plain), { test: "pytest" });
+    assert.deepEqual(otherCommands(plain, { test: "npm test" }), {}, "a command package.json gave wins");
   });
 
   it("adds marketplaces and plugins without changing what is there", () => {

@@ -46,7 +46,8 @@ which reaches the main checkout from any worktree session. It is only for record
 never committed (a questions-only session, one that stopped before its commit); a committing
 session's record already rides in its commit.
 
-The message follows the house style in the `git-ops` agent (Conventional Commits). After a commit
+The message follows the house style in the `git-ops` agent: the subject form `kit.json`
+`commitSubject` sets, else Conventional Commits. After a commit
 with code in it, the project's `kit.json` `commands.commitAudit` runs, when it is set, and the
 script prints its output under a `commit-audit:` line; relay a `commit-audit:` block that names
 findings to the user. `{files}` in that command becomes the committed paths (also in

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "./session/vitest-compat.mjs";
 import { fileURLToPath } from "node:url";
-import { codegraphStatusLine, formatRunLogLine, resolveSessionDir } from "../plugins/session/scripts/worktree-setup-hook.mjs";
+import { codegraphStatusLine, formatRunLogLine, resolveSessionDir, staleBaseLine } from "../plugins/session/scripts/worktree-setup-hook.mjs";
 
 describe("resolveSessionDir", () => {
   it("prefers the session cwd from the hook input over the env and this file's repo", () => {
@@ -73,6 +73,15 @@ describe("codegraphStatusLine", () => {
   });
 });
 
+describe("staleBaseLine", () => {
+  it("warns only for a worktree with no commits of its own that its base moved past", () => {
+    expect(staleBaseLine("dev", 0, 3)).toContain("starts 3 commit(s) behind dev; run `worktree-flow adopt dev`");
+    expect(staleBaseLine("dev", 0, 0)).toBeNull();
+    expect(staleBaseLine("dev", 2, 3)).toBeNull();
+    expect(staleBaseLine("dev", null, 3)).toBeNull();
+  });
+});
+
 const HOOK = fileURLToPath(new URL("../plugins/session/scripts/worktree-setup-hook.mjs", import.meta.url));
 
 describe("worktree-setup-hook.mjs as a process", () => {
@@ -106,6 +115,11 @@ describe("worktree-setup-hook.mjs as a process", () => {
 
       expect(run().status).toBe(0);
       expect(existsSync(log)).toBe(true);
+      rmSync(log);
+
+      expect(run().stdout).not.toContain("behind");
+      git(main, "-c", "user.email=t@example.com", "-c", "user.name=T", "commit", "-q", "--allow-empty", "-m", "b");
+      expect(run().stdout).toContain("this worktree starts 1 commit(s) behind main; run `worktree-flow adopt main`");
       rmSync(log);
 
       writeFileSync(join(wt, "kit.json"), JSON.stringify({ project: "t", hooks: { off: ["worktree-setup"] } }));

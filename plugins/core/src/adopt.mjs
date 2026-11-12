@@ -1,14 +1,15 @@
 // `kit adopt`: puts a project on the kit. Dry run by default; `--write` applies it.
 //
-// 1. A starter kit.json, only when there is none: project name, base branch, the check, lint,
-//    test and build commands its package.json defines, and the dev server port from
-//    .claude/launch.json.
+// 1. A starter kit.json, only when there is none: project name, base branch (an integration
+//    branch such as `dev` before the default branch), the SDLC folder that already holds items,
+//    the check, lint, test and build commands from package.json (else Python tools or Makefile
+//    targets), and the dev server port from .claude/launch.json.
 // 2. .claude/settings.json: the marketplaces in `extraKnownMarketplaces` (the base, plus any
 //    overlay, both needed for overlay dependencies, docs/spikes.md S3a) and the plugins in
 //    `enabledPlugins`. Only adds keys; never changes or removes one the file has.
 // 3. Lists the local files the kit now supplies. Deletes nothing.
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { BASE_MARKETPLACE } from "./doctor.mjs";
 import { KIT_FILE } from "../lib/kit-config.mjs";
@@ -39,11 +40,75 @@ function packageRunner(projectDir) {
   return "npm";
 }
 
-function baseBranch(projectDir) {
-  const head = spawnSync("git", ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"], { cwd: projectDir, encoding: "utf8" });
+/** Branch names a repo integrates on before its default branch, in the order they are tried. */
+export const INTEGRATION_BRANCHES = ["dev", "develop", "development"];
+
+/**
+ * The branch work lands on: an integration branch (`dev`, `develop`, `development`) the repo has
+ * locally or on `origin`, else `origin/HEAD`, else the current branch, else `main`. A repo whose
+ * default branch is `main` but whose work lands on `dev` gets `dev`.
+ */
+export function baseBranch(projectDir) {
+  const git = (...args) => spawnSync("git", args, { cwd: projectDir, encoding: "utf8" });
+  for (const name of INTEGRATION_BRANCHES) {
+    for (const ref of [`refs/heads/${name}`, `refs/remotes/origin/${name}`]) {
+      if (git("rev-parse", "--verify", "--quiet", ref).status === 0) return name;
+    }
+  }
+  const head = git("symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD");
   if (head.status === 0 && head.stdout.trim()) return head.stdout.trim().replace(/^origin\//, "");
-  const branch = spawnSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd: projectDir, encoding: "utf8" });
+  const branch = git("rev-parse", "--abbrev-ref", "HEAD");
   return branch.status === 0 && branch.stdout.trim() && branch.stdout.trim() !== "HEAD" ? branch.stdout.trim() : "main";
+}
+
+/** Folders a project may keep its SDLC items in, the schema default first. */
+const SDLC_CANDIDATES = ["docs/sdlc", "intent", "docs/intent", "specs", "docs/specs"];
+
+/**
+ * The folder that already holds SDLC items: one with `<slug>/intent.md` or an `archive/` folder of
+ * them, or null when none does (the schema default then applies).
+ */
+export function sdlcPath(projectDir) {
+  const holdsItems = (dir) => {
+    if (!existsSync(dir) || !statSync(dir).isDirectory()) return false;
+    return readdirSync(dir).some((name) => {
+      const sub = join(dir, name);
+      if (!statSync(sub).isDirectory()) return false;
+      if (existsSync(join(sub, "intent.md"))) return true;
+      return name === "archive" && readdirSync(sub).some((item) => existsSync(join(sub, item, "intent.md")));
+    });
+  };
+  return SDLC_CANDIDATES.find((rel) => holdsItems(join(projectDir, rel))) ?? null;
+}
+
+/** Whether a pyproject.toml has a `[tool.<name>]` table. */
+function pyTool(pyproject, name) {
+  return new RegExp(`^\\[tool\\.${name}(?:\\.|\\])`, "m").test(pyproject);
+}
+
+/**
+ * Commands a project without package.json scripts declares another way: Python tools (pytest,
+ * ruff, mypy, through `uv run` when the repo has `uv.lock`), then Makefile targets.
+ * @param {string} projectDir @param {Record<string, string>} have the commands already found
+ */
+export function otherCommands(projectDir, have = {}) {
+  const commands = {};
+  const set = (name, command) => {
+    if (!have[name] && !commands[name]) commands[name] = command;
+  };
+  const pyproject = existsSync(join(projectDir, "pyproject.toml")) ? readFileSync(join(projectDir, "pyproject.toml"), "utf8") : null;
+  if (pyproject !== null || existsSync(join(projectDir, ".python-version"))) {
+    const run = existsSync(join(projectDir, "uv.lock")) ? "uv run " : "";
+    const text = pyproject ?? "";
+    if (pyTool(text, "mypy") || existsSync(join(projectDir, "mypy.ini"))) set("check", `${run}mypy .`);
+    if (pyTool(text, "ruff") || existsSync(join(projectDir, "ruff.toml")) || existsSync(join(projectDir, ".ruff.toml"))) set("lint", `${run}ruff check .`);
+    if (pyTool(text, "pytest") || existsSync(join(projectDir, "pytest.ini")) || existsSync(join(projectDir, "tests"))) set("test", `${run}pytest`);
+  }
+  const makefile = existsSync(join(projectDir, "Makefile")) ? readFileSync(join(projectDir, "Makefile"), "utf8") : "";
+  for (const name of ["check", "lint", "test", "build"]) {
+    if (new RegExp(`^${name}\\s*:`, "m").test(makefile)) set(name, `make ${name}`);
+  }
+  return commands;
 }
 
 /**
@@ -77,7 +142,10 @@ export function starterKitJson(projectDir) {
   pick("lint", ["lint:check", "lint"]);
   pick("test", ["test"]);
   pick("build", ["build"]);
+  Object.assign(commands, otherCommands(projectDir, commands));
   if (Object.keys(commands).length > 0) kit.commands = commands;
+  const sdlc = sdlcPath(projectDir);
+  if (sdlc && sdlc !== "docs/sdlc") kit.paths = { sdlc };
   const port = readJson(join(projectDir, ".claude", "launch.json"))?.configurations?.find((entry) => Number.isInteger(entry?.port))?.port;
   if (port) kit.devServer = { port };
   return kit;

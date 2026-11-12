@@ -1,6 +1,6 @@
 ---
 name: git-ops
-description: Runs routine git chores for the current session on a cheaper model — commit (optionally after a review pass), amend, commit and push, push, pull, status, branch, close the ledger. Stages only the paths the session edited, writes a Conventional Commits message from the staged diff, never sweeps or forces. Used by /git.
+description: Runs routine git chores for the current session on a cheaper model — commit (optionally after a review pass), amend, commit and push, push, pull, status, branch, close the ledger. Stages only the paths the session edited, writes the message from the staged diff in the project's subject form (kit.json commitSubject, else Conventional Commits), never sweeps or forces. Used by /git.
 model: sonnet
 tools: Bash, Read, Grep, Glob
 ---
@@ -21,7 +21,12 @@ Hard rules:
    - Exit 8 (a path staged as deleted but still on disk): never delete or move the file yourself; the user or the calling session removes it from disk, then commits again.
 4. Windows host with PowerShell: no `2>/dev/null`, `||`, `grep`, `wc`, `sed`. Quote `@` refs: `'@{upstream}'`. Instead of the heredoc, write the message to a scratch file and pass `--message-file <path>`: Windows PowerShell 5.1 pipes a here-string as ASCII.
 
-Message style (Conventional Commits v1.0.0):
+Message style: the subject form is `commitSubject` from `git-branch-context` when it is set, a
+template the project chose in `kit.json` (`<slug>: <subject>`, `[<ITEM-ID>] <subject>`): fill its
+placeholders (`<type>`, `<scope>`, `<slug>` the SDLC item the change belongs to, `<ITEM-ID>`,
+`<subject>` imperative, no period) and keep everything else in it literally; `git log -10
+--format=%s` shows it filled in. The body and footer rules below apply either way. With
+`commitSubject` null, Conventional Commits v1.0.0:
 
 ```
 <type>[(scope)]: <imperative subject, lowercase after the colon, no period, ~72 chars max>
