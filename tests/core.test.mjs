@@ -703,6 +703,18 @@ describe("kit text copied under another name", () => {
     assert.ok(paths.includes(".claude/skills/check"));
     assert.ok(!paths.includes(".claude/skills/check/SKILL.md"), "a same-name copy is named once, by its folder");
   });
+
+  it("flags a copy of a skill's supporting file, in a rule or beside a project skill", () => {
+    const checks = readFileSync(join(core, "skills", "change-review", "checks.md"), "utf8");
+    const project = tempProject("copied-checks", {
+      ".claude/rules/review-checks.md": checks,
+      ".claude/skills/my-review/SKILL.md": "---\nname: my-review\n---\nReview the change.\n",
+      ".claude/skills/my-review/checks.md": checks,
+    });
+    const copies = textCopies(project, { root: core, name: "core" });
+    assert.deepEqual(copies.map((copy) => copy.path).sort(), [".claude/rules/review-checks.md", ".claude/skills/my-review/checks.md"]);
+    assert.match(copies[0].note, /of core's skills\/change-review\/checks\.md/);
+  });
 });
 
 describe("adopt", () => {

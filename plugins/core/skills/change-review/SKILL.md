@@ -13,12 +13,12 @@ Review the change like the developer who will be called when it breaks. Order of
 ## 1. Understand first
 
 1. Pick the change from the target:
-   1.1. Empty or `uncommitted`: the staged, unstaged and untracked changes. `git diff HEAD` leaves out untracked files, so take them from `git status --short` and read each one whole. Nothing uncommitted, when the target was empty: the last commit.
+   1.1. Empty or `uncommitted`: the staged, unstaged and untracked changes. `git diff HEAD` leaves out untracked files, so take them from `git status --short --untracked-files=all` (plain `--short` shows a new folder as one line, not its files) and read each one whole. Nothing uncommitted, when the target was empty: the last commit.
    1.2. `staged`: the staged changes only.
    1.3. `last`: the last commit (`HEAD`). Another commit, or a range `a..b`: that commit or range.
-   1.4. `branch`: the branch from the point it left its base. `git-branch-context` names the base as `defaultBase` (`kit.json` `baseBranch` when set); diff from `git merge-base origin/<defaultBase> HEAD` when `origin/<defaultBase>` exists, else from the merge base with the local branch, which may be behind its remote.
+   1.4. `branch`: the branch from the point it left its base. `git-branch-context` names the base as `defaultBase` (`kit.json` `baseBranch` when set); diff from `git merge-base HEAD <defaultBase> origin/<defaultBase>`, which takes the newer fork point of the two, so a local base behind its remote or ahead of it (landed, not pushed) adds no foreign commits. Leave out `origin/<defaultBase>` when it does not exist.
    1.5. A PR number or link: `gh pr diff`; without `gh`, say so and stop.
-   1.6. A path: the uncommitted changes under it, untracked files included; none, then the files as they stand.
+   1.6. A path: the uncommitted changes under it, untracked files included (as in 1.1); none, then the files as they stand.
 2. Read the diff, then the code it touches: the callers of every changed function, the functions it calls, its tests, and the project's `CLAUDE.md` or `AGENTS.md` for rules the change must keep.
 3. Trace the real flow: where data comes in, what is stored, what goes out.
 4. A change can break code it does not touch. When a signature, return value or behavior changes, search for every caller (CodeGraph's impact check where the repo has `.codegraph/`, else the Grep tool) and read them.
