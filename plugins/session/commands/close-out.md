@@ -112,7 +112,7 @@ a file a neighbour touched there is flagged here too.
    user settles that checkout.
 5. Push the base (`/git push` from the checkout holding it, or `git push origin <base>`) only when
    the user's answer said push. Never push the session branch for a landed change: the base
-   carries it now.
+   carries it now. When it was pushed earlier, § 4 deletes it on origin, on that answer's word.
 6. After a push from a **top-level session**, wait for the CI run on the pushed commit, when the
    repository has CI. A **child session** skips this step: `mcp__ccd_session_mgmt__get_session`
    with `"self"` shows a `parentSessionId` and `detached` not `true` (a proposal card,
@@ -187,6 +187,14 @@ refused until unpinned, and the app then keeps the worktree detached in its reus
 deleting it; a worktree no session owns any more goes with `worktree-flow remove <path>`, which
 refuses anything unmerged or dirty. Never remove one marked `·`.
 
+**This session's branch on origin.** When this branch was pushed, nothing else deletes it there.
+Before § 5, `worktree-flow stale-remote --landing <this branch>` says whether it will be stale
+once landed and pushed, or why it is kept (unmerged commits, checked out in another worktree, a
+protected name). When it will be stale, § 5's push button also deletes it. After § 2 step 5's push,
+run the listing again without `--landing`; only when it still says stale,
+`git push origin --delete <this branch>`, one visible command, never forced. A button without a
+push deletes nothing here; a branch the listing kept stays, its reason in the resume.
+
 ## 5. Ask once
 
 End with `mcp__ccd_turn__wrap_up` (in the desktop app; elsewhere, one closing question): the
@@ -199,7 +207,10 @@ continues the work and the second lands anyway. Drafted kit gaps (§ 1) ride on 
 its message also says to open them; the other answers leave them in `## Next` as not opened.
 Uncommitted session files (§ 2 step 1) ride on every landing button the same way: its message
 starts with committing them through `/git commit`, so the click accepts and commits in one
-answer. The user's click is the authorization for exactly what its message says, nothing more.
+answer. This branch on origin (§ 4) rides on the button that pushes: when the listing says it will
+be stale, the recap names it and that button's message adds "then delete origin/<branch>". The
+user's click is the authorization for exactly what its message says, nothing more; the
+`git push --delete` still goes through the normal permission ask.
 
 ## 6. Session resume, the last message before the archive
 

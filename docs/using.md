@@ -114,6 +114,13 @@ evolution init
    a base. Setting the forge's default branch to `dev`, so new clones and pull requests start
    there, is the repo owner's call.
 
+   A merged branch that was pushed stays on `origin` until someone deletes it.
+   `worktree-flow stale-remote [--base <b>] [<branch>…]` lists the ones `origin/<base>` already
+   holds, or whose PR was merged into the base (a squash merge, checked with `gh`), and the ones
+   it keeps with the reason; it deletes nothing. `/close-siblings` offers to delete the
+   sub-sessions' stale branches, and `/close-out` this session's own, in the same question as
+   the landing; the deletion is one `git push origin --delete …` on the user's word.
+
 ## 3. Take updates
 
 Update explicitly, at user scope. A new `stable` takes two commands, then a new session:

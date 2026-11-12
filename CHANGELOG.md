@@ -11,6 +11,7 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 - core: `codegraph-sync` expands a leading `cd ~/…`, which it resolved under the working folder and so skipped the sync.
 - core: `kit doctor` reports a kit skill copied into a folder whose name only starts with a kit skill's name (`.claude/skills/checks/` beside skill `check`); a bare prefix test hid it.
 - core: the README says `kit.json` commands are executable config, run without a prompt, to be trusted like project hooks.
+- session: merged branches no longer pile up on `origin`. New `worktree-flow stale-remote [--base <b>] [--landing] [--json] [<branch>…]` (read-only) fetches origin and lists the named branches, every `claude/*` there when none is named, as stale when `origin/<base>` holds them or `gh` shows their PR merged into the base at origin's tip (a squash merge), and keeps `main`, `dev`, the base and other integration branches, a branch checked out in another worktree, and one with commits the base lacks, each with the reason. `/close-siblings` § 5 shows the sub-sessions' stale remote branches in the same question as the archive and, on that click, deletes them after the push with one `git push origin --delete …`; `/close-out` does the same for this session's own pushed branch on the button that pushes.
 
 ## 2026-11-12 — eleventh `stable`
 
