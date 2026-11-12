@@ -5,6 +5,8 @@ name: kit-fleet
 # runs it, so no repo name reaches a public log. The job runs `agent-kit fleet --source github` at
 # `kit-ref`, writes the report to the run summary and an artifact, and keeps one rolling issue in
 # the calling repo: opened or updated while there are findings, closed when a run is clean.
+# The job holds the caller's read token, so every action is pinned to a full commit SHA. A caller
+# that pins this workflow to a SHA too should set `kit-ref` to the same SHA.
 #
 # Caller:
 #
@@ -77,20 +79,20 @@ jobs:
           fi
 
       - name: Check out the calling repo (for its repo list)
-        uses: actions/checkout@v4
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           path: caller
           persist-credentials: false
 
       - name: Check out agent-kit at ${{ inputs.kit-ref }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           repository: 3meyc/agent-kit
           ref: ${{ inputs.kit-ref }}
           path: .agent-kit
           persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 22
 
@@ -112,7 +114,7 @@ jobs:
           cat fleet-out/fleet.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Keep the report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: kit-fleet-report
           path: fleet-out/
