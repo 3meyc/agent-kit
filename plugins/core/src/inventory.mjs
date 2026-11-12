@@ -77,7 +77,8 @@ export function loadInventoryConfig(file = null) {
   };
 }
 
-function walk(dir, topLevelOnly) {
+/** Files under `dir` (absolute paths), skipping `SKIP` names; only the top level when `topLevelOnly`. */
+export function walk(dir, topLevelOnly) {
   const out = [];
   if (!existsSync(dir)) return out;
   for (const name of readdirSync(dir)) {

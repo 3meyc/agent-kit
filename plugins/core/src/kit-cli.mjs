@@ -7,6 +7,7 @@ import { runAdopt } from "./adopt.mjs";
 import { runDev } from "./dev-plugins.mjs";
 import { runDoctor } from "./doctor.mjs";
 import { runInstalls } from "./installs.mjs";
+import { runFleet } from "./fleet.mjs";
 import { runInventory } from "./inventory.mjs";
 import { ownershipRootDirs } from "./kit-owned.mjs";
 import { readKit, rootFor } from "../lib/kit-config.mjs";
@@ -31,6 +32,11 @@ const USAGE = `Usage: kit <command>
                        Agent tooling across the repos in ~/.config/agent-kit/inventory.json
   drift [--out dir] [--config file]
                        Changed lines of drifting copies against the reference repo
+  fleet --source github --list <file> [--repo [name=]owner/repo[#branch]]... [--kit owner/repo[#ref]]...
+        [--out dir] [--json]
+                       Kit state of the listed repos read through the GitHub API (token from GH_TOKEN):
+                       kit-owned copies, marketplace refs, lockfile pins against each kit's stable,
+                       drift of shared files; exit 1 on findings (docs/using.md § 5)
   commands             The project's kit.json commands and check suites
   dev [--checkout <marketplace>=<path>]... [--config <file>] [--run] [-- <claude args>]
                        The claude --plugin-dir command that loads the project's enabled kit plugins
@@ -194,7 +200,7 @@ export function devCommand(args, root = projectRoot()) {
   return runDev(root, args);
 }
 
-/** @param {string[]} argv */
+/** An exit code, or a promise of one (`fleet`). @param {string[]} argv @returns {number | Promise<number>} */
 export function main(argv) {
   const [command, ...args] = argv;
   const root = projectRoot();
@@ -210,6 +216,8 @@ export function main(argv) {
     case "inventory":
     case "drift":
       return runInventory(command, args);
+    case "fleet":
+      return runFleet(args);
     case "commands":
       return printCommands(root);
     case "dev":
@@ -232,5 +240,13 @@ export function main(argv) {
 
 // Run directly (`node src/kit-cli.mjs …`), as the skills do; bin/kit imports `main` instead.
 if (isDirectRun(import.meta.url)) {
-  process.exitCode = main(process.argv.slice(2));
+  Promise.resolve(main(process.argv.slice(2))).then(
+    (code) => {
+      process.exitCode = code;
+    },
+    (error) => {
+      console.error(`kit: ${error instanceof Error ? error.message : error}`);
+      process.exitCode = 2;
+    },
+  );
 }
