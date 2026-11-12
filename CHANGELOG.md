@@ -4,6 +4,10 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 ## Unreleased
 
+## 2026-11-12 — tenth `stable`
+
+`stable` points at the commit that adds this entry.
+
 - core: `kit adopt` drafts a closer `kit.json`. `baseBranch` is an integration branch the repo has (`dev`, `develop`, `development`, local or on `origin`) before `origin/HEAD`; `paths.sdlc` is set when another folder already holds SDLC items (`intent/`, `docs/intent/`, `specs/`, `docs/specs/`, an item or an `archive/` of them); a project without package.json scripts gets its commands from Python tools (`mypy`, `ruff`, `pytest`, through `uv run` with a `uv.lock`) or Makefile targets (#42).
 - session: `kit.json` `commitSubject` sets the commit subject form `/git commit` writes, a template such as `<slug>: <subject>` or `[<ITEM-ID>] <subject>`; without it, Conventional Commits as before. `git-branch-context` passes it to `git-ops`, and the sdlc commit flow names it (#43).
 - core: `kit doctor` (and `--strict`) catches a plugin's rule or skill text copied under another name: a `CLAUDE.md`, `AGENTS.md`, `.claude/rules/`, `.claude/commands/` or `.claude/skills/*/SKILL.md` file that holds at least half the lines of a plugin's `rules/*.md` or `SKILL.md` (five or more) is listed as a kit copy (#44).
