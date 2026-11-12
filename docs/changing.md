@@ -79,7 +79,7 @@ one list gets taken for another, and nothing ties a gap to the commit that fixed
 | 4 | Fall back | `gh` missing or signed out, or the repo out of the account's reach (`gh repo view <owner/repo>` fails): the gap goes to the ledger `## Next` with the drafted title and the reason it was not opened, so a later session opens it |
 | 5 | Fix | In the kit's repo, the commit that fixes it says `Fixes #n` (GitHub closes the issue when the commit reaches the default branch), and its CHANGELOG `## Unreleased` line ends with `(#n)` |
 
-`/sdlc-build`, `/sdlc-finish`, `/close-out` and `/handoff` do steps 1–4 for every kit follow-up
+`/sdlc:build`, `/sdlc:finish`, `/close-out` and `/handoff` do steps 1–4 for every kit follow-up
 they find. An overlay kit keeps the same template and label in its own repo.
 
 ## Releasing
@@ -145,7 +145,7 @@ move.
 
 | ID | Case | Do |
 | --- | --- | --- |
-| 1 | A step in `/sdlc-plan` is missing or wrong | Flow above, plugin `sdlc` |
+| 1 | A step in `/sdlc:plan` is missing or wrong | Flow above, plugin `sdlc` |
 | 2 | Only one project needs a different path or command | Change that project's `kit.json` |
 | 3 | A project needs an extra step the others don't | A local skill in the project; propose a `kit.json` option if a second project needs it |
 | 4 | Urgent fix during a release | Flow above, then release at once; roll back if it misbehaves |

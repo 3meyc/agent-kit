@@ -621,6 +621,22 @@ describe("kit-owned files", () => {
     ]);
   });
 
+  it("still claims a project copy under a renamed skill's or agent's former name", () => {
+    const sdlc = join(repo, "plugins", "sdlc");
+    const owned = ownedBy({ root: sdlc, name: "sdlc" }).files;
+    const former = owned.find((file) => file.path === ".claude/skills/sdlc-plan");
+    assert.equal(former?.note, "former name of skill sdlc:plan");
+    assert.ok(owned.some((file) => file.path === ".claude/agents/sdlc-verifier.md"));
+    const project = tempProject("owned-former", {
+      ".claude/skills/sdlc-plan/SKILL.md": "x",
+      ".claude/commands/svelte-runes.md": "x",
+      ".claude/skills/my-app-plan/SKILL.md": "x",
+    });
+    const plugins = ["sdlc", "svelte"].map((name) => ({ root: join(repo, "plugins", name), name }));
+    const copies = findKitCopies(project, plugins).map((copy) => copy.path);
+    assert.deepEqual(copies.sort(), [".claude/commands/svelte-runes.md", ".claude/skills/sdlc-plan"]);
+  });
+
   it("claims one JSON key with a `file#key.path` entry and leaves the project's own keys alone", () => {
     const overlay = tempProject("owned-json-key-plugin", {
       "kit-owned.json": { files: [".mcp.json#mcpServers.ui-docs", ".mcp.json#mcpServers.browser"] },

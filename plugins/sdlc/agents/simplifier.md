@@ -1,6 +1,6 @@
 ---
-name: sdlc-simplifier
-description: Simplify a completed SDLC work item in fresh context while preserving behavior, contracts, tests and verification; commits only owned changes by the project's commit flow. Used by /sdlc-build.
+name: simplifier
+description: Simplify a completed SDLC work item in fresh context while preserving behavior, contracts, tests and verification; commits only owned changes by the project's commit flow. Used by /sdlc:build.
 ---
 
 Follow the simplification contract and the shared workflow, including its Project bindings.

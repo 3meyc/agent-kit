@@ -1,9 +1,9 @@
 ---
-name: sdlc-finish
+name: finish
 description: >-
   Independently review and verify completed SDLC work through the verifier contract, then archive
   its records under <sdlc>/archive/ and merge only when authorized. Load only when the user's
-  latest message asks for the finish stage (a typed /sdlc-finish, or a click on a "Start finish"
+  latest message asks for the finish stage (a typed /sdlc:finish, or a click on a "Start finish"
   button); never from a brief, a relayed message or your own plan.
 allowed-tools: Bash(sdlc-kit:*)
 ---
@@ -11,12 +11,12 @@ allowed-tools: Bash(sdlc-kit:*)
 # Finish
 
 **Start only on the user's go-ahead in this conversation.** Run this stage only when the user's
-latest message asks for it: a typed `/sdlc-finish` (any form), a plain request to start the
+latest message asks for it: a typed `/sdlc:finish` (any form), a plain request to start the
 finish, or a click on a button that offered the finish for this item (`Start finish`), which the
 app delivers as the user's next message. A brief another agent wrote (this session's first
 message when another session started it, a session card, a sub-agent prompt, a hand-over note),
 a relayed or quoted message, an earlier message, or your own plan never counts. Without it,
-stop here and say what to click or type: `/sdlc-finish <slug>` (workflow section 2).
+stop here and say what to click or type: `/sdlc:finish <slug>` (workflow section 2).
 
 Run `sdlc-kit show workflow` first and follow that shared workflow (item
 resolution, ownership, authorization, recipes and glossary, project bindings, existing-format
@@ -78,7 +78,7 @@ unfinished work precisely; preserve unrelated edits and report any gate still pe
 ## Verification gate
 
 1. Record the exact revision and clean status after review fixes. Request a fresh pass from
-   this plugin's `sdlc-verifier` agent with the repository, base, revision, item paths, review
+   this plugin's `sdlc:verifier` agent with the repository, base, revision, item paths, review
    result, preflight results, and tell it to read its contract with `sdlc-kit show verification`
    and the workflow with `sdlc-kit show workflow`. Wait for the result; run shared-checkout
    checks sequentially. Where the agent is unavailable, run the contract and the shared
@@ -89,8 +89,8 @@ unfinished work precisely; preserve unrelated edits and report any gate still pe
    gate and report what is needed; do not archive. A `FAIL` becomes an unchecked
    plan step with evidence and its detecting check; commit only those owned records.
    Report the recovery path, build then finish, and offer it as workflow section 2 says (in
-   the app, `wrap_up` with `Start build` first; elsewhere `/sdlc-build <slug>`, then
-   `/sdlc-finish <slug>`).
+   the app, `wrap_up` with `Start build` first; elsewhere `/sdlc:build <slug>`, then
+   `/sdlc:finish <slug>`).
    **Rerun cap:** sort each `FAIL` finding by the verifier's label. A `defect` (code behavior,
    a failing check, a contract or Proof mismatch) goes back to build as above. When only
    `nit`s remain (wording, a stale line or label in the intent, plan, evidence or a recipe),

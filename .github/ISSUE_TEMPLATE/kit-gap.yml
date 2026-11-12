@@ -21,7 +21,7 @@ body:
     attributes:
       label: File
       description: The file in the plugin, with a section or line when it helps.
-      placeholder: "plugins/sdlc/skills/sdlc-finish/SKILL.md, Finish preflight step 3"
+      placeholder: "plugins/sdlc/skills/finish/SKILL.md, Finish preflight step 3"
     validations:
       required: true
   - type: textarea
@@ -43,6 +43,6 @@ body:
     attributes:
       label: Found in
       description: "The project that found it, described generically: kind of project, the plugins and kit.json options in play, the stage or command that ran. No names."
-      placeholder: "A TypeScript web app with sdlc and session enabled, ledger on, during /sdlc-finish."
+      placeholder: "A TypeScript web app with sdlc and session enabled, ledger on, during /sdlc:finish."
     validations:
       required: true

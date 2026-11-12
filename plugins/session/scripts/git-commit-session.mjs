@@ -487,7 +487,7 @@ function sessionFiles(sessions) {
 /**
  * The changed files this session did not write. Two edits are its own although `--files` cannot
  * show them: a staged rename, when either side is a path it wrote or both sides are under the SDLC
- * folder (the `/sdlc-finish` archive `git mv`s an item's untouched files too), and another
+ * folder (the `/sdlc:finish` archive `git mv`s an item's untouched files too), and another
  * session's record whose only change is this session's own `(done <date> <id8>)` mark
  * (`--done … --as`). Pure, so it can be tested; `ownMark(path)` reads the record.
  * @param {StatusEntry[]} entries @param {Set<string>} mine @param {(path: string) => boolean} ownMark

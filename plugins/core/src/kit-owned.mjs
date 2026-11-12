@@ -206,6 +206,15 @@ export function ownedBy(plugin) {
     files.push({ path: `.claude/skills/${name}`, note: `same name as skill ${plugin.name}:${name}` });
     files.push({ path: `.claude/commands/${name}.md`, note: `same name as skill ${plugin.name}:${name}` });
   }
+  // A renamed skill or agent still owns a project copy under its old name.
+  const former = manifest.formerNames ?? {};
+  for (const [old, now] of Object.entries(former.agents ?? {})) {
+    files.push({ path: `.claude/agents/${old}.md`, note: `former name of agent ${plugin.name}:${now}` });
+  }
+  for (const [old, now] of Object.entries(former.skills ?? {})) {
+    files.push({ path: `.claude/skills/${old}`, note: `former name of skill ${plugin.name}:${now}` });
+    files.push({ path: `.claude/commands/${old}.md`, note: `former name of skill ${plugin.name}:${now}` });
+  }
   return { plugin: plugin.name, files, hookScripts: manifest.hookScripts ?? [] };
 }
 

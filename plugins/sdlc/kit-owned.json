@@ -1,0 +1,18 @@
+{
+  "$comment": "Project files this plugin supplies, for `kit doctor` and `/kit-adopt`. Every skill in skills/ and every agent in agents/ counts as kit-owned; `formerNames` keeps a project copy under a skill's or agent's old name kit-owned after a rename.",
+  "files": [],
+  "formerNames": {
+    "skills": {
+      "sdlc-intent": "intent",
+      "sdlc-plan": "plan",
+      "sdlc-build": "build",
+      "sdlc-finish": "finish",
+      "sdlc-status": "status"
+    },
+    "agents": {
+      "sdlc-simplifier": "simplifier",
+      "sdlc-verifier": "verifier"
+    }
+  },
+  "hookScripts": []
+}

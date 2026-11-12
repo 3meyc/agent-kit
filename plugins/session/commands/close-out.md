@@ -1,5 +1,5 @@
 ---
-description: Close out a worktree session — resume of done / follow-up / not-done work, then land on the base branch, propose follow-up sessions, push on the user's word, and end with a where-what-why session resume before the archive. Runs after /sdlc-finish
+description: Close out a worktree session — resume of done / follow-up / not-done work, then land on the base branch, propose follow-up sessions, push on the user's word, and end with a where-what-why session resume before the archive. Runs after /sdlc:finish
 argument-hint: [slug] [land | land and push | land, push and archive] [with diagram]
 allowed-tools: Bash(worktree-flow:*), Bash(session-ledger:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/worktree-flow.mjs:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/session-ledger.mjs:*), Bash(git status:*), Bash(git log:*), Bash(git rev-parse:*), Bash(gh run list:*), Bash(gh run view:*), Bash(gh run watch:*), Bash(gh api repos/:*), Bash(kit-repo:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/kit-repo.mjs:*), Bash(gh repo view:*)
 ---
@@ -32,7 +32,7 @@ items in `paths.sdlc` (default `docs/sdlc`), the ledger in `paths.ledger` (defau
 ## 1. Resume
 
 Build it from evidence, not memory: the SDLC item when there is one (`<sdlc>/archive/*-<slug>/`
-after `/sdlc-finish`, else `<sdlc>/<slug>/` — unchecked plan steps, the Review's finding
+after `/sdlc:finish`, else `<sdlc>/<slug>/` — unchecked plan steps, the Review's finding
 dispositions, any `PENDING` gate), this session's record (`## Next`), the open `## Next` of every
 child it started (below), and what the user asked for in this conversation. Sort every item into
 exactly one bucket and show the three as numbered lists, empty ones as "None":
@@ -41,7 +41,7 @@ exactly one bucket and show the three as numbered lists, empty ones as "None":
 2. **Follow-ups** — real, self-contained work found along the way: deferred review findings,
    enhancements, inherited defects. Each gets a session proposal (step 3), not just a line.
 3. **Not done** — asked for but missed, failed, or with a gate still open, each with why and its
-   entry point (`/sdlc-build <slug>` …). Anything here blocks landing unless the user overrides.
+   entry point (`/sdlc:build <slug>` …). Anything here blocks landing unless the user overrides.
 
 **Children's follow-ups.** A child with an open parent leaves its follow-ups to that parent (§ 3),
 so the parent reads them. In the desktop app, `mcp__ccd_session_mgmt__list_sessions` with
@@ -161,9 +161,9 @@ already holds this work. A proposal card may be cut from the repository's defaul
 than `<base>` when the user starts it, which is why its first line must be the `adopt <base>` line
 below; `adopt` steps past the files the SessionStart hooks already wrote (`.codegraph/`, the
 ledger's `INDEX.md`). Its `prompt` names the files, what done looks like, and the entry point
-(`/sdlc-intent <new-slug>` for anything that needs an agreed outcome first), opening with
+(`/sdlc:intent <new-slug>` for anything that needs an agreed outcome first), opening with
 `First run: worktree-flow adopt <base> — this worktree's base is <base>.`
-and closing with `When the work is done (after /sdlc-finish for an SDLC item), run /close-out.`
+and closing with `When the work is done (after /sdlc:finish for an SDLC item), run /close-out.`
 Three proposals per turn at most; any further ones go to the record's `## Next`.
 
 A **child with an open parent** (§ 2 step 6) proposes no cards: each follow-up goes to its

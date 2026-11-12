@@ -7,9 +7,12 @@
     ".claude/rules/tailwind-css-v3-rules.md"
   ],
   "partial": {
-    ".claude/rules/svelte-5-runes-mode-rules.md": "The kit's svelte-runes skill holds the generic rules; keep only project paths and project checks (folders for helpers and stores, complexity gates) in a file with another name.",
-    ".claude/rules/accessibility-rules.md": "The kit's svelte-a11y skill holds the generic rules; keep only references to the project's own components, utilities and recipes in a file with another name.",
+    ".claude/rules/svelte-5-runes-mode-rules.md": "The kit's svelte:runes skill holds the generic rules; keep only project paths and project checks (folders for helpers and stores, complexity gates) in a file with another name.",
+    ".claude/rules/accessibility-rules.md": "The kit's svelte:a11y skill holds the generic rules; keep only references to the project's own components, utilities and recipes in a file with another name.",
     ".claude/rules/tailwind-css-v3-rules.md": "The kit's tailwind-styling skill holds the generic rules; keep only the project's token names in a file with another name."
+  },
+  "formerNames": {
+    "skills": { "svelte-a11y": "a11y", "svelte-runes": "runes" }
   },
   "hookScripts": []
 }

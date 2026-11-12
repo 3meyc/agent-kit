@@ -240,8 +240,8 @@ export const BUNDLED = {
   workflow: "references/workflow.md",
   simplification: "references/simplification.md",
   verification: "references/verification.md",
-  "intent-template": "skills/sdlc-intent/assets/template.md",
-  "plan-template": "skills/sdlc-plan/assets/template.md",
+  "intent-template": "skills/intent/assets/template.md",
+  "plan-template": "skills/plan/assets/template.md",
 };
 const PLUGIN_ROOT = fileURLToPath(new URL("..", import.meta.url));
 
