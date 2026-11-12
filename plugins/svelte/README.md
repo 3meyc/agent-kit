@@ -19,10 +19,10 @@ claude plugin install svelte@agent-kit
 
 | ID | Skill | Loads for | Covers |
 | --- | --- | --- | --- |
-| 1 | `svelte-runes` | `**/*.svelte`, `**/*.svelte.ts`, `**/*.svelte.js` | Runes only, one job per rune, read-only props, state placement, declarative templates, component size, reactivity, the Svelte MCP autofixer |
-| 2 | `svelte-a11y` | `**/*.svelte` | Semantic HTML, keyboard, focus, form-field ids and labels, hidden panels, icon-only controls, dialogs, tabs, status and live regions, disabled reasons |
-| 3 | `vitest` | `**/*.test.ts`, `**/*.spec.ts`, `**/*.test.js`, `**/*.spec.js`, `**/vite.config.ts`, `**/vitest.config.ts` | Vitest for new tests, no Node test runner APIs, migrate as you touch, run through the project script, test components through what a user sees |
-| 4 | `tailwind-styling` | `**/*.svelte`, `**/*.css`, `**/tailwind.config.*` | Utility first, no inline styles, extracting repeats, theme tokens over arbitrary values, class-based dark mode, readable class lists |
+| 1 | `svelte:runes` | `**/*.svelte`, `**/*.svelte.ts`, `**/*.svelte.js` | Runes only, one job per rune, read-only props, state placement, declarative templates, component size, reactivity, the Svelte MCP autofixer |
+| 2 | `svelte:a11y` | `**/*.svelte` | Semantic HTML, keyboard, focus, form-field ids and labels, hidden panels, icon-only controls, dialogs, tabs, status and live regions, disabled reasons |
+| 3 | `svelte:vitest` | `**/*.test.ts`, `**/*.spec.ts`, `**/*.test.js`, `**/*.spec.js`, `**/vite.config.ts`, `**/vitest.config.ts` | Vitest for new tests, no Node test runner APIs, migrate as you touch, run through the project script, test components through what a user sees |
+| 4 | `svelte:tailwind-styling` | `**/*.svelte`, `**/*.css`, `**/tailwind.config.*` | Utility first, no inline styles, extracting repeats, theme tokens over arbitrary values, class-based dark mode, readable class lists |
 
 A skill's description is listed in every session and its body loads only when the model calls it
 (see [spikes](../../docs/spikes.md), S2 and side finding 2). The skills fill what the project leaves
@@ -39,7 +39,7 @@ open: the project's own rules and the surrounding code win where they differ.
 
 | ID | Key | Used by |
 | --- | --- | --- |
-| 1 | `commands.test` | `vitest`: the command that runs the tests |
+| 1 | `commands.test` | `svelte:vitest`: the command that runs the tests |
 
 ## Retiring project copies
 

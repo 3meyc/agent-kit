@@ -56,7 +56,7 @@ for (const plugin of PLUGINS) {
 
       it(`${skill}: listed in both READMEs with its globs`, () => {
         for (const readme of readmes) {
-          const row = readme.split("\n").find((line) => line.includes(`| \`${skill}\` |`));
+          const row = readme.split("\n").find((line) => line.includes(`| \`${plugin}:${skill}\` |`));
           assert.ok(row, "README row");
           for (const glob of data.paths) assert.ok(row.includes(`\`${glob}\``), `README row names ${glob}`);
         }

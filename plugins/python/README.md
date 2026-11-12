@@ -19,8 +19,8 @@ claude plugin install python@agent-kit
 
 | ID | Skill | Loads for | Covers |
 | --- | --- | --- | --- |
-| 1 | `python-code` | `**/*.py`, `**/pyproject.toml` | Version pin, uv instead of pip, dependencies as a decision, PEP 723 scripts, ruff; script and package layout, import time, imports and cycles; typing (`X \| None`, weak inputs, frozen dataclasses, Protocols, version-gated features); where to catch errors; which checks to run before calling a change done |
-| 2 | `python-tests` | `**/test_*.py`, `**/*_test.py`, `**/conftest.py`, `**/tests/**/*.py` | The project's runner, testing through the contract, exact assertions, boundaries, isolation, doubles, regression tests first, what not to test |
+| 1 | `python:code` | `**/*.py`, `**/pyproject.toml` | Version pin, uv instead of pip, dependencies as a decision, PEP 723 scripts, ruff; script and package layout, import time, imports and cycles; typing (`X \| None`, weak inputs, frozen dataclasses, Protocols, version-gated features); where to catch errors; which checks to run before calling a change done |
+| 2 | `python:tests` | `**/test_*.py`, `**/*_test.py`, `**/conftest.py`, `**/tests/**/*.py` | The project's runner, testing through the contract, exact assertions, boundaries, isolation, doubles, regression tests first, what not to test |
 
 A skill's description is listed in every session and its body loads only when the model calls it
 (see [spikes](../../docs/spikes.md), S2 and side finding 2). The skills fill what the project leaves
@@ -36,8 +36,8 @@ open: the project's own rules, `pyproject.toml` and the surrounding code win whe
 
 | ID | Key | Used by |
 | --- | --- | --- |
-| 1 | `commands.check` | `python-code`: the checks to run before calling a change done |
-| 2 | `commands.test` | `python-code`, `python-tests`: the command that runs the tests |
+| 1 | `commands.check` | `python:code`: the checks to run before calling a change done |
+| 2 | `commands.test` | `python:code`, `python:tests`: the command that runs the tests |
 
 ## Retiring project copies
 

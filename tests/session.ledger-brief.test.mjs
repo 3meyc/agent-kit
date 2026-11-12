@@ -50,7 +50,7 @@ describe("countUnverified", () => {
     const body = [
       "- (unverified) The CI cache survives a rebase.",
       "- Checked: the test passes.",
-      "1. (unverified) `/sdlc-plan x` — the API returns ISO dates.",
+      "1. (unverified) `/sdlc:plan x` — the API returns ISO dates.",
       "  * (Unverified) nested item",
     ].join("\n");
     expect(countUnverified(body)).toBe(3);

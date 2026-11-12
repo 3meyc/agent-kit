@@ -109,7 +109,9 @@ is measured against; `extraRoots` and `extraFiles` add folders and files to scan
 A project that had its own copies of these files keeps them until someone retires them: `kit
 doctor` and `/core:kit-adopt` list each one. Kit-owned files are named in
 [kit-owned.json](kit-owned.json), plus every agent and skill of the plugin. Another plugin or an
-overlay can ship its own `kit-owned.json`. An entry `<file>#<key.path>` claims one key of a JSON
+overlay can ship its own `kit-owned.json`. Its `formerNames` (`skills` and `agents`, each old
+name to new) keep a project copy under a renamed skill's or agent's old name kit-owned. An entry
+`<file>#<key.path>` claims one key of a JSON
 file (`.mcp.json#mcpServers.<name>`), so the project keeps its own keys there. A plugin's rule or
 skill text copied under another name counts too: a `CLAUDE.md`, `AGENTS.md`, `.claude/rules/`,
 `.claude/commands/` or `.claude/skills/*/SKILL.md` file that holds at least half the lines of a

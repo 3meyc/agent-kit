@@ -143,7 +143,7 @@ tried and rejected, and investigations that produced no code. Omit the section i
 ## Next
 <bullets, imperative: what the next session should DO. Unfinished work, temporary state that must
 be undone, deadlines. Each bullet starts with its entry point in backticks — the skill, command or
-task route to use (\`/sdlc-plan <slug>\`, the project's check command), or the file to open when there is
+task route to use (\`/sdlc:plan <slug>\`, the project's check command), or the file to open when there is
 none. "None." if nothing is owed.>
 
 State only what the transcript supports; never invent a file, commit or outcome. Prefer the

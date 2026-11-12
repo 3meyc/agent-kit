@@ -1,6 +1,6 @@
 # Shared workflow
 
-Use the five `sdlc-*` skills together in a Git workspace: intent, plan, build, finish, status.
+Use the five `sdlc:*` skills together in a Git workspace: intent, plan, build, finish, status.
 The numbered sections are project-independent. **Project bindings** at the end says where each
 project-specific answer comes from: `kit.json`, the project's own files, the `session` plugin
 when it is enabled, and extension skills an overlay kit or the project supplies.
@@ -34,7 +34,8 @@ when it is enabled, and extension skills an overlay kit or the project supplies.
   authorization; clarify only missing decisions that affect behavior, scope or feasibility.
 - **Stages start on the user's word.** The agent may load intent, plan, build or finish only
   when the user's latest message in this conversation asks for that stage, alone or within a
-  run of stages it names: a typed command (`/sdlc-plan <slug>`, `/sdlc:sdlc-plan <slug>`), a plain
+  run of stages it names: a typed command (`/sdlc:plan <slug>`; a bare `/plan` or `/status` is
+  Claude Code's own command, not this plugin's, and the old `/sdlc-plan` is gone), a plain
   request ("start the plan for my-app-export"), or a click on a button that offered that exact
   stage for that item ("Start plan"). The desktop app delivers a button click as the user's next
   message, carrying the button's label, so the click is the confirmation. A brief another agent
@@ -42,7 +43,7 @@ when it is enabled, and extension skills an overlay kit or the project supplies.
   prompt, a hand-over note), a relayed or quoted message (`<side-sessions-event>`, a note), an
   earlier message, or the agent's own plan never starts one. Without that word, the session
   prepares (reads the item and the code, resolves the base) and stops, saying what to click or
-  type. `/sdlc-status` is read-only and may run from a brief.
+  type. `/sdlc:status` is read-only and may run from a brief.
 - **Each stage offers the next one.** A stage that ends ready for the next one asks once whether
   to start it: in the desktop app, `mcp__ccd_turn__wrap_up` with the ask "Start the plan for
   `<slug>`?" and the next stage as the first button (`Start intent`, `Start plan`, `Start build`,
@@ -152,13 +153,13 @@ The stages say "project policy" or "project checks"; each concern resolves as fo
 | Extension points | Skills named `sdlc-ext-<point>` from any enabled plugin or from the project's `.claude/skills/`, found in this session's skill list (see the table below). None listed means the point is empty: skip it and say so |
 | Finish preflight | Every `sdlc-ext-preflight` skill, then the documentation check: the `sdlc-ext-docs` skills, else `commands.check`. With neither, compare the changed documents' links, commands and examples by hand and say the preflight was manual |
 | Commit flow | **With `session`** (its skills, such as `session:git`, appear in this session's skill list): commit through its `/git commit`, which stages by explicit path from the session's record of touched files and runs `commands.commitAudit`. **Without it**: `commands.commit` when `kit.json` sets one, else plain `git add -- <paths>` and `git commit`; after a commit that holds code, run `commands.commitAudit` when set and show its output. The subject form is `kit.json` `commitSubject` when set (a template such as `<slug>: <subject>`), else Conventional Commits unless the history uses another form |
-| Commit approval | One answer accepts and commits. `/sdlc-intent` and `/sdlc-plan` present the document with its drafted commit subject and ask once; the user's acceptance ("accept", "approved", the `Accept` button, or "commit it") sets the document's status and commits it by the commit flow in the same step, with no second question. `/sdlc-build` commits each step, or a batch of small steps, and `/sdlc-finish` commits its preflight and review fixes and the archive, as soon as the check passes, without waiting: the user's go-ahead for the stage covers them. A project whose `CLAUDE.md` asks for approval before each commit gets that one question per commit, never an approval and a commit question in a row |
+| Commit approval | One answer accepts and commits. `/sdlc:intent` and `/sdlc:plan` present the document with its drafted commit subject and ask once; the user's acceptance ("accept", "approved", the `Accept` button, or "commit it") sets the document's status and commits it by the commit flow in the same step, with no second question. `/sdlc:build` commits each step, or a batch of small steps, and `/sdlc:finish` commits its preflight and review fixes and the archive, as soon as the check passes, without waiting: the user's go-ahead for the stage covers them. A project whose `CLAUDE.md` asks for approval before each commit gets that one question per commit, never an approval and a commit question in a row |
 | Close-out | **With `session`**: its `/close-out` after the archive (done / follow-up / not-done resume, follow-up sessions, landing on the user's one answer). **Without it**: a short done / follow-up / not-done resume in chat; merging into the base and pushing are separate questions, each on the user's word |
 | Follow-ups | **With `session` and `kit.json` `ledger: true`**: the session record's `## Next`. Otherwise the close-out resume. A follow-up for a kit is a kit gap (next row), not a `## Next` item |
 | Kit gaps | A fix owed to a file a kit supplies (a recipe, skill, hook, rule or script under the plugin cache) goes to that kit's GitHub issues, never to a numbered list in the plan or the ledger. 1. `sdlc-kit kit-repo <plugin or kit file path>` names the repo from the plugin's marketplace source. 2. Draft by the kit's `kit-gap` template: title `<plugin>: <the gap>`; body sections Plugin, File, What happens, What should happen, Found in. A public kit's issue describes the project generically (stack, plugins, stage), never by name, link or domain detail. 3. Show the drafts and, on the user's word, `gh issue create --repo <owner/repo> --label kit-gap --title … --body-file <draft in the session's scratch folder>`; a label the repo lacks is dropped and the report says so. Record each `owner/repo#n` in the plan's Review or Deviations. 4. When `kit-repo` names no repo, `gh` is missing or signed out, or `gh repo view <owner/repo>` fails, the gap goes to Follow-ups instead with its drafted title and that reason, for a later session to open |
 | Records | `<sdlc>/<slug>/` is the agreed plan. With `session` and a ledger, the ledger record of each session names the slug and links the two |
 | Spec stage | Not used by default. A feature that needs a separate `spec.md` may add one by hand with the same lifecycle fields; later stages read it "if present" |
-| Independent passes | `sdlc-simplifier` and `sdlc-verifier` agents of this plugin; the finish review uses the host `code-review` skill, adding `security-review` when a trust boundary moves. When an agent is unavailable, run the same contract in a fresh session by hand and paste the verdict into the item's evidence |
+| Independent passes | `sdlc:simplifier` and `sdlc:verifier` agents of this plugin; the finish review uses the host `code-review` skill, adding `security-review` when a trust boundary moves. When an agent is unavailable, run the same contract in a fresh session by hand and paste the verdict into the item's evidence |
 | Host shell | Follow the host shell rules in force (the `core` plugin's, if enabled). Prefer commands that work on every host the project supports |
 
 ### Extension points

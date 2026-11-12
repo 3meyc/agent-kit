@@ -163,10 +163,10 @@ test("templates keep their sections and the item-label conventions", () => {
 
 const SKILLS = new URL("../plugins/sdlc/skills/", import.meta.url);
 const STAGES = [
-  ["sdlc-intent", "Start intent", "Start plan"],
-  ["sdlc-plan", "Start plan", "Start build"],
-  ["sdlc-build", "Start build", "Start finish"],
-  ["sdlc-finish", "Start finish", null],
+  ["intent", "Start intent", "Start plan"],
+  ["plan", "Start plan", "Start build"],
+  ["build", "Start build", "Start finish"],
+  ["finish", "Start finish", null],
 ];
 
 test("stage skills are model-invocable behind the user's go-ahead and offer the next stage", () => {
@@ -183,7 +183,7 @@ test("stage skills are model-invocable behind the user's go-ahead and offer the 
 });
 
 test("intent and plan accept and commit on one answer", () => {
-  for (const name of ["sdlc-intent", "sdlc-plan"]) {
+  for (const name of ["intent", "plan"]) {
     const text = readFileSync(new URL(`${name}/SKILL.md`, SKILLS), "utf8");
     assert.match(text, /Accepting is committing/, name);
     assert.match(text, /without asking again/, name);

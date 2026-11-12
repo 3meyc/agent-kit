@@ -193,7 +193,7 @@ describe("session-ledger --files", () => {
   });
 
   it("keeps the parent's later edit when a sub-agent edited the same file before a commit", () => {
-    // /sdlc-build: the simplifier edits and commits mine.md, then the parent edits it again.
+    // /sdlc:build: the simplifier edits and commits mine.md, then the parent edits it again.
     writeFileSync(join(repo, "mine.md"), "simplified\n");
     git("add", "mine.md");
     spawnSync("git", [...COMMIT, "-m", "simplify"], {

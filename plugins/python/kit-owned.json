@@ -4,7 +4,10 @@
     ".claude/rules/python.md"
   ],
   "partial": {
-    ".claude/rules/python.md": "The kit's python-code skill holds the generic toolchain rules; keep only the project's required-checks table and its own constraints in a file with another name."
+    ".claude/rules/python.md": "The kit's python:code skill holds the generic toolchain rules; keep only the project's required-checks table and its own constraints in a file with another name."
+  },
+  "formerNames": {
+    "skills": { "python-code": "code", "python-tests": "tests" }
   },
   "hookScripts": []
 }

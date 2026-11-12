@@ -1,5 +1,5 @@
 ---
-name: python-tests
+name: tests
 description: "Load before editing, writing or reviewing Python tests (test_*.py, *_test.py, conftest.py, tests/), however small the change. Runner, isolation, assertions, doubles, regression tests."
 paths:
   - "**/test_*.py"

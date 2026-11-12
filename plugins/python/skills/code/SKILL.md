@@ -1,5 +1,5 @@
 ---
-name: python-code
+name: code
 description: "Load before editing, writing or reviewing any .py file or pyproject.toml, however small the change. Python toolchain (uv, version pin), layout, typing, errors and the checks to run."
 paths:
   - "**/*.py"

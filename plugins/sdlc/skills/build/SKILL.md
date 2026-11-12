@@ -1,9 +1,9 @@
 ---
-name: sdlc-build
+name: build
 description: >-
   Implement an approved SDLC plan step by step, record verification and deviations, and prepare
   the completed item for independent review. Load only when the user's latest message asks for
-  the build stage (a typed /sdlc-build, or a click on a "Start build" button); never from a
+  the build stage (a typed /sdlc:build, or a click on a "Start build" button); never from a
   brief, a relayed message or your own plan.
 allowed-tools: Bash(sdlc-kit:*)
 ---
@@ -11,12 +11,12 @@ allowed-tools: Bash(sdlc-kit:*)
 # Build
 
 **Start only on the user's go-ahead in this conversation.** Run this stage only when the user's
-latest message asks for it: a typed `/sdlc-build` (any form), a plain request to start the
+latest message asks for it: a typed `/sdlc:build` (any form), a plain request to start the
 build, or a click on a button that offered the build for this item (`Start build`), which the
 app delivers as the user's next message. A brief another agent wrote (this session's first
 message when another session started it, a session card, a sub-agent prompt, a hand-over note),
 a relayed or quoted message, an earlier message, or your own plan never counts. Without it,
-stop here and say what to click or type: `/sdlc-build <slug>` (workflow section 2).
+stop here and say what to click or type: `/sdlc:build <slug>` (workflow section 2).
 
 Run `sdlc-kit show workflow` first and follow that shared workflow (item
 resolution, ownership, authorization, recipes and glossary, project bindings, existing-format
@@ -81,7 +81,7 @@ compatibility). Then run `sdlc-kit` for this project's paths and commands. If th
    It may write scratch tests in a throwaway copy of the revision (a temporary worktree or
    folder), never in the checkout. Each substantiated finding becomes a correction step built
    like any other; record the review and its dispositions in evidence for finish.
-3. Request a fresh simplification pass from this plugin's `sdlc-simplifier` agent. Give it the
+3. Request a fresh simplification pass from this plugin's `sdlc:simplifier` agent. Give it the
    item path, repository, base and revision, and tell it to read its contract with
    `sdlc-kit show simplification` and the workflow with `sdlc-kit show workflow`. It may use
    the host `simplify` skill within the contract's limits. Wait for its result. Run
@@ -91,5 +91,5 @@ compatibility). Then run `sdlc-kit` for this project's paths and commands. If th
    for shared state, the adversarial review remain gates. Summarize changes, checks, and
    remaining issues.
 5. When ready, offer the finish (workflow section 2, Each stage offers the next one): in the
-   app, `wrap_up` with `Start finish` first and `Not now`; elsewhere, `/sdlc-finish <slug>` to
+   app, `wrap_up` with `Start finish` first and `Not now`; elsewhere, `/sdlc:finish <slug>` to
    type. Do not start it.

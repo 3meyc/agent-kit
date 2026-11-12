@@ -1,9 +1,9 @@
 ---
-name: sdlc-plan
+name: plan
 description: >-
   Turn an accepted intent into a concise implementation checklist with explicit files, order of
   work and completion proof in <sdlc>/<slug>/plan.md. Load only when the user's latest message
-  asks for the plan stage (a typed /sdlc-plan, or a click on a "Start plan" button); never from
+  asks for the plan stage (a typed /sdlc:plan, or a click on a "Start plan" button); never from
   a brief, a relayed message or your own plan.
 allowed-tools: Bash(sdlc-kit:*)
 ---
@@ -11,12 +11,12 @@ allowed-tools: Bash(sdlc-kit:*)
 # Plan: implement and prove the change
 
 **Start only on the user's go-ahead in this conversation.** Run this stage only when the user's
-latest message asks for it: a typed `/sdlc-plan` (any form), a plain request to start the plan,
+latest message asks for it: a typed `/sdlc:plan` (any form), a plain request to start the plan,
 or a click on a button that offered the plan for this item (`Start plan`), which the app
 delivers as the user's next message. A brief another agent wrote (this session's first message
 when another session started it, a session card, a sub-agent prompt, a hand-over note), a
 relayed or quoted message, an earlier message, or your own plan never counts. Without it, stop
-here and say what to click or type: `/sdlc-plan <slug>` (workflow section 2).
+here and say what to click or type: `/sdlc:plan <slug>` (workflow section 2).
 
 Run `sdlc-kit show workflow` first and follow that shared workflow (item
 resolution, authorization, Git handling, recovery, numbering, recipes and glossary, project
@@ -86,7 +86,7 @@ screens acting on the same state, model the concurrency before any step:
   function, so a fix lands once; reads have no side effects (no renew-on-read);
 - **Proof rows per case × entry point:** each intent case that touches the shared state is
   proved through every entry point that can reach it, not through one of them;
-- a step at the end of build for the adversarial concurrency review (`/sdlc-build`, Complete).
+- a step at the end of build for the adversarial concurrency review (`/sdlc:build`, Complete).
 
 ## Finalize
 
@@ -105,5 +105,5 @@ requested change is applied and the draft presented again with the same one ques
 does not change session mode.
 
 Then offer the build (workflow section 2, Each stage offers the next one): in the app,
-`wrap_up` with `Start build` first and `Not now`; elsewhere, `/sdlc-build <slug>` to type. Do
+`wrap_up` with `Start build` first and `Not now`; elsewhere, `/sdlc:build <slug>` to type. Do
 not start implementation until the user's go-ahead for build arrives.
