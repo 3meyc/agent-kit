@@ -56,7 +56,9 @@ one): propose it and let the user name it.
    `camelId["[tag] The change in a few words<br/>one line of detail"]`, then chain it:
    `previous --> camelId`. Readable labels, camelCase ids, no sentences as ids.
 2. Give it the class of its tag on the `class` lines at the end (`class camelId tooling`). The
-   page's Legend names the tags; a new tag needs a `classDef` and a Legend line.
+   page's Legend names the tags; a new tag needs a `classDef` and a Legend line. Both pages share
+   one palette, and each `classDef` sets `fill`, `stroke` and `color`, so it reads in light and
+   dark themes.
 3. A move between repositories (taken from, given to) is a dotted arrow to an outside node:
    `ext -. "from: what, MM-DD" .-> camelId`.
 4. A planned box gets the `planned` class (dashed) and turns solid once its work is released.

@@ -4,6 +4,8 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 ## Unreleased
 
+- session: the `evolution` skill keeps one palette across both pages and has each `classDef` set `fill`, `stroke` and `color`, so the tag colors read in light and dark themes.
+
 ## 2026-11-12 — twelfth `stable`
 
 `stable` points at the commit that adds this entry.
