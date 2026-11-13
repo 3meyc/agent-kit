@@ -30,6 +30,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
+import { isUnreleasedHeading } from "../lib/changelog.mjs";
 import { isDirectRun, isProcessPath } from "../lib/hook-utils.mjs";
 import { readKit, rootFor } from "../lib/kit-config.mjs";
 
@@ -396,7 +397,7 @@ export function changelogPath(kit) {
  */
 export function unreleasedItems(text) {
   const lines = text.replace(/\r\n/g, "\n").split("\n");
-  const start = lines.findIndex((line) => /^## Unreleased\s*$/i.test(line));
+  const start = lines.findIndex(isUnreleasedHeading);
   if (start === -1) return [];
   const items = [];
   for (const line of lines.slice(start + 1)) {

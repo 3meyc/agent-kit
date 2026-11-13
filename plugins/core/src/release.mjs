@@ -10,6 +10,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { isUnreleasedHeading } from "../lib/changelog.mjs";
 import { readKit } from "../lib/kit-config.mjs";
 
 const ONES = ["", "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth"];
@@ -92,8 +93,8 @@ const RELEASE_HEADING = /^## (\d{4}-\d{2}-\d{2})\b(.*)$/;
  */
 export function cutChangelog(content, { date, tag, summary, number }) {
   const lines = content.split("\n");
-  const start = lines.findIndex((line) => /^## Unreleased\s*$/i.test(line));
-  if (start < 0) return { error: "has no `## Unreleased` heading" };
+  const start = lines.findIndex(isUnreleasedHeading);
+  if (start < 0) return { error: "has no `## Unreleased` (or `## [Unreleased]`) heading" };
   let end = lines.findIndex((line, index) => index > start && /^## /.test(line));
   if (end < 0) end = lines.length;
   const releases = lines.filter((line) => RELEASE_HEADING.test(line));

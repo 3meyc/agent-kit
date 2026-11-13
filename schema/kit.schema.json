@@ -158,7 +158,7 @@
                 "additionalProperties": false,
                 "properties": {
                   "path": { "$ref": "#/$defs/relPath" },
-                  "format": { "enum": ["changelog", "table"], "default": "changelog", "description": "changelog: `## Unreleased` moves under a dated heading. table: the file's last table gets a row like the one before, with the id counted up, today's date and the summary in the last cell." },
+                  "format": { "enum": ["changelog", "table"], "default": "changelog", "description": "changelog: the body of `## Unreleased` (or `## [Unreleased]`) moves under a dated heading. table: the file's last table gets a row like the one before, with the id counted up, today's date and the summary in the last cell." },
                   "lang": { "type": "string", "pattern": "^[a-z]{2,8}$", "description": "Takes its summary from --summary-<lang> instead of --summary, for a translated mirror." }
                 }
               }

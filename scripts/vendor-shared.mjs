@@ -14,6 +14,7 @@ const check = process.argv.includes("--check");
 
 /** Which plugins get which shared file. A plugin that needs one more adds itself here. */
 export const SHARED_TARGETS = {
+  "changelog.mjs": ["core", "session"],
   "globs.mjs": ["core", "session"],
   "kit-config.mjs": ["core", "sdlc", "session"],
   "kit-repo.mjs": ["sdlc", "session"],

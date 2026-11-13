@@ -208,6 +208,17 @@ describe("the changelog's Unreleased lines", () => {
     assert.deepEqual(unreleasedItems("# C\n\n## 2026-01-01\n\n- old.\n"), []);
   });
 
+  it("reads the Keep a Changelog form `## [Unreleased]`, across its ### sections", () => {
+    const text =
+      "# Changelog\n\n## [Unreleased] - 2026-11-13\n\n### Added\n\n- export: CSV export.\n\n### Fixed\n\n- the login,\n  again.\n\n" +
+      "## [1.0.0] - 2026-01-01\n\n- old.\n\n[Unreleased]: https://example.com/my-app/compare/v1.0.0...HEAD\n";
+    assert.deepEqual(unreleasedItems(text), ["export: CSV export.", "the login, again."]);
+  });
+
+  it("finds no lines in a changelog with neither heading form", () => {
+    assert.deepEqual(unreleasedItems("# C\n\n## Unreleased changes\n\n- x.\n\n### [Unreleased]\n\n- y.\n\n## [1.0.0]\n\n- old.\n"), []);
+  });
+
   it("takes the first changelog of release.notes without a language", () => {
     assert.equal(changelogPath(normalizeKit({ project: "t" })), "CHANGELOG.md");
     const notes = [{ path: "docs/releases.md", format: "table" }, { path: "CHANGES.uk.md", lang: "uk" }, "docs/CHANGES.md"];
@@ -294,6 +305,10 @@ describe("commands", () => {
     assert.match(text, /Its candidates are the CHANGELOG\.md `## Unreleased` lines \(3 below\)/);
     assert.match(text, /3\. CHANGELOG\.md `## Unreleased`: 1 line, the triaged list for this release/);
     assert.match(text, /3\.1\. app: the first screen\./);
+    writeFileSync(join(repo, "CHANGELOG.md"), "# C\n\n## [Unreleased]\n\n### Added\n\n- app: the first screen.\n");
+    lines.length = 0;
+    cmdStatus(repo, kit, ["--since-release"], print);
+    assert.match(lines.join("\n"), /3\. CHANGELOG\.md `## Unreleased`: 1 line, the triaged list for this release/);
     rmSync(join(repo, "CHANGELOG.md"));
   });
 

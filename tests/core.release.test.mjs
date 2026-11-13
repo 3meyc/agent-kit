@@ -103,6 +103,14 @@ describe("release notes", () => {
     assert.ok(cut.content.endsWith("- core: the start.\n"));
   });
 
+  it("finds the Keep a Changelog heading `## [Unreleased]` and keeps it as written", () => {
+    const keep = CHANGELOG.replace("## Unreleased\n", "## [Unreleased] - 2026-01-02\n\n- session: a fix.\n");
+    const cut = cutChangelog(keep, { date: TODAY, tag: "stable", summary: null });
+    assert.equal(cut.moved, 1);
+    assert.match(cut.content, /## \[Unreleased\] - 2026-01-02\n\n## 2026-01-02 — second `stable`\n\n`stable` points at the commit that adds this entry\.\n\n- session: a fix\.\n/);
+    assert.match(cutChangelog("# Changelog\n\n## Unreleased changes\n\n- x\n", { date: TODAY, tag: "stable", summary: null }).error, /no `## Unreleased` \(or `## \[Unreleased\]`\)/);
+  });
+
   it("refuses an empty Unreleased, a missing one, and a count that disagrees with the latest heading", () => {
     assert.match(cutChangelog(CHANGELOG, { date: TODAY, tag: "stable", summary: null }).error, /nothing under/);
     assert.match(cutChangelog("# Changelog\n", { date: TODAY, tag: "stable", summary: null }).error, /no `## Unreleased`/);

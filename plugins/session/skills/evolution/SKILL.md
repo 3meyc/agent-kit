@@ -29,7 +29,7 @@ tag), or from a page's `last_verified` when that is later, and lists:
    CI workflows, git hooks, decision records) and that the page does not quote yet. A product
    changelog seldom records these, so the commits are the source here.
 3. **The changelog's `## Unreleased` lines** (the first `release.notes` changelog, else
-   `CHANGELOG.md`): the triaged list. Someone already judged each line worth recording, so they
+   `CHANGELOG.md`; the Keep a Changelog heading `## [Unreleased]` counts too): the triaged list. Someone already judged each line worth recording, so they
    are the features page's candidates, and the process page's too when the changelog records
    process changes. With no Unreleased lines, the `feat` commits stand in.
 

@@ -5,6 +5,7 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 ## Unreleased
 
 - session: the `evolution` skill keeps one palette across both pages and has each `classDef` set `fill`, `stroke` and `color`, so the tag colors read in light and dark themes.
+- session, core: `evolution status` and `kit release` also find the Keep a Changelog heading `## [Unreleased]` (any case, with an optional link or trailing date); before, a project that writes it got no changelog lines from `evolution status` and a refusal from `kit release`. One shared test, `shared/changelog.mjs`.
 
 ## 2026-11-12 — twelfth `stable`
 

@@ -85,8 +85,8 @@ pnpm exec agent-kit doctor --strict --offline --plugin-root node_modules/my-over
    adds a mirror per language the repo already keeps `*.<lang>.md` pages in (`--lang`,
    `--no-mirror` to choose). Then replace the first boxes with the real history and commit.
    From then on the pages are brought up to date once per release, not per session:
-   `evolution status --since-release` lists the changelog's `## Unreleased` lines (already
-   triaged: each was worth a line) and the commits since the last release tag that changed the
+   `evolution status --since-release` lists the changelog's `## Unreleased` lines (or
+   `## [Unreleased]`, the Keep a Changelog form; already triaged: each was worth a line) and the commits since the last release tag that changed the
    way of working, and the `evolution` skill turns them into a few boxes. The `kit release` dry
    run names a page not changed since the last release, so nobody has to remember; a project with
    its own release flow runs the skill before it. With a renderer for
