@@ -57,7 +57,14 @@ read-only sweeps that return a verdict).
 
 `/core:change-review` and `/core:repo-audit` complement the host `code-review` skill that
 `/sdlc:finish` uses: they judge behavior at the repo's expected load and say which load they
-assumed. Both run only when the user types them. The review runs in the session, so a follow-up
+assumed. Both run when the user asks for them by name, or when the brief of the session that
+started this one does: a session started by another session cannot type a slash command, so the
+agent may load them, but never on its own initiative. A caller whose target session cannot load
+them (core off there, or a cached core from before this change) does not paste the skill text into
+the brief; it tells a `general-purpose` sub-agent to read the installed `SKILL.md` and
+`checks.md` (under `~/.claude/plugins/cache/<marketplace>/core/<version>/skills/`) and follow them
+for the given scope. A finding names its **Owner** when the project names parts another owner
+holds, so a gap on their side becomes a written request, not a fix here. The review runs in the session, so a follow-up
 such as "fix 2 and 5" has the code at hand; the audit reads far more files, so it runs in a
 forked `general-purpose` sub-agent (the session's model, not Haiku) and only its report comes
 back. Their names avoid `review` and `audit`, which `kit doctor` would otherwise claim in every
