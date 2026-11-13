@@ -4,6 +4,10 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 ## Unreleased
 
+## 2026-11-13 — thirteenth `stable`
+
+`stable` points at the commit that adds this entry. repo-audit and change-review carry the lessons of their first real run; evolution status and kit release accept the Keep a Changelog heading ## [Unreleased]; the evolution pages keep one palette legible in light and dark.
+
 - session: the `evolution` skill keeps one palette across both pages and has each `classDef` set `fill`, `stroke` and `color`, so the tag colors read in light and dark themes.
 - session, core: `evolution status` and `kit release` also find the Keep a Changelog heading `## [Unreleased]` (any case, with an optional link or trailing date); before, a project that writes it got no changelog lines from `evolution status` and a refusal from `kit release`. One shared test, `shared/changelog.mjs`.
 - core: `/core:repo-audit` and `/core:change-review` learn from their first real run. A finding names its **Owner** when the project names parts another owner holds (a service, a shared kit, another team), and a gap on their side becomes a written request; the audit ends with `Requests:`. `checks.md` asks, before a fix is proposed, for every place with the same defect (each direct `fetch`, not only the API client) and the platform rule the fix relies on (a storage change event does not fire for an unchanged write); counts a test double more forgiving than the platform as no test; flags a check or test command that writes tracked files; and has the reviewer run `git status --short` around each check it runs. Both skills drop `disable-model-invocation`, so a session started by another session can load them from its brief; their descriptions still forbid loading them unasked, and the core README names the fallback when a session cannot load them (a sub-agent reads the installed `SKILL.md` and `checks.md`, not a pasted copy).
