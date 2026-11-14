@@ -118,7 +118,7 @@ Checkout визначається з `cwd` у даних хука (або з р�
 | --- | --- | --- |
 | 1 | `session-ledger` | `--files`, `--record`, `--refresh`, `--conflicts`, `--owed`, `--done`, `--sweep`, `--archive`, `--backfill`; `--help` перелічує їх |
 | 2 | `git-commit-session` | Коміт за шляхами; `--help` перелічує прапорці й коди виходу |
-| 3 | `worktree-flow` | `status`, `resolve`, `base`, `role`, `adopt`, `conflicts`, `land`, `regenerate`, `remove`, `stale-remote`; `--help` перелічує їх |
+| 3 | `worktree-flow` | `status`, `resolve`, `base`, `role`, `adopt`, `conflicts`, `land`, `regenerate`, `remove`, `stale-remote`; `--help` перелічує їх. `adopt <base>` переносить свіжий worktree на `<base>`, а коли lock-файл чи маніфест пакета відрізняється між двома комітами або `node_modules` немає, запускає `kit.json` `commands.install` (без оболонки; команда із синтаксисом оболонки або її відсутність дає підказку). Збій установлення повідомляється; перенесення лишається |
 | 4 | `worktree-setup` | Підготовка, яку запускає хук `worktree-setup` |
 | 5 | `git-branch-context` | Гілка, upstream, базова гілка й префікс елементів у JSON, для `/git` |
 | 6 | `ledger-export` | Перетворює запис на файл передачі поза репозиторієм (`/handoff --export`) |

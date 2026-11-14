@@ -4,6 +4,8 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 ## Unreleased
 
+- session: `worktree-flow adopt <base>` reinstalls dependencies for the commit it moves to. When a lockfile or package manifest (`package.json`, `pnpm-lock.yaml`, `package-lock.json`, `yarn.lock`, `bun.lock`, `pyproject.toml`, `uv.lock`, …) differs between the old and the new commit, or `node_modules` is missing, it runs `kit.json` `commands.install` as an argument list, no shell string (a command with shell syntax gets a hint), and prints what it ran; without `commands.install` it prints a hint. A failed install is reported with its last lines and `adopt` still exits 0. Before, the worktree kept the dependencies the SessionStart setup installed for the old commit, so a dev dependency the project's hooks call was missing until a manual install. Windows spawns the command through `cmd` as `worktree-setup` does, unverified there. (#48)
+
 ## 2026-11-14 — fourteenth `stable`
 
 `stable` points at the commit that adds this entry. Steps that need the whole merged tree (docs review, wide audit, full suite and build, ledger and changelog edits, generated-file conflicts) run once in the main session instead of in each sub-session.

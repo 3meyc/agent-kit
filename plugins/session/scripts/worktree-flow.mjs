@@ -14,7 +14,8 @@ import { BASE_KEY, ROLE_KEY, sessionRole } from "./session-role.mjs";
  *   worktree-flow resolve <ref>      local branch for a work item (APP-123) or name; tracks origin's if only it exists
  *   worktree-flow base [<ref>]       show, or record, this branch's integration branch
  *   worktree-flow role [child|main]  show, or record, whether this is a sub-session (`session-role.mjs`)
- *   worktree-flow adopt <ref>        move a fresh worktree (no commits of its own) onto <ref>
+ *   worktree-flow adopt <ref>        move a fresh worktree (no commits of its own) onto <ref>, then
+ *                                    reinstall dependencies when a lockfile or manifest changed
  *   worktree-flow conflicts [--json] predicted merge conflicts with the base and every active worktree
  *   worktree-flow land [--dry-run]   fast-forward the base to this branch; never merges, never pushes
  *   worktree-flow land --dry-run --report   the same dry run, exiting 0 on a refusal too (close-out's preload)
@@ -189,6 +190,86 @@ export function adoptPlan(entries, ledger = ".claude/ledger") {
     else if (target !== "absent") blockers.push(path);
   }
   return { drop, blockers };
+}
+
+/** Files whose change between two commits means the installed dependencies may no longer match. */
+const DEPENDENCY_FILE =
+  /(^|\/)(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?|pyproject\.toml|uv\.lock|poetry\.lock|requirements[^/]*\.txt)$/;
+
+/**
+ * A `kit.json` command string → its argv, so it spawns without a shell; null when it needs one
+ * (an operator, a redirect, a variable, a substitution), since splitting `pnpm install && pnpm build`
+ * would hand `&&`, `pnpm` and `build` to `pnpm install` as packages to add. Quotes group, then go. Pure.
+ * @param {string} line
+ * @returns {string[] | null}
+ */
+export function commandArgv(line) {
+  const argv = [];
+  let word = null;
+  let quote = null;
+  for (const ch of line) {
+    if (quote) {
+      if (ch === quote) quote = null;
+      else word += ch;
+    } else if (ch === '"' || ch === "'") {
+      quote = ch;
+      word ??= "";
+    } else if (/\s/.test(ch)) {
+      if (word !== null) argv.push(word);
+      word = null;
+    } else if (/[&|;<>$`()\\%^]/.test(ch)) return null;
+    else word = (word ?? "") + ch;
+  }
+  if (quote) return null;
+  if (word !== null) argv.push(word);
+  return argv.length ? argv : null;
+}
+
+/**
+ * Whether `adopt` installs dependencies after its checkout, from the facts. Pure.
+ * @param {{ changed: string[], nodeModulesMissing: boolean, install: string | undefined }} f
+ *   `changed` the paths that differ between the old and the new commit; `nodeModulesMissing` true
+ *   when the checkout has a `package.json` but no `node_modules`; `install` `kit.json` `commands.install`
+ * @returns {{ action: "none" } | { action: "run", reason: string, argv: string[] } | { action: "hint", reason: string, why: string }}
+ */
+export function adoptInstallPlan({ changed, nodeModulesMissing, install }) {
+  const files = changed.filter((path) => DEPENDENCY_FILE.test(path));
+  if (files.length === 0 && !nodeModulesMissing) return { action: "none" };
+  const shown = files.slice(0, 3).join(", ") + (files.length > 3 ? ` and ${files.length - 3} more` : "");
+  const reason = files.length ? `${shown} changed` : "node_modules is missing";
+  if (!install) return { action: "hint", reason, why: "kit.json sets no commands.install" };
+  const argv = commandArgv(install);
+  if (!argv) return { action: "hint", reason, why: `kit.json commands.install \`${install}\` needs a shell` };
+  return { action: "run", reason, argv };
+}
+
+const INSTALL_TIMEOUT_MS = 600_000;
+
+/**
+ * Runs the install `adoptInstallPlan` chose and prints one line for it; never exits, since the
+ * checkout already succeeded. pnpm and npm are `.cmd` shims on Windows, which Node spawns only
+ * through a shell, so Windows gets the argv joined (it holds no shell syntax, `commandArgv` saw to
+ * that) as `worktree-setup` does; elsewhere the argv spawns directly. Output is captured: only the
+ * last lines of a failure are shown.
+ */
+function installAfterAdopt(plan, top) {
+  if (plan.action === "none") return;
+  if (plan.action === "hint") {
+    console.log(`worktree-flow: ${plan.reason}; dependencies not reinstalled (${plan.why}): run the install by hand`);
+    return;
+  }
+  const shown = plan.argv.map((arg) => (/\s/.test(arg) ? `"${arg}"` : arg)).join(" ");
+  console.log(`worktree-flow: ${plan.reason}; running \`${shown}\``);
+  const options = { cwd: top, encoding: "utf8", timeout: INSTALL_TIMEOUT_MS, maxBuffer: 64 * 1024 * 1024 };
+  const result =
+    process.platform === "win32"
+      ? spawnSync(shown, { ...options, shell: true })
+      : spawnSync(plan.argv[0], plan.argv.slice(1), options);
+  if (result.status === 0) return console.log(`worktree-flow: \`${shown}\` done`);
+  const cause = result.error ? result.error.message : `exit ${result.status ?? result.signal}`;
+  const tail = `${result.stderr ?? ""}\n${result.stdout ?? ""}`.trim().split(/\r?\n/).filter(Boolean).slice(-3);
+  console.log(`worktree-flow: \`${shown}\` failed (${cause}); the worktree moved, run the install by hand`);
+  for (const line of tail) console.log(`    ${line.slice(0, 200)}`);
 }
 
 function compareWithTarget(path, target, cwd) {
@@ -443,6 +524,7 @@ function cmdAdopt({ args, cwd }) {
   }
   const saved = drop.map((path) => ({ path, bytes: readFileSync(join(top, path)) }));
   for (const { path } of saved) unlinkSync(join(top, path));
+  const before = gitOut(["rev-parse", "HEAD"], top);
   const moved = git(["checkout", "-B", me.branch, target], top);
   if (!moved.ok) {
     for (const { path, bytes } of saved) writeFileSync(join(top, path), bytes);
@@ -450,6 +532,11 @@ function cmdAdopt({ args, cwd }) {
   }
   git(["config", BASE_KEY(me.branch), target], cwd);
   console.log(`${me.branch} now starts at ${target} (${gitOut(["rev-parse", "--short", "HEAD"], cwd)}); base recorded`);
+  // The SessionStart setup installed dependencies for the old commit; the new one may need others.
+  const changed = (gitOut(["diff", "--name-only", before, "HEAD"], top) ?? "").split("\n").filter(Boolean);
+  const nodeModulesMissing = existsSync(join(top, "package.json")) && !existsSync(join(top, "node_modules"));
+  // Read afresh: the target's kit.json, not the one cached before the checkout.
+  installAfterAdopt(adoptInstallPlan({ changed, nodeModulesMissing, install: readKit(top).commands.install }), top);
 }
 
 function cmdConflicts({ flags, cwd }) {
@@ -728,7 +815,9 @@ const USAGE = `The branch-and-worktree side of a session, from start to close-ou
   worktree-flow base [<ref>]              show, or record, this branch's integration branch
   worktree-flow role [child | main]       show, or record, whether this session is a sub-session
                                           (child) whose parent lands its branch, or the main session
-  worktree-flow adopt <ref>               move a fresh worktree (no commits of its own) onto <ref>
+  worktree-flow adopt <ref>               move a fresh worktree (no commits of its own) onto <ref>;
+                                          when a lockfile or manifest changed, or node_modules is
+                                          missing, run kit.json commands.install (else print a hint)
   worktree-flow conflicts [--json]        predicted merge conflicts with the base and every active worktree
   worktree-flow land [--dry-run]          fast-forward the base to this branch; never merges, never pushes
   worktree-flow land --dry-run --report   the same dry run, but a refusal is printed and exits 0

@@ -5,7 +5,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "./session/vitest-compat.mjs";
 import {
+  adoptInstallPlan,
   adoptPlan,
+  commandArgv,
   guessBase,
   integrationHolders,
   matchBranch,
@@ -648,6 +650,135 @@ describe("adopt in a worktree cut from main", () => {
     expect(run.stderr).toBe("");
     expect(run.status).toBe(0);
     expect(existsSync(join(edited, "notes", "ledger", "INDEX.md"))).toBe(true);
+  });
+});
+
+describe("commandArgv", () => {
+  it("splits a plain command into its argv, quotes grouping", () => {
+    expect(commandArgv("pnpm install --frozen-lockfile")).toEqual(["pnpm", "install", "--frozen-lockfile"]);
+    expect(commandArgv(`  node "my script.mjs" 'a b' ""`)).toEqual(["node", "my script.mjs", "a b", ""]);
+  });
+
+  it("refuses shell syntax, which an argv would hand to the command as arguments", () => {
+    for (const line of ["pnpm install && pnpm build", "npm ci | tee log", "uv sync; echo", "npm ci > log", "npm ci --prefix $HOME", "echo `x`", 'node "open', "   "]) {
+      expect(commandArgv(line)).toBe(null);
+    }
+  });
+});
+
+describe("adoptInstallPlan", () => {
+  const install = "pnpm install --frozen-lockfile";
+
+  it("runs the install when a lockfile or manifest changed, at any depth", () => {
+    expect(adoptInstallPlan({ changed: ["src/a.ts", "pnpm-lock.yaml"], nodeModulesMissing: false, install })).toEqual({
+      action: "run",
+      reason: "pnpm-lock.yaml changed",
+      argv: ["pnpm", "install", "--frozen-lockfile"],
+    });
+    expect(adoptInstallPlan({ changed: ["packages/ui/package.json"], nodeModulesMissing: false, install }).action).toBe("run");
+    expect(adoptInstallPlan({ changed: ["requirements-dev.txt"], nodeModulesMissing: false, install: "uv sync" }).action).toBe("run");
+  });
+
+  it("runs the install when node_modules is missing, though nothing changed", () => {
+    expect(adoptInstallPlan({ changed: [], nodeModulesMissing: true, install }).reason).toBe("node_modules is missing");
+  });
+
+  it("does nothing when no dependency file changed", () => {
+    expect(adoptInstallPlan({ changed: ["src/package.json.bak", "README.md"], nodeModulesMissing: false, install })).toEqual({
+      action: "none",
+    });
+  });
+
+  it("prints a hint without commands.install, or when it needs a shell", () => {
+    expect(adoptInstallPlan({ changed: ["package-lock.json"], nodeModulesMissing: false, install: undefined })).toEqual({
+      action: "hint",
+      reason: "package-lock.json changed",
+      why: "kit.json sets no commands.install",
+    });
+    expect(adoptInstallPlan({ changed: ["yarn.lock"], nodeModulesMissing: false, install: "yarn && yarn build" }).why).toContain(
+      "needs a shell",
+    );
+  });
+});
+
+describe("adopt reinstalls dependencies for the new commit", () => {
+  // The SessionStart setup installed dependencies for `main`; the integration branch moved its lockfile.
+  let root;
+  const git = (cwd, ...args) => spawnSync("git", args, { cwd, encoding: "utf8" });
+  const commit = (cwd, message) => git(cwd, "-c", "commit.gpgsign=false", "commit", "-q", "-am", message);
+  const adopt = (cwd, ref) => spawnSync(process.execPath, [SCRIPT, "adopt", ref], { cwd, encoding: "utf8" });
+  const kit = (install) => JSON.stringify({ project: "t", ...(install ? { commands: { install } } : {}) });
+  const STUB = `import { writeFileSync } from "node:fs";
+writeFileSync("installed.txt", process.argv.slice(2).join(" "));
+if (process.argv[2] === "fail") { console.error("registry unreachable"); process.exit(3); }
+`;
+
+  beforeAll(() => {
+    root = realpathSync(mkdtempSync(join(tmpdir(), "worktree-flow-install-")));
+    const main = join(root, "main");
+    spawnSync("git", ["init", "-q", "-b", "main", main]);
+    git(main, "config", "user.email", "t@example.com");
+    git(main, "config", "user.name", "t");
+    writeFileSync(join(main, ".gitignore"), "node_modules/\ninstalled.txt\n");
+    writeFileSync(join(main, "package.json"), '{ "name": "t" }\n');
+    writeFileSync(join(main, "package-lock.json"), "v1\n");
+    writeFileSync(join(main, "stub.mjs"), STUB);
+    writeFileSync(join(main, "kit.json"), kit("node stub.mjs ok"));
+    writeFileSync(join(main, "a.txt"), "one\n");
+    git(main, "add", ".");
+    git(main, "-c", "commit.gpgsign=false", "commit", "-q", "-m", "init");
+    const branch = (name, edits) => {
+      git(main, "checkout", "-q", "-b", name, "main");
+      for (const [file, text] of Object.entries(edits)) writeFileSync(join(main, file), text);
+      commit(main, name);
+    };
+    branch("dev-lock", { "package-lock.json": "v2\n" });
+    branch("dev-same", { "a.txt": "two\n" });
+    branch("dev-nokit", { "package-lock.json": "v2\n", "kit.json": kit(null) });
+    branch("dev-fail", { "package-lock.json": "v2\n", "kit.json": kit("node stub.mjs fail") });
+    git(main, "checkout", "-q", "main");
+    for (const name of ["lock", "same", "nokit", "fail", "bare"]) {
+      git(main, "worktree", "add", "-q", "-b", `claude/${name}`, join(root, name), "main");
+      if (name !== "bare") mkdirSync(join(root, name, "node_modules"));
+    }
+  });
+
+  afterAll(() => rmSync(root, { recursive: true, force: true }));
+
+  it("runs commands.install when the lockfile changed, and says what it ran", () => {
+    const run = adopt(join(root, "lock"), "dev-lock");
+    expect(run.status).toBe(0);
+    expect(run.stdout).toContain("package-lock.json changed; running `node stub.mjs ok`");
+    expect(run.stdout).toContain("`node stub.mjs ok` done");
+    expect(readFileSync(join(root, "lock", "installed.txt"), "utf8")).toBe("ok");
+  });
+
+  it("skips the install when no dependency file changed", () => {
+    const run = adopt(join(root, "same"), "dev-same");
+    expect(run.status).toBe(0);
+    expect(run.stdout).not.toContain("running");
+    expect(existsSync(join(root, "same", "installed.txt"))).toBe(false);
+  });
+
+  it("prints a hint when kit.json sets no commands.install", () => {
+    const run = adopt(join(root, "nokit"), "dev-nokit");
+    expect(run.status).toBe(0);
+    expect(run.stdout).toContain("dependencies not reinstalled (kit.json sets no commands.install)");
+    expect(existsSync(join(root, "nokit", "installed.txt"))).toBe(false);
+  });
+
+  it("reports a failed install without failing adopt", () => {
+    const run = adopt(join(root, "fail"), "dev-fail");
+    expect(run.status).toBe(0);
+    expect(run.stdout).toContain("`node stub.mjs fail` failed (exit 3)");
+    expect(run.stdout).toContain("registry unreachable");
+    expect(git(join(root, "fail"), "rev-parse", "HEAD").stdout).toBe(git(join(root, "main"), "rev-parse", "dev-fail").stdout);
+  });
+
+  it("installs when node_modules is missing, though nothing changed", () => {
+    const run = adopt(join(root, "bare"), "main");
+    expect(run.status).toBe(0);
+    expect(run.stdout).toContain("node_modules is missing; running `node stub.mjs ok`");
   });
 });
 

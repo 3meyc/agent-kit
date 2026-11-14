@@ -118,7 +118,7 @@ a project may allow them in `.claude/settings.json` (`Bash(session-ledger --file
 | --- | --- | --- |
 | 1 | `session-ledger` | `--files`, `--record`, `--refresh`, `--conflicts`, `--owed`, `--done`, `--sweep`, `--archive`, `--backfill`; `--help` lists them |
 | 2 | `git-commit-session` | Commit by path; `--help` lists flags and exit codes |
-| 3 | `worktree-flow` | `status`, `resolve`, `base`, `role`, `adopt`, `conflicts`, `land`, `regenerate`, `remove`, `stale-remote`; `--help` lists them |
+| 3 | `worktree-flow` | `status`, `resolve`, `base`, `role`, `adopt`, `conflicts`, `land`, `regenerate`, `remove`, `stale-remote`; `--help` lists them. `adopt <base>` moves a fresh worktree onto `<base>`, then, when a lockfile or package manifest differs between the two commits or `node_modules` is missing, runs `kit.json` `commands.install` (spawned without a shell; a command with shell syntax, or none set, gets a hint instead). A failed install is reported; the move stands |
 | 4 | `worktree-setup` | The set-up the `worktree-setup` hook runs |
 | 5 | `git-branch-context` | Branch, upstream, base branch and item prefix as JSON, for `/git` |
 | 6 | `ledger-export` | Renders a record as a hand-off file outside the repo (`/handoff --export`) |
