@@ -45,6 +45,45 @@ cannot ask the app, so they read git: `worktree-flow role child` records it, and
 another session's `claude/*` branch means child too; `worktree-flow role` shows which. With
 neither, a script treats the session as the main one and behaves as before.
 
+## Follow-ups: charter, triage, backlog
+
+A session that starts sub-sessions works from a fixed **charter**, the items it set out to do.
+Follow-ups found along the way never start sessions of their own: they wait in the ledger's
+`## Next`, each with its What and Why, until a triage decides them. A small Keep inside the
+charter is done in the session that runs the triage, before its checks.
+
+```mermaid
+flowchart TD
+  R["Root session<br/>charter: T1, T2, T3"] --> C1["Child T1"] & C2["Child T2"] & C3["Child T3"]
+  C1 & C2 & C3 -- "follow-ups in ## Next,<br/>each with — why:" --> CS["/close-siblings<br/>merge, triage, land"]
+  CS --> T["Triage table<br/>What · Why · Source · Verdict"]
+  I["/backlog triage<br/>open ## Next items"] --> T
+  T -- "Keep" --> K["New session<br/>charter: that item"]
+  T -- "Defer" --> B["backlog.md row<br/>Until: 14 days"]
+  T -- "Drop" --> D["Marked done<br/>reason in ## Decisions"]
+  K --> CO["/close-out<br/>own triage, lands itself"]
+  B --> P["/backlog pick B3 B7<br/>rows become a charter"]
+  B --> E["/backlog expire<br/>rows past Until"]
+  P --> R2["New root session"]
+  classDef session fill:#8da2d626,stroke:#8da2d6,stroke-width:2px
+  classDef command fill:#7cc7bd26,stroke:#7cc7bd,stroke-width:2px
+  classDef record fill:#adb5bd26,stroke:#adb5bd,stroke-width:2px
+  class R,C1,C2,C3,K,R2 session
+  class CS,I,CO,P,E command
+  class T,B,D record
+```
+
+- <small>navy — sessions</small>
+- <small>teal — commands</small>
+- <small>gray — the triage table, the backlog and ledger marks</small>
+
+1. **Keep** only when leaving the item undone hurts: a defect a user sees, a release blocker, a
+   failing or missing check, an unfinished charter item. **Defer** polish, wording, refactors and
+   process tweaks. **Drop** an item whose Why does not hold up.
+2. The user answers the table by ids (`F1 keep, F5–F7 drop`); unnamed rows keep the proposal.
+3. `<paths.sdlc>/backlog.md` is written by main sessions only, and `merge=union` lets two of them
+   add rows at once; one session at a time picks and expires rows, normally a daily one.
+
 ## Hook ids
 
 Claude Code cannot switch off one hook of a plugin, so every hook here reads `kit.json`

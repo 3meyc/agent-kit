@@ -36,6 +36,7 @@ flowchart LR
 | 3 | `kit.json` instead of hard-coded paths | Projects lay out docs and ledgers differently |
 | 4 | Ledger is opt-in (`ledger: true`) | Small projects don't need it; groups can require it in their overlay |
 | 5 | Overlays depend on the base, never copy it | One source for shared parts |
+| 6 | Follow-ups are triaged against a charter into one backlog, not carded one session each | Sub-sessions spawned sub-sessions four levels deep, and deferred work scattered across hundreds of ledger records with no point where anyone asked whether it was needed |
 
 ## Releases
 

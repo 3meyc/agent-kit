@@ -255,7 +255,8 @@ item on its own when one of these rules says it is settled:
    the follow-ups of the work they land, so `## Next` stays an inbox, not a backlog. `/backlog`
    shows the backlog, `/backlog pick B3 B7` starts a session with those rows as its charter, and
    `/backlog expire` removes rows past their date. Each `## Next` item ends with `— why: <who is
-   hurt if it is left undone>`; the triage reads it.
+   hurt if it is left undone>`; the triage reads it. The flow is drawn in the
+   [session README](../plugins/session/README.md#follow-ups-charter-triage-backlog).
 6. Change the question window in `kit.json`:
 
 ```json
