@@ -46,7 +46,7 @@ flowchart TB
 | --- | --- | --- | --- |
 | 1 | `core` | Правила виводу в чат і роботи з оболонкою, агенти перевірок і пошуку, `/check`, `/sweep`, `/dev`, `/change-review`, `/repo-audit`, хуки редагування й оболонки, `kit doctor`, `/kit-adopt`, `/kit-inventory` | — |
 | 2 | `sdlc` | `/sdlc:intent`, `/sdlc:plan`, `/sdlc:build`, `/sdlc:finish`, `/sdlc:status`; агенти спрощення і перевірки | `core`; використовує `session`, якщо ввімкнено |
-| 3 | `session` | Журнал сесій, `/handoff`, `/close-out`, `/close-siblings`, `/git`, процес worktree, скрипт коміту | `core` |
+| 3 | `session` | Журнал сесій, `/handoff`, `/close-out`, `/close-siblings`, `/backlog`, `/git`, процес worktree, скрипт коміту | `core` |
 | 4 | `svelte` | Домовленості для Svelte 5 (руни), Vitest і доступності | `core` |
 | 5 | `python` | Домовленості для Python | `core` |
 

@@ -31,8 +31,13 @@ the `## Files` footer are computed — do not hand-edit them. You write `title:`
   investigations that produced no code**. This is the section git cannot replace.
 - `## Next` — imperative, for whoever picks this up. `None.` when nothing is owed. Each item
   **starts with its entry point** — the skill, command or recipe to use, e.g.
-  ``1. `/sdlc:intent journal-revert` — undo a grant from the journal, …`` — so the next session skips
-  its own triage. An item with no natural entry point starts with the file to open.
+  ``1. `/sdlc:intent journal-revert` — undo a grant from the journal, … — why: a wrong grant can only be fixed by hand`` —
+  so the next session skips its own triage. An item with no natural entry point starts with the
+  file to open. After the entry point comes the **What** (the change), then `— why:` and the
+  **Why** (who or what is hurt if it is left undone). The triage (`/backlog` § triage) reads the
+  Why to keep, defer or drop the item; an item without one is proposed for Drop.
+- In a session that starts sub-sessions, `## Intent` opens with its **charter**:
+  `Charter: T1 …, T2 …`, the items it set out to do, in the user's ids (`/close-out` § 1, Charter).
 
 A Decisions or Next item you did not check — not run, not read, only believed — **starts with
 `(unverified)`**. The brief tells every later session to trust these records, so an unchecked claim
@@ -71,7 +76,7 @@ The steps:
 
       The brief shows only the opening lines of `Next`, so put the half-done file and the first
       command on the Resume item's first line. Every later item starts with its entry point: the
-      skill, command or recipe to use, or the file to open.
+      skill, command or recipe to use, or the file to open; then its What and `— why:` its Why.
 4. Every Decisions or Next item you did not check this session — not run, not read — starts
    with `(unverified)`.
 5. **Kit gaps.** An item whose fix belongs to a kit (a skill, hook, rule, recipe or script an

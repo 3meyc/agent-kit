@@ -34,13 +34,17 @@ below exist in the desktop app; elsewhere, ask the user which branches are the s
    expectation needs the user's decision recorded in the commit or its evidence; without it the
    branch is not finished.
 5. Per finished sub-session, its record's open `## Next` (found by its branch, when the project
-   keeps a ledger): each item is done here, proposed as a card, or left in that record and named,
-   exactly as `/close-out` § 1 (Children's follow-ups) says. A sub-session with an open parent
-   proposes no cards of its own, so these items reach the user only through this step. Its
+   keeps a ledger): each item is a row of one triage table against this session's charter
+   (What, Why, Source, proposed Verdict: Keep, Defer or Drop), exactly as `/backlog` § triage
+   says. After the user's § 6 answer: a Keep inside the charter and small is done here, after
+   the merges and before § 3's checks; any other Keep is proposed as a session of its own after
+   § 4's landing; a Defer becomes a row of `<sdlc>/backlog.md`, written in § 2 step 4. A
+   sub-session with an open parent proposes no cards of its own, so these items reach the user
+   only through this step. Its
    `mark done: <id8> <n>` and `for the parent: <file>: <edit>` items are the main-session edits
    it left to this session (`/close-out` § 1, Main-session steps); § 2 step 4 carries them out.
 6. Show one table: session (linked), branch, tip, commits ahead, finished or why not, open
-   follow-ups.
+   follow-ups (count). Then the triage table from step 5.
 
 ## 2. Merge into this branch
 
@@ -55,7 +59,7 @@ below exist in the desktop app; elsewhere, ask the user which branches are the s
 4. After the last merge, the main-session edits the sub-sessions left (§ 1 step 5), once, on the
    merged tree: `session-ledger --done <id8> <n>` for each `mark done:` item, the edit each
    `for the parent:` item names (a changelog line, a roadmap or `<sdlc>/*.md` tick, a release
-   note), then `session-ledger --done <child id8> <k>` for the item itself (add `--in-child` when
+   note), the backlog rows of § 1 step 5's deferred items, then `session-ledger --done <child id8> <k>` for the item itself (add `--in-child` when
    this session is itself a sub-session). A changelog line comes
    from the merged branches' commit subjects when a child left none. Commit them through
    `/git commit` before § 3.
@@ -135,11 +139,14 @@ the recap is the review table's counts and the check result; the ask is the one 
 with the buttons "Land, push, archive" (push, then wait for the CI run, § 4 step 4) and "Land and
 archive" (no push); a child session offers only the second. When § 5's listing names stale
 remote branches, the recap names them and each button's message ends with "delete the stale
-remote branches <b1> <b2> …", so the same click covers them. The user's click authorizes exactly
+remote branches <b1> <b2> …", so the same click covers them. The triage table (§ 1 step 5) rides
+on the buttons the same way: each message says "with the proposed verdicts", and the user answers
+by F-ids instead, lists and ranges alike (`F1 keep, F5–F7 drop`). The user's click authorizes exactly
 what its message says; the `git push --delete` still goes through the normal permission ask.
 
 After it is carried out, report as numbered lists: merged (branch → commit), the base and its new
 tip, the main-session edits made for the sub-sessions (§ 2 step 4), check, preflight and extension
 results (§ 3), pushed or not and the CI run's result, archived sessions (linked), the ones
 left alone with the reason, the remote branches deleted and kept (with the reason), and the
-sub-sessions' follow-ups (done here, carded, or left in their record with `<id8> <n>`).
+sub-sessions' follow-ups by verdict (kept: done here or proposed as a session; deferred: the
+backlog rows added; dropped, with the reason).

@@ -1,5 +1,5 @@
 ---
-description: Close out a worktree session — resume of done / follow-up / not-done work, then land on the base branch, propose follow-up sessions, push on the user's word, and end with a where-what-why session resume before the archive. Runs after /sdlc:finish
+description: Close out a worktree session — resume of done / follow-up / not-done work, triage of the follow-ups against the session's charter, then land on the base branch, propose the kept follow-ups as sessions, push on the user's word, and end with a where-what-why session resume before the archive. Runs after /sdlc:finish
 argument-hint: [slug] [land | land and push | land, push and archive] [with diagram]
 allowed-tools: Bash(worktree-flow:*), Bash(session-ledger:*), Bash(preflight:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/preflight.mjs:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/worktree-flow.mjs:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/session-ledger.mjs:*), Bash(git status:*), Bash(git log:*), Bash(git rev-parse:*), Bash(gh run list:*), Bash(gh run view:*), Bash(gh run watch:*), Bash(gh api repos/:*), Bash(kit-repo:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/kit-repo.mjs:*), Bash(gh repo view:*)
 ---
@@ -39,7 +39,8 @@ exactly one bucket and show the three as numbered lists, empty ones as "None":
 
 1. **Done** — asked for, built, verified. One line each, with the check that proved it.
 2. **Follow-ups** — real, self-contained work found along the way: deferred review findings,
-   enhancements, inherited defects. Each gets a session proposal (step 3), not just a line.
+   enhancements, inherited defects. Each is a row of the triage table (below); only a Keep becomes
+   a session proposal (step 3).
 3. **Not done** — asked for but missed, failed, or with a gate still open, each with why and its
    entry point (`/sdlc:build <slug>` …). Anything here blocks landing unless the user overrides.
 
@@ -47,11 +48,23 @@ exactly one bucket and show the three as numbered lists, empty ones as "None":
 so the parent reads them. In the desktop app, `mcp__ccd_session_mgmt__list_sessions` with
 `linked: true`, `include_archived: true` lists the sessions this one started, and the record of
 each that landed is `grep -l "^branch: <its branch>$" <ledger>/*.md` (on the base now). Every open
-item in that record's `## Next` lands in one place: small and in this session's area, it is done
-here and marked with `session-ledger --done <id8> <n>` (Done); self-contained, it becomes a § 3
-card (Follow-ups); otherwise it stays in that record, named in Follow-ups with its `<id8> <n>`.
-None is dropped unnamed: the app's note quotes only the start of a child's report, so the record,
-not the note, is the source.
+item in that record's `## Next` (apart from `mark done:` and `for the parent:` items, which are
+Main-session steps below) is a row of the triage table, with its `<id8> <n>` as Source. None is
+dropped unnamed: the app's note quotes only the start of a child's report, so the record, not the
+note, is the source.
+
+**Charter.** A session that starts sub-sessions works from a charter: the numbered list of items
+it set out to do, in the user's own ids (T1, W2 …), written in its first reply and in its record's
+`## Intent` as `Charter: T1 …, T2 …`. The charter is fixed. An item joins it only on the user's
+word, marked `(added <date>)`; a follow-up never joins it by being found. A session with no charter
+in its record treats what the user asked for in this conversation as one. A session started by
+`/backlog pick` has its charter in its first prompt.
+
+**Triage.** The Follow-ups, this session's own and its children's, are one triage table, never a
+card each: built, asked and carried out exactly as `/backlog` § triage says. A Keep inside the
+charter and small is done here (Done); any other Keep becomes a § 3 session; a Defer becomes a row
+of `<sdlc>/backlog.md`; a Drop is only marked done. The user settles the verdicts (§ 5) before
+anything is carried out. Kit gaps (below) are not rows: they go to the kit's issues.
 
 **Kit gaps.** A follow-up whose fix belongs to a kit (a skill, hook, rule, recipe or script an
 installed plugin supplies from the plugin cache, not a file of this repo) is neither a `## Next`
@@ -187,7 +200,8 @@ what is left for the user to do (push, remove the worktree).
 
 ## 3. Follow-up sessions
 
-One `mcp__ccd_session__start_session` per follow-up, `initiation: "own_initiative"`,
+One `mcp__ccd_session__start_session` per follow-up the triage kept (§ 1, Triage) and the user's
+§ 5 answer did not change, `initiation: "own_initiative"`,
 `context: "fresh"`, `use_worktree: true` — after the landing when there is one, so the base
 already holds this work. A proposal card may be cut from the repository's default branch rather
 than `<base>` when the user starts it, which is why its first line must be the `adopt <base>` line
@@ -198,10 +212,10 @@ ledger's `INDEX.md`). Its `prompt` names the files, what done looks like, and th
 and closing with `When the work is done (after /sdlc:finish for an SDLC item), run /close-out.`
 Three proposals per turn at most; any further ones go to the record's `## Next`.
 
-A **child with an open parent** (§ 2 step 6) proposes no cards: each follow-up goes to its
-record's `## Next`, and its § 5 recap names them in a few words each, so the parent's note shows
-them; the parent takes them (§ 1, Children's follow-ups). A child whose parent is archived
-proposes them here, as a top-level session does.
+A **child with an open parent** (§ 2 step 6) proposes no cards and runs no triage: each follow-up
+goes to its record's `## Next` with its What and `— why:` (`/handoff`), and its § 5 recap names
+them in a few words each, so the parent's note shows them; the parent triages them (§ 1, Triage).
+A child whose parent is archived triages and proposes them here, as a top-level session does.
 
 ## 4. Other worktrees
 
@@ -236,7 +250,10 @@ wait for its CI run, then archive this session) and the second "Land only". In a
 (§ 2 step 6) the first is "Land and archive" (message: land on `<base>`, then archive this
 session; the parent pushes and waits for the CI run); with Not done items, the first button
 continues the work and the second lands anyway. Drafted kit gaps (§ 1) ride on the first button:
-its message also says to open them; the other answers leave them in `## Next` as not opened.
+its message also says to open them; the other answers leave them in `## Next` as not opened. The
+triage table (§ 1) is shown before the question and rides on the first button too: its message
+says "with the proposed verdicts"; the user answers by F-ids instead, lists and ranges alike
+(`F1 keep, F5–F7 drop`), and a row the answer does not name keeps its proposed verdict.
 Uncommitted session files (§ 2 step 1) ride on every landing button the same way: its message
 starts with committing them through `/git commit`, so the click accepts and commits in one
 answer. This branch on origin (§ 4) rides on the button that pushes: when the listing says it will

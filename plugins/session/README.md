@@ -13,11 +13,11 @@ flow from set-up to landing. Depends on `core`.
 | 1 | Session ledger | At every Stop, writes one Markdown record per session (intent, decisions, next, files touched) into the ledger folder and rebuilds its `INDEX.md`. At session start, puts a short brief of recent records and owed work into context, leaving out owed items that an auto-close rule settled ([using § 6](../../docs/using.md#6-keep-the-ledgers-next-list-short)) |
 | 2 | Commit script | `git-commit-session` commits only this session's paths with `git commit --only`, stops when another session claims a path, adds a `Session-Id` trailer, runs the project's commit audit on the committed paths, and counts the project's skipped optional steps (`preflight`) |
 | 3 | Worktree flow | `worktree-flow` shows every worktree's base and verdict, predicts conflicts, lands a branch on its base by fast-forward only, removes merged worktrees, and lists the branches on origin that the base already holds (`stale-remote`, read-only). A SessionStart hook prepares each new linked worktree |
-| 4 | Commands | `/handoff` writes the record mid-task; `/close-out` sorts the work, lands it and writes the session resume; `/close-siblings` lands the side sessions' work and deletes their merged branches, locally and on origin, on the user's word; `/git` runs git chores in the `git-ops` agent, and `/git commit --review` reviews the diff before committing |
+| 4 | Commands | `/handoff` writes the record mid-task; `/close-out` sorts the work, lands it and writes the session resume; `/close-siblings` lands the side sessions' work and deletes their merged branches, locally and on origin, on the user's word; `/backlog` triages follow-ups (Keep, Defer, Drop, each with its What and Why) into `<sdlc>/backlog.md`, picks rows into a new session's charter and expires old rows; `/git` runs git chores in the `git-ops` agent, and `/git commit --review` reviews the diff before committing |
 | 5 | Evolution pages | `process-evolution.md` and `features-evolution.md` in `paths.evolution`: one Mermaid flowchart each of how the way of working and the features grew, with a Sources table. `evolution` starts, lists what is missing, bumps and checks them. They are brought up to date once per release, from the changelog's `## Unreleased` lines and the process commits since the last release tag, through the `evolution` skill; core's `kit release` dry run names a page the release has not updated |
 
 Commands are namespaced by Claude Code as `/session:handoff`, `/session:close-out`,
-`/session:close-siblings` and `/session:git`; the agent is `session:git-ops`. The short form
+`/session:close-siblings`, `/session:backlog` and `/session:git`; the agent is `session:git-ops`. The short form
 (`/handoff`) works while no other command has the same name.
 
 A project adds its own close-out steps (a status check of its clones, rows in its own log) as a
@@ -38,6 +38,7 @@ sub-session, where they repeat on overlapping diffs and conflict at the merge.
 | 4 | Another session's ledger item done | Its own record's `## Next` says `mark done: <id8> <n> — <why>`; `session-ledger --done` refuses | `/close-siblings` § 2 step 4 runs `session-ledger --done` |
 | 5 | `kit.json` `parentFiles` and top-level `<paths.sdlc>/*.md` (changelog lines, roadmap and backlog ticks, release notes) | Its record's `## Next` says `for the parent: <file>: <edit>`; a commit of one prints `parent-files:` | `/close-siblings` § 2 step 4 writes them after the merges |
 | 6 | A conflict in a generated file | `worktree-flow regenerate` rebuilds the files a `kit.json` `regenerate` rule names | The same, when merging the sub-sessions |
+| 7 | A follow-up found along the way | No session card and no triage: its record's `## Next` gets the item with its What and `— why:` | `/close-siblings` § 1 triages it against the main session's charter (`/backlog` § triage): Keep, Defer to `<paths.sdlc>/backlog.md`, or Drop |
 
 Whether this is a sub-session is the desktop app's answer (`/close-out` § 2 step 6). The scripts
 cannot ask the app, so they read git: `worktree-flow role child` records it, and a recorded base on

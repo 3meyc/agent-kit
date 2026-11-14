@@ -247,7 +247,16 @@ item on its own when one of these rules says it is settled:
    session; `--dry-run` only lists them. Nothing is deleted. `session-ledger --archive` then moves
    the records that owe nothing.
 4. Give an item that matters only for a while an end date: `watch the error rate (until 2026-12-01)`.
-5. Change the question window in `kit.json`:
+5. Auto-close settles items; triage decides the rest. `/backlog triage` shows the open items as
+   one table (What, Why, Source, a proposed verdict) and carries out your answer
+   (`F1 keep, F5–F7 drop`): a Keep becomes a session whose charter is that item, a Defer becomes a
+   row of `<paths.sdlc>/backlog.md` with an Until date 14 days out, a Drop is only marked done.
+   Each item leaves the list either way. `/close-out` and `/close-siblings` run the same triage on
+   the follow-ups of the work they land, so `## Next` stays an inbox, not a backlog. `/backlog`
+   shows the backlog, `/backlog pick B3 B7` starts a session with those rows as its charter, and
+   `/backlog expire` removes rows past their date. Each `## Next` item ends with `— why: <who is
+   hurt if it is left undone>`; the triage reads it.
+6. Change the question window in `kit.json`:
 
 ```json
 { "ledgerAutoClose": { "questionDays": 14 } }
