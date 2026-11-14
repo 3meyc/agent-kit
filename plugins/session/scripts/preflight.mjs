@@ -2,7 +2,7 @@
  * Counters for a project's optional pre-commit steps (`preflight` on the Bash PATH, from the
  * plugin's `bin/`):
  *
- *   preflight [status]        each step and the commits made since it last ran
+ *   preflight [status] [--scope main|any]   each step and the commits made since it last ran
  *   preflight run <id>...     run the step's command from the repo root; exit 0 clears its count
  *   preflight done <id>...    clear the count of a step that ran another way (a skill, by hand)
  *
@@ -15,7 +15,9 @@
  *
  * A step is optional, so nothing blocks a commit. `git-commit-session` calls `recordCommit` after
  * each new commit: every step the commit touches (`match`, or any path outside the ledger when it
- * has none) counts one more skip, and a step at `remindAfter` or above prints one `preflight:` line.
+ * has none) counts one more skip, and a step at `remindAfter` or above prints one `preflight:` line,
+ * except a `"scope": "main"` step in a sub-session (`session-role.mjs`): the parent runs those once,
+ * on the merged tree, from `/close-siblings` (or `/close-out` in a session with no parent).
  * The counts live in the repository's common git folder (`<git-common-dir>/agent-kit/preflight.json`),
  * shared by the main checkout and its worktrees and never committed.
  */
@@ -25,10 +27,12 @@ import { dirname, isAbsolute, join, resolve } from "node:path";
 import { isDirectRun } from "../lib/hook-utils.mjs";
 import { matchesAny } from "../lib/globs.mjs";
 import { inLedger, readKit, rootFor } from "../lib/kit-config.mjs";
+import { sessionRole } from "./session-role.mjs";
 
-const USAGE = `Usage: preflight [status | run <id>... | done <id>...]
+const USAGE = `Usage: preflight [status [--scope main|any] | run <id>... | done <id>...]
 
-  status        each kit.json preflight step and the commits made since it last ran
+  status        each kit.json preflight step and the commits made since it last ran;
+                --scope main lists only the steps the main session runs on the merged tree
   run <id>...   run the step's command from the repo root; exit 0 clears its count
   done <id>...  clear the count of a step that ran another way (a skill, by hand)`;
 
@@ -94,15 +98,19 @@ function clearHint(id, step) {
 }
 
 /**
- * One line per step at or above its `remindAfter`, for the end of a commit's output. Pure.
- * @param {import("../lib/kit-config.mjs").Kit} kit @param {Counts} counts
+ * One line per step at or above its `remindAfter`, for the end of a commit's output. Pure. In a
+ * sub-session (`role` child) a step scoped to the main session gets none: its parent runs it on the
+ * merged tree, and the counts, shared by every worktree, still show the parent what it owes.
+ * @param {import("../lib/kit-config.mjs").Kit} kit @param {Counts} counts @param {"child" | "main"} [role]
  */
-export function reminderLines(kit, counts) {
+export function reminderLines(kit, counts, role = "main") {
   const lines = [];
   for (const [id, step] of Object.entries(kit.preflight)) {
     const skipped = counts[id]?.skipped ?? 0;
     if (skipped < step.remindAfter) continue;
-    lines.push(`preflight: ${id} skipped in ${skipped} commit(s) since its last run; ${clearHint(id, step)}`);
+    if (step.scope === "main" && role === "child") continue;
+    const scope = step.scope === "main" ? " (main session only: a sub-session leaves it to its parent's /close-siblings)" : "";
+    lines.push(`preflight: ${id} skipped in ${skipped} commit(s) since its last run; ${clearHint(id, step)}${scope}`);
   }
   return lines;
 }
@@ -120,22 +128,26 @@ export function recordCommit(root, paths) {
     const file = countsFile(root);
     const counts = countCommit(kit, readCounts(file), paths);
     writeCounts(file, counts);
-    return reminderLines(kit, counts);
+    return reminderLines(kit, counts, sessionRole(root).role);
   } catch (error) {
     return [`preflight: counts not updated (${error instanceof Error ? error.message : error})`];
   }
 }
 
-/** The status report, one numbered line per step. Pure. @param {import("../lib/kit-config.mjs").Kit} kit @param {Counts} counts */
-export function statusLines(kit, counts) {
-  const steps = Object.entries(kit.preflight);
-  if (steps.length === 0) return ["No preflight steps in kit.json."];
+/**
+ * The status report, one numbered line per step; `scope` keeps only the steps of that scope. Pure.
+ * @param {import("../lib/kit-config.mjs").Kit} kit @param {Counts} counts @param {"any" | "main" | null} [scope]
+ */
+export function statusLines(kit, counts, scope = null) {
+  const steps = Object.entries(kit.preflight).filter(([, step]) => !scope || step.scope === scope);
+  if (steps.length === 0) return [scope ? `No ${scope}-scoped preflight steps in kit.json.` : "No preflight steps in kit.json."];
   return steps.map(([id, step], index) => {
     const skipped = counts[id]?.skipped ?? 0;
     const last = counts[id]?.lastRun ? `last run ${counts[id].lastRun.slice(0, 10)}` : "never run";
     const state = skipped === 0 ? "up to date" : `${skipped} commit(s) since its last run`;
     const how = step.command ? `\`${step.command}\`` : step.description;
-    return `${index + 1}. ${id}: ${state} (${last}) — ${how}`;
+    const tag = step.scope === "main" ? " [main session]" : "";
+    return `${index + 1}. ${id}${tag}: ${state} (${last}) — ${how}`;
   });
 }
 
@@ -157,7 +169,12 @@ export function main(argv, root = rootFor(process.cwd()), print = console.log) {
   const file = countsFile(root);
   const counts = readCounts(file);
   if (command === "status") {
-    for (const line of statusLines(kit, counts)) print(line);
+    const scope = ids[0] === "--scope" ? ids[1] : null;
+    if ((ids.length > 0 && scope === null) || (scope !== null && scope !== "main" && scope !== "any")) {
+      print(USAGE);
+      return 1;
+    }
+    for (const line of statusLines(kit, counts, scope)) print(line);
     return 0;
   }
   if (command !== "run" && command !== "done") {

@@ -33,7 +33,10 @@ documents.
    autofixes or commands that rewrite repository files (a lint with `--fix`, a formatter with
    `--write`); use a read-only form when the project has one, otherwise report them as pending.
    Ignored test output and caches are allowed. Retain commands and useful output. A manual
-   observation the user has not reported is pending, not passed.
+   observation the user has not reported is pending, not passed. When the caller says this is a
+   sub-session, run `check`, `lint` and the tests that cover the changed files; the whole `test`
+   suite, `build` and the extensions recorded as `deferred to the parent` are listed as deferred,
+   which neither passes nor holds the verdict: the parent runs them on the merged tree.
 7. For each bug fix, confirm recorded red-phase evidence for its reproducing test
    in linked evidence or existing commit bodies. Passing tests alone do not prove it.
 8. Check deviations, unresolved `BLOCKED` entries, and differences between planned

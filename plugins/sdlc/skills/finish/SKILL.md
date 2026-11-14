@@ -35,7 +35,10 @@ unfinished work precisely; preserve unrelated edits and report any gate still pe
    before the independent review, so its fixes are reviewed too: each `sdlc-ext-preflight`
    skill listed in this session, then the documentation check (`sdlc-ext-docs` skills, else
    `commands.check`). With no extension and no check command, review the changed documents'
-   links, commands and examples by hand and say the preflight was manual.
+   links, commands and examples by hand and say the preflight was manual. In a sub-session
+   (Project bindings: Sub-session), skip each extension whose description says
+   `Main session only.` and record `deferred to the parent: <skill>` in the plan's Review; the
+   parent runs it on the merged tree.
 2. Fix what the item introduced, within its scope; tell introduced from inherited findings by
    comparing with the base, not by the file list. Record each finding's disposition, and the
    inherited ones left as they were, in the plan's Review.
@@ -50,7 +53,10 @@ unfinished work precisely; preserve unrelated edits and report any gate still pe
 4. Run the affected checks and commit the fixes by the commit flow (Project bindings) as soon
    as they pass, without asking: the go-ahead for finish covers its fix and archive commits
    (Project bindings: Commit approval). A preflight that cannot run is reported as pending,
-   never as passed.
+   never as passed. A sub-session runs `check`, `lint` and the tests that cover the changed
+   files, not the whole suite or the build (Project bindings: Checks), and leaves another
+   session's ledger record, `kit.json` `parentFiles` and top-level `<sdlc>/*.md` files to the
+   parent, listing each edit in its record's `## Next` (Project bindings: Sub-session).
 5. A document the intent's Scope excludes, or limits to a note ("a status banner only"), still
    owes the rest: record it as a follow-up (Project bindings: Follow-ups), so the deferred
    rewrite has an owner instead of going stale unnoticed.
@@ -79,8 +85,8 @@ unfinished work precisely; preserve unrelated edits and report any gate still pe
 
 1. Record the exact revision and clean status after review fixes. Request a fresh pass from
    this plugin's `sdlc:verifier` agent with the repository, base, revision, item paths, review
-   result, preflight results, and tell it to read its contract with `sdlc-kit show verification`
-   and the workflow with `sdlc-kit show workflow`. Wait for the result; run shared-checkout
+   result, preflight results, whether this is a sub-session, and tell it to read its contract
+   with `sdlc-kit show verification` and the workflow with `sdlc-kit show workflow`. Wait for the result; run shared-checkout
    checks sequentially. Where the agent is unavailable, run the contract and the shared
    workflow in a fresh session by hand and record its verdict in evidence.
 2. If independent review or verification is unavailable, perform useful local checks

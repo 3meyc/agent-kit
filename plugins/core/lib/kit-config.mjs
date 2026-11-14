@@ -34,6 +34,8 @@ export const KIT_DEFAULTS = Object.freeze({
   lintOnEdit: Object.freeze([]),
   checks: Object.freeze({}),
   preflight: Object.freeze({}),
+  parentFiles: Object.freeze([]),
+  regenerate: Object.freeze([]),
   hooks: Object.freeze({ off: Object.freeze([]) }),
   devServer: null,
 });
@@ -108,10 +110,10 @@ export function checkSuites(kit) {
 
 /**
  * `preflight`: optional steps whose skips the session plugin counts, as
- * `{ id: { description, command, match, remindAfter } }`. A step without a description is dropped.
- * Takes a raw or a read kit.
+ * `{ id: { description, command, match, remindAfter, scope } }`. A step without a description is
+ * dropped; `scope` is `main` (the main session only) or `any`. Takes a raw or a read kit.
  * @param {unknown} kit
- * @returns {Record<string, { description: string, command: string | null, match: string[], remindAfter: number }>}
+ * @returns {Record<string, { description: string, command: string | null, match: string[], remindAfter: number, scope: "any" | "main" }>}
  */
 export function preflightSteps(kit) {
   const entry = /** @type {any} */ (kit)?.preflight;
@@ -124,9 +126,25 @@ export function preflightSteps(kit) {
       command: typeof step.command === "string" && step.command.trim() !== "" ? step.command : null,
       match: strings(step.match),
       remindAfter: Number.isInteger(step.remindAfter) && step.remindAfter >= 1 ? step.remindAfter : 1,
+      scope: step.scope === "main" ? "main" : "any",
     };
   }
   return steps;
+}
+
+/**
+ * `regenerate`: generated files a merge conflict is resolved for by running a command, as
+ * `[{ match, command }]`. A rule without globs or a command is dropped. Takes a raw or a read kit.
+ * @param {unknown} kit
+ * @returns {Array<{ match: string[], command: string }>}
+ */
+export function regenerateRules(kit) {
+  const entry = /** @type {any} */ (kit)?.regenerate;
+  if (!Array.isArray(entry)) return [];
+  return entry
+    .filter((rule) => rule && typeof rule === "object" && typeof rule.command === "string" && rule.command.trim() !== "")
+    .map((rule) => ({ match: strings(rule.match), command: rule.command }))
+    .filter((rule) => rule.match.length > 0);
 }
 
 /**
@@ -135,6 +153,7 @@ export function preflightSteps(kit) {
  *   paths: Record<string, string>,
  *   commands: Record<string, string>, lintOnEdit: Array<{ command: string, match: string[] }>,
  *   checks: Record<string, string[]>, preflight: ReturnType<typeof preflightSteps>,
+ *   parentFiles: string[], regenerate: ReturnType<typeof regenerateRules>,
  *   hooks: { off: string[] }, devServer: { port?: number } | null, raw: Record<string, any> | null }} Kit
  */
 
@@ -174,6 +193,8 @@ export function normalizeKit(raw, error = null) {
     lintOnEdit: lintOnEdit(kit),
     checks: checkSuites(kit),
     preflight: preflightSteps(kit),
+    parentFiles: strings(kit.parentFiles),
+    regenerate: regenerateRules(kit),
     hooks: { off },
     devServer: kit.devServer && typeof kit.devServer === "object" ? kit.devServer : null,
     // The parsed file as written, for a caller that must tell "set" from "defaulted".

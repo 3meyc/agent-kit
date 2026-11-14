@@ -8,7 +8,8 @@ import { dirname, join } from "node:path";
 import { after, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import { normalizeKit } from "../shared/kit-config.mjs";
-import { countCommit, countsFile, main, reminderLines, statusLines, touches } from "../plugins/session/scripts/preflight.mjs";
+import { countCommit, countsFile, main, recordCommit, reminderLines, statusLines, touches } from "../plugins/session/scripts/preflight.mjs";
+import { parentFilesLine, parentOwned, roleOf, sessionRole } from "../plugins/session/scripts/session-role.mjs";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
 const scratch = realpathSync(mkdtempSync(join(tmpdir(), "agent-kit-preflight-")));
@@ -83,6 +84,92 @@ describe("preflight counts", () => {
     assert.equal(main(["status"], dir, print), 0);
     assert.match(lines[0], /^1\. docs: up to date \(last run \d{4}-\d{2}-\d{2}\) — Docs review/);
     assert.match(lines[2], /^3\. broken: 1 commit\(s\) since its last run \(never run\) — `node -e "process.exit\(4\)"`$/);
+  });
+});
+
+describe("preflight steps scoped to the main session", () => {
+  const kit = normalizeKit({
+    project: "t",
+    preflight: {
+      docs: { description: "Docs review, the docs-review skill", scope: "main" },
+      audit: { description: "Audit", command: "node -e 0" },
+    },
+  });
+  const counts = { docs: { skipped: 2, lastRun: null }, audit: { skipped: 1, lastRun: null } };
+
+  it("reminds the main session with a scope note, and a sub-session of the other steps only", () => {
+    assert.deepEqual(reminderLines(kit, counts), [
+      "preflight: docs skipped in 2 commit(s) since its last run; Docs review, the docs-review skill, then `preflight done docs` (main session only: a sub-session leaves it to its parent's /close-siblings)",
+      "preflight: audit skipped in 1 commit(s) since its last run; `preflight run audit`",
+    ]);
+    assert.deepEqual(reminderLines(kit, counts, "child"), ["preflight: audit skipped in 1 commit(s) since its last run; `preflight run audit`"]);
+  });
+
+  it("tags main-scoped steps in status and filters by scope", () => {
+    assert.match(statusLines(kit, counts)[0], /^1\. docs \[main session\]: 2 commit\(s\)/);
+    assert.deepEqual(statusLines(kit, counts, "main").length, 1);
+    assert.deepEqual(statusLines(normalizeKit({ project: "t", preflight: { a: { description: "A" } } }), {}, "main"), ["No main-scoped preflight steps in kit.json."]);
+    const dir = project("scoped", { project: "t", preflight: { docs: { description: "Docs", scope: "main" }, audit: { description: "Audit" } } });
+    const lines = [];
+    assert.equal(main(["status", "--scope", "main"], dir, (line) => lines.push(line)), 0);
+    assert.deepEqual(lines, ["1. docs [main session]: up to date (never run) — Docs"]);
+    assert.equal(main(["status", "--scope", "child"], dir, () => {}), 1);
+    assert.equal(main(["status", "--bogus"], dir, () => {}), 1);
+  });
+
+  it("counts a sub-session's commit but prints no reminder for a main-scoped step", () => {
+    const dir = project("child-commit", { project: "t", preflight: { docs: { description: "Docs", scope: "main" } } });
+    git(dir, "commit", "-q", "--allow-empty", "-m", "init");
+    git(dir, "checkout", "-q", "-b", "claude/child");
+    git(dir, "config", "branch.claude/child.kitBase", "claude/parent");
+    assert.deepEqual(recordCommit(dir, ["docs/a.md"]), []);
+    assert.equal(JSON.parse(readFileSync(countsFile(dir), "utf8")).steps.docs.skipped, 1);
+    git(dir, "config", "branch.claude/child.kitRole", "main");
+    assert.equal(recordCommit(dir, ["docs/a.md"]).length, 1);
+  });
+});
+
+describe("session-role", () => {
+  it("is child when recorded so or when the base is another session's branch, else main", () => {
+    assert.deepEqual(roleOf({}), { role: "main", source: "default" });
+    assert.deepEqual(roleOf({ base: "dev" }), { role: "main", source: "default" });
+    assert.deepEqual(roleOf({ base: "claude/parent-1a2b" }), { role: "child", source: "base" });
+    assert.deepEqual(roleOf({ recorded: "main", base: "claude/parent-1a2b" }), { role: "main", source: "recorded" });
+    assert.deepEqual(roleOf({ recorded: "child", base: "dev" }), { role: "child", source: "recorded" });
+    assert.equal(sessionRole(scratch).role, "main");
+  });
+
+  it("names the parent-owned files a commit holds: parentFiles and top-level <sdlc>/*.md", () => {
+    const kit = normalizeKit({ project: "t", parentFiles: ["CHANGELOG.md", "docs/roadmap*.md"], paths: { sdlc: "work" } });
+    assert.deepEqual(parentOwned(["CHANGELOG.md", "docs/roadmap-2027.md", "work/backlog.md", "work/my-item/plan.md", "src/a.ts"], kit), [
+      "CHANGELOG.md",
+      "docs/roadmap-2027.md",
+      "work/backlog.md",
+    ]);
+    assert.equal(parentFilesLine([]), null);
+    assert.match(parentFilesLine(["CHANGELOG.md"]), /^parent-files: CHANGELOG\.md belong to the main session/);
+  });
+
+  it("lets a sub-session mark only its own ledger items done", () => {
+    const dir = project("ledger-guard", { project: "t", ledger: true });
+    mkdirSync(join(dir, ".claude", "ledger"), { recursive: true });
+    const record = (id) =>
+      writeFileSync(join(dir, ".claude", "ledger", `2026-11-01-${id}.md`), `---\nsession: ${id}-0000\n---\n\n## Next\n\n1. first\n2. second\n`);
+    record("aaaa0001");
+    record("bbbb0002");
+    git(dir, "add", "-A");
+    git(dir, "commit", "-q", "-m", "init");
+    git(dir, "checkout", "-q", "-b", "claude/child");
+    git(dir, "config", "branch.claude/child.kitBase", "claude/parent");
+    const ledger = join(repo, "plugins", "session", "scripts", "session-ledger.mjs");
+    const cli = (...args) => spawnSync(process.execPath, [ledger, ...args], { cwd: dir, encoding: "utf8", env: { ...process.env, CLAUDE_CODE_SESSION_ID: "" } });
+    const refused = cli("--done", "aaaa0001", "1", "--as", "bbbb0002");
+    assert.equal(refused.status, 1);
+    assert.match(refused.stderr, /sub-session, so it leaves aaaa0001 1 to its parent/);
+    assert.equal(cli("--done", "bbbb0002", "1", "--as", "bbbb0002").status, 0);
+    assert.equal(cli("--done", "aaaa0001", "2", "--as", "bbbb0002", "--in-child").status, 0);
+    git(dir, "config", "branch.claude/child.kitRole", "main");
+    assert.equal(cli("--done", "aaaa0001", "1", "--as", "bbbb0002").status, 0);
   });
 });
 

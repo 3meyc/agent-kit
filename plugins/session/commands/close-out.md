@@ -1,7 +1,7 @@
 ---
 description: Close out a worktree session — resume of done / follow-up / not-done work, then land on the base branch, propose follow-up sessions, push on the user's word, and end with a where-what-why session resume before the archive. Runs after /sdlc:finish
 argument-hint: [slug] [land | land and push | land, push and archive] [with diagram]
-allowed-tools: Bash(worktree-flow:*), Bash(session-ledger:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/worktree-flow.mjs:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/session-ledger.mjs:*), Bash(git status:*), Bash(git log:*), Bash(git rev-parse:*), Bash(gh run list:*), Bash(gh run view:*), Bash(gh run watch:*), Bash(gh api repos/:*), Bash(kit-repo:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/kit-repo.mjs:*), Bash(gh repo view:*)
+allowed-tools: Bash(worktree-flow:*), Bash(session-ledger:*), Bash(preflight:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/preflight.mjs:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/worktree-flow.mjs:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/session-ledger.mjs:*), Bash(git status:*), Bash(git log:*), Bash(git rev-parse:*), Bash(gh run list:*), Bash(gh run view:*), Bash(gh run watch:*), Bash(gh api repos/:*), Bash(kit-repo:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/kit-repo.mjs:*), Bash(gh repo view:*)
 ---
 
 Arguments: $ARGUMENTS
@@ -76,7 +76,29 @@ For each:
 **Project steps.** Each `session-ext-close-out` skill listed in this session (the project's own, or
 an overlay plugin's) runs here, in name order, before anything lands: load it and do what it says.
 What it finds goes into the three buckets like everything else; a step it marks as required and
-that failed is Not done. With no such skill, there are no project steps.
+that failed is Not done. With no such skill, there are no project steps. A skill whose description
+says `Main session only.` is skipped in a child session (§ 2 step 6) and named in Done as
+"deferred to the parent".
+
+**Main-session steps.** Some steps run once, in the main session, on the merged tree, rather than
+in every sub-session (the sdlc workflow's Project bindings, Sub-session):
+
+1. **In a child session** they are skipped, each named in Done as "deferred to the parent": the
+   `kit.json` `preflight` steps with `"scope": "main"`, the whole `test` suite and `build` (§ 2
+   step 3), and edits to another session's ledger record, to `kit.json` `parentFiles` (a
+   changelog, roadmaps, release notes) and to top-level `<sdlc>/*.md` files. The child's record's
+   `## Next` lists each edit it owes instead, as `mark done: <id8> <n> — <what finished it>` or
+   `for the parent: <file>: <the edit>`; `session-ledger --done` refuses another record in a child
+   (`--in-child` only for its own sub-sessions' records), and a commit of a parent-owned file
+   prints a `parent-files:` line, so such an edit is undone in the next commit and listed.
+2. **In a session with no parent** they run here, before landing: each step
+   `preflight status --scope main` shows with commits since its last run (`preflight run <id>`
+   when it has a command, else what its description says, then `preflight done <id>`), against
+   `git merge-base HEAD <base>`. Their fixes are committed through `/git commit` like any other.
+   `/sdlc:finish` in such a session already ran the extensions marked main session only.
+3. **Children's items** (Children's follow-ups, above): a `mark done:` item is carried out with
+   `session-ledger --done <id8> <n>`, a `for the parent:` item is written here, then each is
+   marked done in the child's record.
 
 ## 2. Land, when Not done is empty or the user says land anyway
 
@@ -96,7 +118,10 @@ a file a neighbour touched there is flagged here too.
    conflict is resolved by this session, in this worktree — the app's `sync_with_base_branch` with
    `base: <base>`, or `git merge --no-edit <base>` when the app refuses that base. Resolve, run the
    project's checks, conclude the merge with `/git commit` (a conflicted path resolved by hand is
-   `git add`ed by the user first; exit 7 names any left), and dry-run again. When the session
+   `git add`ed by the user first; exit 7 names any left), and dry-run again. A conflicted
+   generated file is never resolved by hand: `worktree-flow regenerate` rebuilds each one a
+   `kit.json` `regenerate` rule names and stages it; resolve its sources first when they
+   conflict too. When the session
    started in a worktree cut from an older commit (its SessionStart said `starts <n> commit(s)
    behind <base>` and it was not adopted), its work was done against older files: name that in
    the resume, and check the merged base's changes to the files this session touched
@@ -104,9 +129,12 @@ a file a neighbour touched there is flagged here too.
 3. Run the project's checks on the branch as it will land (after the base is merged in): every
    command in `kit.json` `commands` that CI also runs (`check`, `lint`, `test`, `build`), or the
    project's own `/check` command when it has one, so a failure is caught here rather than on the
-   base. A failure the session introduced is fixed and committed first; one it did not (the base
-   already fails) is named in the resume. Either stops the landing until fixed or the user says
-   land anyway; a step not run is reported as such.
+   base. A child session (step 6) runs `check`, `lint` and the tests that cover the files it
+   changed; its parent runs the whole suite and `build` on the merged tree (`/close-siblings`
+   § 3), and the resume names them as deferred to the parent. A failure the session introduced
+   is fixed and committed first; one it did not (the base already fails) is named in the resume.
+   Either stops the landing until fixed or the user says land anyway; a step not run is reported
+   as such.
 4. `worktree-flow land` — a fast-forward of the base, nothing else. It refuses when the checkout
    holding the base has an uncommitted edit in a file the landing changes: report that file; the
    user settles that checkout.
@@ -123,7 +151,11 @@ a file a neighbour touched there is flagged here too.
    pushes**: `get_session` on the `parentSessionId` shows `isArchived: true` (or no session) — a
    card the user started after its proposer was archived, or a parent archived since. Such a
    session is top-level for this step and for § 5's buttons, and its base is an integration
-   branch, not a `claude/*` one. Find the run with
+   branch, not a `claude/*` one. So is a session whose parent works in another repository: that
+   parent cannot merge this branch. This test is the one every "child session" or "sub-session"
+   in the kit means; once it says child, record it with `worktree-flow role child`, so the kit's
+   scripts see it too (`preflight` reminders, `session-ledger --done`, the commit's
+   `parent-files:` line; without a record they take a `claude/*` base as the sign). Find the run with
    `gh run list --commit "$(git rev-parse <base>)" --json databaseId,workflowName,status,conclusion,url`
    (it can take a few seconds to appear; list again once), then one
    `gh run watch <id> --exit-status` with `run_in_background`, so its exit wakes this session: no

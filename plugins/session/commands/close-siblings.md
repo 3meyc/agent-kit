@@ -1,7 +1,7 @@
 ---
 description: Land the work of this session's side sessions — review each sub-session and its branch, merge the finished ones into this branch, run the checks on the merged tree, land this branch on its base, push on the user's word, archive the merged sub-sessions and delete their merged branches, locally and on origin
 argument-hint: [base] [land | land and push]
-allowed-tools: Bash(worktree-flow:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/worktree-flow.mjs:*), Bash(git status:*), Bash(git log:*), Bash(git merge-base:*), Bash(git rev-parse:*), Bash(git branch -d:*), Bash(gh run list:*), Bash(gh run view:*), Bash(gh run watch:*), Bash(gh api repos/:*)
+allowed-tools: Bash(worktree-flow:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/worktree-flow.mjs:*), Bash(preflight:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/preflight.mjs:*), Bash(session-ledger:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/session-ledger.mjs:*), Bash(git status:*), Bash(git log:*), Bash(git merge-base:*), Bash(git rev-parse:*), Bash(git branch -d:*), Bash(gh run list:*), Bash(gh run view:*), Bash(gh run watch:*), Bash(gh api repos/:*)
 ---
 
 Arguments: $ARGUMENTS
@@ -36,7 +36,9 @@ below exist in the desktop app; elsewhere, ask the user which branches are the s
 5. Per finished sub-session, its record's open `## Next` (found by its branch, when the project
    keeps a ledger): each item is done here, proposed as a card, or left in that record and named,
    exactly as `/close-out` § 1 (Children's follow-ups) says. A sub-session with an open parent
-   proposes no cards of its own, so these items reach the user only through this step.
+   proposes no cards of its own, so these items reach the user only through this step. Its
+   `mark done: <id8> <n>` and `for the parent: <file>: <edit>` items are the main-session edits
+   it left to this session (`/close-out` § 1, Main-session steps); § 2 step 4 carries them out.
 6. Show one table: session (linked), branch, tip, commits ahead, finished or why not, open
    follow-ups.
 
@@ -47,15 +49,37 @@ below exist in the desktop app; elsewhere, ask the user which branches are the s
 2. Fast-forward when the branch contains HEAD (`git merge --ff-only refs/heads/<branch>`), else
    `git merge --no-ff --no-edit refs/heads/<branch>`. Always the full `refs/heads/` ref.
 3. A conflict is resolved here only when both sides' intent is clear; otherwise
-   `git merge --abort`, report the files and leave that branch out.
+   `git merge --abort`, report the files and leave that branch out. A conflicted generated file
+   is never resolved by hand: `worktree-flow regenerate` rebuilds each one a `kit.json`
+   `regenerate` rule names (after its sources are resolved) and stages it.
+4. After the last merge, the main-session edits the sub-sessions left (§ 1 step 5), once, on the
+   merged tree: `session-ledger --done <id8> <n>` for each `mark done:` item, the edit each
+   `for the parent:` item names (a changelog line, a roadmap or `<sdlc>/*.md` tick, a release
+   note), then `session-ledger --done <child id8> <k>` for the item itself (add `--in-child` when
+   this session is itself a sub-session). A changelog line comes
+   from the merged branches' commit subjects when a child left none. Commit them through
+   `/git commit` before § 3.
 
 ## 3. Check
 
-Run the project's checks for every path the merges changed: the commands in `kit.json` `commands`
-(`check`, `lint`, `test`, and `build` when a merged branch touched the build), or the project's
-own `/check` command when it has one. Then each `session-ext-close-out` skill listed in this
-session, in name order, the same project steps `/close-out` § 1 runs. A failure stops § 4: report
-it with its output.
+The sub-sessions ran `check`, `lint` and the tests their changes touched; the steps that need the
+whole tree run here, once, after the merges and before § 4's push:
+
+1. **Checks.** The commands in `kit.json` `commands` on the merged tree: `check`, `lint`, the
+   whole `test` suite, and `build`; or the project's own `/check` command when it has one.
+2. **Main-session preflight.** Each step `preflight status --scope main` lists with commits since
+   its last run: `preflight run <id>` when it has a command, else what its description says
+   (a docs-review skill, say) over the diff since `git merge-base HEAD <base>`, then
+   `preflight done <id>`.
+3. **Deferred extensions.** Each `sdlc-ext-preflight` and `sdlc-ext-docs` skill whose description
+   says `Main session only.` (a sub-session's plan Review names them as deferred to the parent),
+   against the same merge base. With no merged SDLC item, a skill that needs an item path gets
+   the merged items' archive paths, else none.
+4. **Project steps.** Each `session-ext-close-out` skill listed in this session, in name order,
+   the same project steps `/close-out` § 1 runs, including those marked main session only.
+
+Fixes these steps make are committed through `/git commit`, then step 1 runs again. A failure
+stops § 4: report it with its output.
 
 ## 4. Land on the base
 
@@ -115,6 +139,7 @@ remote branches <b1> <b2> …", so the same click covers them. The user's click 
 what its message says; the `git push --delete` still goes through the normal permission ask.
 
 After it is carried out, report as numbered lists: merged (branch → commit), the base and its new
-tip, check results, pushed or not and the CI run's result, archived sessions (linked), the ones
+tip, the main-session edits made for the sub-sessions (§ 2 step 4), check, preflight and extension
+results (§ 3), pushed or not and the CI run's result, archived sessions (linked), the ones
 left alone with the reason, the remote branches deleted and kept (with the reason), and the
 sub-sessions' follow-ups (done here, carded, or left in their record with `<id8> <n>`).

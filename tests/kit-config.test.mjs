@@ -17,6 +17,7 @@ import {
   normalizeKit,
   preflightSteps,
   readKit,
+  regenerateRules,
   rootFor,
 } from "../shared/kit-config.mjs";
 
@@ -180,9 +181,32 @@ describe("lintOnEdit, kitCommand and raw", () => {
         preflight: { docs: { description: "Docs review", match: ["docs/**"] }, audit: { description: "Audit", command: "npm run audit", remindAfter: 3 }, bad: { command: "x" } },
       }),
     ).toEqual({
-      docs: { description: "Docs review", command: null, match: ["docs/**"], remindAfter: 1 },
-      audit: { description: "Audit", command: "npm run audit", match: [], remindAfter: 3 },
+      docs: { description: "Docs review", command: null, match: ["docs/**"], remindAfter: 1, scope: "any" },
+      audit: { description: "Audit", command: "npm run audit", match: [], remindAfter: 3, scope: "any" },
     });
+    expect(preflightSteps({ preflight: { docs: { description: "Docs", scope: "main" }, x: { description: "X", scope: "child" } } })).toEqual({
+      docs: { description: "Docs", command: null, match: [], remindAfter: 1, scope: "main" },
+      x: { description: "X", command: null, match: [], remindAfter: 1, scope: "any" },
+    });
+    expect(schema.properties.preflight.additionalProperties.properties.scope.default).toBe("any");
+  });
+
+  it("reads parentFiles and regenerate rules, dropping unusable ones", () => {
+    expect(normalizeKit({}).parentFiles).toEqual([]);
+    expect(normalizeKit({ parentFiles: ["CHANGELOG.md", 3, ""] }).parentFiles).toEqual(["CHANGELOG.md"]);
+    expect(normalizeKit({ parentFiles: "CHANGELOG.md" }).parentFiles).toEqual([]);
+    expect(normalizeKit({}).regenerate).toEqual([]);
+    expect(
+      regenerateRules({
+        regenerate: [
+          { match: ["src/i18n/types.ts"], command: "pnpm run i18n:types" },
+          { match: [], command: "x" },
+          { match: ["a.ts"], command: " " },
+          null,
+        ],
+      }),
+    ).toEqual([{ match: ["src/i18n/types.ts"], command: "pnpm run i18n:types" }]);
+    expect(regenerateRules({ regenerate: { match: ["a"], command: "b" } })).toEqual([]);
   });
 
   it("gives a command only when it is a non-empty string", () => {

@@ -24,6 +24,26 @@ Claude Code дає командам простір імен: `/session:handoff`,
 скілом з назвою `session-ext-close-out` або `session-ext-close-out-<назва>`: `/close-out` і
 `/close-siblings` завантажують кожен такий скіл, доступний у сесії, за порядком назв, перед злиттям.
 
+## Підсесії й головна сесія
+
+Сесія, що роздає роботу підсесіям, зливає їх через `/close-siblings`. Кроки, яким потрібне все
+злите дерево або які правлять файли, спільні для всіх підсесій, виконуються там один раз, а не в
+кожній підсесії, де вони повторюються на diff, що перекриваються, і конфліктують під час злиття.
+
+| ID | Крок | У підсесії | У головній сесії |
+| --- | --- | --- | --- |
+| 1 | Крок `preflight` з `"scope": "main"` (огляд документації) | Без нагадування; у підсумку close-out названий як відкладений для батьківської сесії | `/close-siblings` § 3 після злиттів, перед push; `/close-out` у сесії без батьківської |
+| 2 | Скіл-розширення, чий опис каже `Main session only.` (`sdlc-ext-preflight`, `sdlc-ext-docs`, `session-ext-close-out`) | Пропускається; записується як `deferred to the parent: <skill>` | `/close-siblings` § 3, від merge base її гілки та її бази |
+| 3 | Увесь набір `test` і `build` | `check`, `lint` і тести, що покривають змінені файли | `/close-siblings` § 3 на злитому дереві |
+| 4 | Пункт журналу іншої сесії виконано | `## Next` її власного запису каже `mark done: <id8> <n> — <чому>`; `session-ledger --done` відмовляє | `/close-siblings` § 2 крок 4 запускає `session-ledger --done` |
+| 5 | `parentFiles` з `kit.json` і `<paths.sdlc>/*.md` верхнього рівня (рядки changelog, позначки в roadmap і backlog, release notes) | `## Next` її запису каже `for the parent: <file>: <правка>`; коміт такого файлу друкує `parent-files:` | `/close-siblings` § 2 крок 4 пише їх після злиттів |
+| 6 | Конфлікт у згенерованому файлі | `worktree-flow regenerate` перебудовує файли, які називає правило `regenerate` з `kit.json` | Те саме, під час злиття підсесій |
+
+Чи це підсесія, відповідає десктопний застосунок (`/close-out` § 2 крок 6). Скрипти не можуть
+спитати застосунок, тож читають git: `worktree-flow role child` записує це, і записана база на
+гілці `claude/*` іншої сесії теж означає підсесію; `worktree-flow role` показує, що саме. Без
+жодного з них скрипт вважає сесію головною й поводиться, як раніше.
+
 ## Ідентифікатори хуків
 
 Claude Code не вміє вимкнути один хук плагіна, тож кожен хук тут читає `hooks.off` у `kit.json` і
@@ -63,20 +83,26 @@ Claude Code не вміє вимкнути один хук плагіна, то�
 | 14 | `commitSubject` | Conventional Commits | Форма теми коміту, яку пише `/git commit`, шаблоном на кшталт `<slug>: <subject>` (`<type>`, `<scope>`, `<slug>`, `<ITEM-ID>`, `<subject>`); `git-branch-context` передає його `git-ops` |
 | 14 | `commands.evolutionRender` | немає | Рендерить друковану версію сторінки після `evolution bump`; `{page}` стає шляхом сторінки в лапках (без нього шлях додається в кінець) |
 | 15 | `ledgerAutoClose.questionDays` | `7` | Скільки днів після останнього оновлення запису його пункт `Open question at Stop` лишається відкритим; потім бриф його приховує, `--owed` показує окремо, `--sweep` позначає |
+| 16 | `parentFiles` | `[]` | Шаблони спільних підсумкових файлів, які править лише головна сесія; коміт такого файлу в підсесії друкує `parent-files:` |
+| 17 | `regenerate` | немає | `[{ "match": [шаблони], "command": "…" }]`: згенеровані файли, які `worktree-flow regenerate` перебудовує після конфлікту злиття |
 
 `preflight` називає необов'язкові кроки проєкту, а не інструменти, відомі набору: кожен має
 `description`, необов'язкову `command`, необов'язкові шаблони `match` (без них — будь-який коміт поза
-журналом) і `remindAfter` (типово 1). Лічильники лежать у спільній git-теці репозиторію, однаковій
-для всіх його worktree. `preflight run <id>` запускає команду й при успіху обнуляє лічильник;
-`preflight done <id>` обнуляє крок, виконаний іншим способом, наприклад скілом.
+журналом), `remindAfter` (типово 1) і `scope` (`any`, типово, або `main`: виконується один раз у
+головній сесії, у підсесії без нагадувань). Лічильники лежать у спільній git-теці репозиторію,
+однаковій для всіх його worktree, тож коміти підсесії враховуються для запуску в батьківській.
+`preflight run <id>` запускає команду й при успіху обнуляє лічильник; `preflight done <id>` обнуляє
+крок, виконаний іншим способом, наприклад скілом.
 
 ```json
 {
   "commands": { "commitAudit": "npx some-audit --base HEAD~1 --only {files}" },
   "preflight": {
-    "docs-review": { "description": "Docs review: the project's docs-review skill", "match": ["docs/**", "*.md"], "remindAfter": 3 },
+    "docs-review": { "description": "Docs review: the project's docs-review skill", "match": ["docs/**", "*.md"], "remindAfter": 3, "scope": "main" },
     "audit": { "description": "Dead-code and dependency audit", "command": "pnpm run audit" }
-  }
+  },
+  "parentFiles": ["CHANGELOG.md", "docs/roadmap.md"],
+  "regenerate": [{ "match": ["src/i18n/types.ts"], "command": "pnpm run i18n:types" }]
 }
 ```
 
@@ -92,12 +118,12 @@ Checkout визначається з `cwd` у даних хука (або з р�
 | --- | --- | --- |
 | 1 | `session-ledger` | `--files`, `--record`, `--refresh`, `--conflicts`, `--owed`, `--done`, `--sweep`, `--archive`, `--backfill`; `--help` перелічує їх |
 | 2 | `git-commit-session` | Коміт за шляхами; `--help` перелічує прапорці й коди виходу |
-| 3 | `worktree-flow` | `status`, `resolve`, `base`, `adopt`, `conflicts`, `land`, `remove`, `stale-remote`; `--help` перелічує їх |
+| 3 | `worktree-flow` | `status`, `resolve`, `base`, `role`, `adopt`, `conflicts`, `land`, `regenerate`, `remove`, `stale-remote`; `--help` перелічує їх |
 | 4 | `worktree-setup` | Підготовка, яку запускає хук `worktree-setup` |
 | 5 | `git-branch-context` | Гілка, upstream, базова гілка й префікс елементів у JSON, для `/git` |
 | 6 | `ledger-export` | Перетворює запис на файл передачі поза репозиторієм (`/handoff --export`) |
 | 7 | `scan-ledger-secrets` | Запобіжник для pre-commit: падає на тексті, схожому на секрет, у staged-записах (без шляхів — staged-файли в теці журналу) |
-| 8 | `preflight` | `status`, `run <id>`, `done <id>` для кроків `preflight` з `kit.json` |
+| 8 | `preflight` | `status [--scope main]`, `run <id>`, `done <id>` для кроків `preflight` з `kit.json` |
 | 9 | `evolution` | `status [--since-release [<tag>] \| --base <ref>]`, `init`, `bump <page>`, `check` для сторінок еволюції; `--help` перелічує їх |
 | 10 | `kit-repo` | `<plugin\|plugin@marketplace\|path> [--json]`: репозиторій GitHub, у якому відкривають issue про прогалину набору, з джерела marketplace плагіна, для `/close-out` і `/handoff` |
 

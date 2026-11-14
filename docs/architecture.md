@@ -107,7 +107,11 @@ it, `session` guesses pnpm or npm from the lockfile), and `commands.dev` starts 
 the desktop app's Browser pane is not available. `lintOnEdit` lints each edited file: one rule or a
 list of rules, each a command where `{file}` is the quoted repo-relative path, and `match` globs
 that pick the files it takes; every matching rule runs. `checks` names suites of commands for
-`/core:check <suite>`, and `preflight` names optional steps whose skipped commits `session` counts.
+`/core:check <suite>`, and `preflight` names optional steps whose skipped commits `session` counts;
+a step with `"scope": "main"` runs once in the main session, on the merged tree. `parentFiles`
+names shared files only the main session edits, and `regenerate` the generated files a merge
+conflict is resolved for by a command ([session README](../plugins/session/README.md), "Sub-sessions
+and the main session").
 `hooks.off` lists kit hooks this project skips: a plugin can't be switched off hook by hook, so each
 kit hook reads this list and exits quietly when named.
 

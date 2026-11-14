@@ -32,9 +32,11 @@
     "docs": ["pnpm run docs:check"]
   },
   "preflight": {
-    "docs-review": { "description": "Docs review: the project's docs-review skill", "match": ["docs/**", "*.md"], "remindAfter": 3 },
+    "docs-review": { "description": "Docs review: the project's docs-review skill", "match": ["docs/**", "*.md"], "remindAfter": 3, "scope": "main" },
     "audit": { "description": "Dead-code and dependency audit", "command": "pnpm run audit" }
   },
+  "parentFiles": ["CHANGELOG.md", "docs/roadmap.md"],
+  "regenerate": [{ "match": ["src/locales/types.ts"], "command": "pnpm run i18n:types" }],
   "hooks": {
     "off": [
       "ledger-stop"

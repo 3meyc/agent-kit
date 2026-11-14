@@ -12,6 +12,7 @@ import {
   mergedCleanWorktrees,
   parseMergeTree,
   parseStatusZ,
+  regeneratePlan,
   splitCommandArgs,
   staleVerdict,
   verdictFor,
@@ -647,5 +648,81 @@ describe("adopt in a worktree cut from main", () => {
     expect(run.stderr).toBe("");
     expect(run.status).toBe(0);
     expect(existsSync(join(edited, "notes", "ledger", "INDEX.md"))).toBe(true);
+  });
+});
+
+describe("regeneratePlan", () => {
+  it("gives each conflicted path to the first rule that matches it and lists the rest", () => {
+    const rules = [
+      { match: ["src/i18n/types.ts"], command: "gen-types" },
+      { match: ["*.ts"], command: "gen-all" },
+    ];
+    expect(regeneratePlan(["src/i18n/types.ts", "src/b.ts", "README.md"], rules)).toEqual({
+      steps: [
+        { command: "gen-types", paths: ["src/i18n/types.ts"] },
+        { command: "gen-all", paths: ["src/b.ts"] },
+      ],
+      left: ["README.md"],
+    });
+    expect(regeneratePlan(["a.md"], [])).toEqual({ steps: [], left: ["a.md"] });
+  });
+});
+
+describe("worktree-flow role and regenerate", () => {
+  let dir;
+  const git = (cwd, ...args) => spawnSync("git", ["-c", "commit.gpgsign=false", "-c", "user.email=t@example.com", "-c", "user.name=t", ...args], { cwd, encoding: "utf8" });
+  const flow = (cwd, ...args) => spawnSync(process.execPath, [SCRIPT, ...args], { cwd, encoding: "utf8" });
+  const commit = (file, text) => {
+    writeFileSync(join(dir, file), text);
+    git(dir, "add", file);
+    git(dir, "commit", "-q", "-m", `edit ${file}`);
+  };
+
+  beforeAll(() => {
+    dir = realpathSync(mkdtempSync(join(tmpdir(), "worktree-flow-regen-")));
+    spawnSync("git", ["init", "-q", "-b", "dev", dir]);
+    // The generator writes the sorted keys of keys.txt, as an i18n types build would.
+    writeFileSync(join(dir, "gen.mjs"), 'import { readFileSync, writeFileSync } from "node:fs";\nconst keys = readFileSync("keys.txt", "utf8").split("\\n").filter(Boolean).sort();\nwriteFileSync("types.txt", keys.join("|") + "\\n");\n');
+    writeFileSync(join(dir, "kit.json"), JSON.stringify({ project: "t", regenerate: [{ match: ["types.txt"], command: "node gen.mjs" }] }));
+    commit("keys.txt", "a\n");
+    commit("types.txt", "a\n");
+    commit("notes.txt", "base\n");
+  });
+
+  afterAll(() => rmSync(dir, { recursive: true, force: true }));
+
+  it("shows and records the session role", () => {
+    git(dir, "checkout", "-q", "-b", "claude/child");
+    expect(flow(dir, "role").stdout.trim()).toBe("main (nothing recorded)");
+    git(dir, "config", "branch.claude/child.kitBase", "claude/parent");
+    expect(flow(dir, "role").stdout.trim()).toBe("child (its base is another session's branch)");
+    expect(flow(dir, "role", "main").status).toBe(0);
+    expect(flow(dir, "role").stdout.trim()).toBe("main (recorded)");
+    expect(flow(dir, "role", "sibling").status).toBe(1);
+    git(dir, "checkout", "-q", "dev");
+  });
+
+  it("rebuilds a conflicted generated file, stages it, and leaves other conflicts", () => {
+    expect(flow(dir, "regenerate").stdout.trim()).toBe("no conflicted files");
+    git(dir, "checkout", "-q", "-b", "side");
+    commit("keys.txt", "a\nc\n");
+    commit("types.txt", "a|c\n");
+    commit("notes.txt", "side\n");
+    git(dir, "checkout", "-q", "dev");
+    commit("keys.txt", "b\na\n");
+    commit("types.txt", "a|b\n");
+    commit("notes.txt", "dev\n");
+    expect(git(dir, "merge", "--no-edit", "side").status).not.toBe(0);
+    // keys.txt is a source file: settle it by hand, as the session would.
+    writeFileSync(join(dir, "keys.txt"), "b\na\nc\n");
+    git(dir, "add", "keys.txt");
+    expect(flow(dir, "regenerate", "--dry-run").stdout).toMatch(/would regenerate types\.txt with `node gen\.mjs`/);
+    const run = flow(dir, "regenerate");
+    expect(run.status).toBe(0);
+    expect(run.stdout).toMatch(/regenerated types\.txt with `node gen\.mjs`; staged/);
+    expect(run.stdout).toMatch(/still conflicted \(no regenerate rule\): notes\.txt/);
+    expect(readFileSync(join(dir, "types.txt"), "utf8")).toBe("a|b|c\n");
+    expect(git(dir, "diff", "--name-only", "--diff-filter=U").stdout.trim()).toBe("notes.txt");
+    git(dir, "merge", "--abort");
   });
 });

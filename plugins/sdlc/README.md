@@ -94,6 +94,12 @@ empty point is skipped and reported.
 | 3 | `sdlc-ext-preflight` | Finish | Static analysis against the comparison base, with introduced findings fixed |
 | 4 | `sdlc-ext-docs` | Finish | The documentation review against the comparison base; without one, `commands.check` |
 
+A skill whose description says `Main session only.` (a wide audit, a docs review) is skipped in a
+sub-session, which records it as `deferred to the parent: <skill>`; the parent's `/close-siblings`
+runs it once on the merged tree. A sub-session also runs `check`, `lint` and the tests that cover
+its changes rather than the whole suite and build, and leaves shared files and other sessions'
+ledger records to the parent (the workflow's Project bindings, Sub-session).
+
 ## Files
 
 | ID | Path | Holds |

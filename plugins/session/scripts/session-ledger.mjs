@@ -50,6 +50,7 @@ import {
   transcriptRoot,
 } from "../lib/hook-utils.mjs";
 import { createShellEditTracker, readCommitFacts, readShellDeletions } from "./ledger-utils.mjs";
+import { isChildSession } from "./session-role.mjs";
 import { hookOff, inLedger, ledgerDir, ledgerHookOn, readKit, rootFor } from "../lib/kit-config.mjs";
 
 /**
@@ -66,7 +67,8 @@ import { hookOff, inLedger, ledgerDir, ledgerHookOn, readKit, rootFor } from "..
  *   session-ledger --conflicts <session-id-prefix>... [--allow-shared <path>]... -- <path>...
  *   session-ledger --owed [<word>]       # open `## Next` items of every record, newest first,
  *                                        # then the auto-closed ones with their reason
- *   session-ledger --done <id8> <n> [--as <id8>]   # mark item n of that record done
+ *   session-ledger --done <id8> <n> [--as <id8>] [--in-child]   # mark item n of that record done;
+ *                                  # a sub-session (session-role.mjs) refuses another session's record
  *   session-ledger --sweep [--dry-run] [--as <id8>]   # mark every auto-closed item done, with its reason
  *   session-ledger --archive [--days <n>] [--dry-run]   # git mv settled records older than n days (60) to archive/
  *   session-ledger --help          # usage
@@ -1109,7 +1111,20 @@ function runDone(args) {
     return;
   }
   const as = args.includes("--as") ? args[args.indexOf("--as") + 1] : undefined;
-  markRecordDone(prefix, n, as ?? process.env.CLAUDE_CODE_SESSION_ID);
+  const own = as ?? process.env.CLAUDE_CODE_SESSION_ID;
+  // A sub-session marks only its own record: the parent marks the others at /close-siblings, from
+  // the child's `## Next`, so two branches never edit one record (a merge conflict every time).
+  const ownRecord = own && (own.startsWith(prefix) || prefix.startsWith(own.slice(0, 8)));
+  if (!ownRecord && !args.includes("--in-child") && isChildSession(ROOT)) {
+    console.error(
+      `session-ledger --done: this is a sub-session, so it leaves ${prefix} ${n} to its parent: add ` +
+        `"mark done: ${prefix} ${n} — <what finished it>" to this session's own record's ## Next, which the parent ` +
+        "carries out at /close-siblings. A sub-session closing its own sub-sessions' records passes --in-child.",
+    );
+    process.exitCode = 1;
+    return;
+  }
+  markRecordDone(prefix, n, own);
 }
 
 function runConflicts(args) {
@@ -1144,7 +1159,9 @@ const USAGE = `Session ledger: one Markdown record per Claude Code session, in k
                                                       # paths another session also claims; exit 2 if any
   session-ledger --owed [<word>]                      # open \`## Next\` items, newest first, then
                                                       # the auto-closed ones with their reason
-  session-ledger --done <id8> <n> [--as <id8>]        # mark item n of that record done
+  session-ledger --done <id8> <n> [--as <id8>] [--in-child]
+                                                      # mark item n of that record done; a sub-session
+                                                      # marks only its own (--in-child: its sub-sessions')
   session-ledger --sweep [--dry-run] [--as <id8>]     # mark every auto-closed item done, with its reason
   session-ledger --archive [--days <n>] [--dry-run]   # git mv settled records older than n days (60) to archive/
   session-ledger --help                               # print this and exit 0

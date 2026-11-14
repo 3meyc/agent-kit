@@ -2,7 +2,9 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { isDirectRun, parseWorktrees } from "../lib/hook-utils.mjs";
+import { matchesAny } from "../lib/globs.mjs";
 import { escapeRegExp, inLedger, readKit } from "../lib/kit-config.mjs";
+import { BASE_KEY, ROLE_KEY, sessionRole } from "./session-role.mjs";
 
 /**
  * The branch-and-worktree side of a session, from start to close-out (`worktree-flow` on the Bash
@@ -11,10 +13,12 @@ import { escapeRegExp, inLedger, readKit } from "../lib/kit-config.mjs";
  *   worktree-flow status [--json]    every worktree: base, merged, pushed, dirty, verdict
  *   worktree-flow resolve <ref>      local branch for a work item (APP-123) or name; tracks origin's if only it exists
  *   worktree-flow base [<ref>]       show, or record, this branch's integration branch
+ *   worktree-flow role [child|main]  show, or record, whether this is a sub-session (`session-role.mjs`)
  *   worktree-flow adopt <ref>        move a fresh worktree (no commits of its own) onto <ref>
  *   worktree-flow conflicts [--json] predicted merge conflicts with the base and every active worktree
  *   worktree-flow land [--dry-run]   fast-forward the base to this branch; never merges, never pushes
  *   worktree-flow land --dry-run --report   the same dry run, exiting 0 on a refusal too (close-out's preload)
+ *   worktree-flow regenerate [--dry-run]    rebuild conflicted generated files by `kit.json` `regenerate`
  *   worktree-flow remove <path>      remove a clean worktree whose commits are all in its base
  *   worktree-flow stale-remote [--base <b>] [--landing] [<branch>...]
  *                                    which branches on origin the base already holds; deletes nothing
@@ -31,7 +35,6 @@ import { escapeRegExp, inLedger, readKit } from "../lib/kit-config.mjs";
  */
 
 const TICKET = /^[A-Z][A-Z0-9]*-\d+$/i;
-const BASE_KEY = (branch) => `branch.${branch}.kitBase`;
 
 /** `kit.json` of the checkout at `dir`, read once per checkout. */
 const kits = new Map();
@@ -639,13 +642,66 @@ function cmdStaleRemote({ args, flags, values, cwd }) {
   return undefined;
 }
 
+function cmdRole({ args, cwd }) {
+  const me = thisWorktree(cwd);
+  if (args[0]) {
+    if (args[0] !== "child" && args[0] !== "main") fail(`usage: role [child | main], not ${args[0]}`);
+    git(["config", ROLE_KEY(me.branch), args[0]], cwd);
+    return console.log(`${me.branch} → ${args[0]} session (recorded)`);
+  }
+  const { role, source } = sessionRole(cwd);
+  const why = { recorded: "recorded", base: "its base is another session's branch", default: "nothing recorded" }[source];
+  return console.log(`${role} (${why})`);
+}
+
+/**
+ * Which conflicted paths each `kit.json` `regenerate` rule rebuilds, and the ones no rule takes.
+ * Pure. @param {string[]} unmerged @param {Array<{ match: string[], command: string }>} rules
+ */
+export function regeneratePlan(unmerged, rules) {
+  const taken = new Set();
+  const steps = [];
+  for (const rule of rules) {
+    const paths = unmerged.filter((path) => !taken.has(path) && matchesAny(path, rule.match));
+    if (paths.length === 0) continue;
+    for (const path of paths) taken.add(path);
+    steps.push({ command: rule.command, paths });
+  }
+  return { steps, left: unmerged.filter((path) => !taken.has(path)) };
+}
+
+function cmdRegenerate({ flags, cwd }) {
+  const top = thisWorktree(cwd).path;
+  const unmerged = (gitOut(["diff", "--name-only", "--diff-filter=U"], top) ?? "").split("\n").filter(Boolean);
+  if (unmerged.length === 0) return console.log("no conflicted files");
+  const { steps, left } = regeneratePlan(unmerged, kitOf(top).regenerate);
+  if (steps.length === 0) return console.log(`no kit.json regenerate rule matches the conflicted files: ${unmerged.join(", ")}`);
+  for (const step of steps) {
+    if (flags.has("--dry-run")) {
+      console.log(`would regenerate ${step.paths.join(", ")} with \`${step.command}\``);
+      continue;
+    }
+    const ours = git(["checkout", "--ours", "--", ...step.paths], top);
+    if (!ours.ok) fail(`could not take this branch's side of ${step.paths.join(", ")}: ${ours.err}`);
+    const run = spawnSync(step.command, { cwd: top, shell: true, stdio: "inherit" });
+    if (run.status !== 0) fail(`\`${step.command}\` failed (exit ${run.status ?? run.error?.message}); ${step.paths.join(", ")} hold this branch's side, unstaged`);
+    const added = git(["add", "--", ...step.paths], top);
+    if (!added.ok) fail(added.err);
+    console.log(`regenerated ${step.paths.join(", ")} with \`${step.command}\`; staged`);
+  }
+  if (left.length) console.log(`still conflicted (no regenerate rule): ${left.join(", ")}`);
+  return undefined;
+}
+
 const COMMANDS = {
   status: cmdStatus,
   resolve: cmdResolve,
   base: cmdBase,
+  role: cmdRole,
   adopt: cmdAdopt,
   conflicts: cmdConflicts,
   land: cmdLand,
+  regenerate: cmdRegenerate,
   remove: cmdRemove,
   "stale-remote": cmdStaleRemote,
 };
@@ -655,6 +711,7 @@ const COMMAND_FLAGS = {
   status: ["--json"],
   conflicts: ["--json"],
   land: ["--dry-run", "--report"],
+  regenerate: ["--dry-run"],
   remove: ["--drop-ledger"],
   "stale-remote": ["--json", "--landing"],
 };
@@ -669,10 +726,15 @@ const USAGE = `The branch-and-worktree side of a session, from start to close-ou
   worktree-flow status [--json]           every worktree: base, merged, pushed, dirty, verdict
   worktree-flow resolve <ref>             local branch for a work item (APP-123) or name
   worktree-flow base [<ref>]              show, or record, this branch's integration branch
+  worktree-flow role [child | main]       show, or record, whether this session is a sub-session
+                                          (child) whose parent lands its branch, or the main session
   worktree-flow adopt <ref>               move a fresh worktree (no commits of its own) onto <ref>
   worktree-flow conflicts [--json]        predicted merge conflicts with the base and every active worktree
   worktree-flow land [--dry-run]          fast-forward the base to this branch; never merges, never pushes
   worktree-flow land --dry-run --report   the same dry run, but a refusal is printed and exits 0
+  worktree-flow regenerate [--dry-run]    during a merge, rebuild each conflicted file a kit.json
+                                          regenerate rule matches (this branch's side, then the
+                                          rule's command) and stage it; other conflicts stay
   worktree-flow remove <path | branch> [--drop-ledger]
                                           remove a clean worktree whose commits are all in its base
   worktree-flow stale-remote [--base <b>] [--landing] [--json] [<branch>...]
@@ -683,6 +745,9 @@ const USAGE = `The branch-and-worktree side of a session, from start to close-ou
 With no command it runs status. The base is the recorded one (base <ref>), else the SDLC item's
 base:, else a guess, with kit.json baseBranch (default dev) winning a tie and dev, develop or
 development next.
+
+role is child when recorded so (role child), else when the recorded base is another session's
+claude/* branch; else main. The desktop app's get_session is the agent's own check.
 
 stale-remote fetches origin (with --prune) first. It keeps main, master, dev, develop,
 development, the base, kit.json baseBranch and origin's default branch, a branch checked out in

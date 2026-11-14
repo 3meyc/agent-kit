@@ -24,6 +24,26 @@ A project adds its own close-out steps (a status check of its clones, rows in it
 skill named `session-ext-close-out` or `session-ext-close-out-<name>`: `/close-out` and
 `/close-siblings` load every such skill listed in the session, in name order, before landing.
 
+## Sub-sessions and the main session
+
+A session that fans work out to sub-sessions lands them with `/close-siblings`. Steps that need the
+whole merged tree, or that edit files every sub-session shares, run there once instead of in each
+sub-session, where they repeat on overlapping diffs and conflict at the merge.
+
+| ID | Step | In a sub-session | In the main session |
+| --- | --- | --- | --- |
+| 1 | `preflight` step with `"scope": "main"` (a docs review) | No reminder; named in the close-out resume as deferred to the parent | `/close-siblings` § 3 after the merges, before the push; `/close-out` in a session with no parent |
+| 2 | Extension skill whose description says `Main session only.` (`sdlc-ext-preflight`, `sdlc-ext-docs`, `session-ext-close-out`) | Skipped; recorded as `deferred to the parent: <skill>` | `/close-siblings` § 3, against the merge base of its branch and its base |
+| 3 | Whole `test` suite and `build` | `check`, `lint` and the tests that cover the changed files | `/close-siblings` § 3 on the merged tree |
+| 4 | Another session's ledger item done | Its own record's `## Next` says `mark done: <id8> <n> — <why>`; `session-ledger --done` refuses | `/close-siblings` § 2 step 4 runs `session-ledger --done` |
+| 5 | `kit.json` `parentFiles` and top-level `<paths.sdlc>/*.md` (changelog lines, roadmap and backlog ticks, release notes) | Its record's `## Next` says `for the parent: <file>: <edit>`; a commit of one prints `parent-files:` | `/close-siblings` § 2 step 4 writes them after the merges |
+| 6 | A conflict in a generated file | `worktree-flow regenerate` rebuilds the files a `kit.json` `regenerate` rule names | The same, when merging the sub-sessions |
+
+Whether this is a sub-session is the desktop app's answer (`/close-out` § 2 step 6). The scripts
+cannot ask the app, so they read git: `worktree-flow role child` records it, and a recorded base on
+another session's `claude/*` branch means child too; `worktree-flow role` shows which. With
+neither, a script treats the session as the main one and behaves as before.
+
 ## Hook ids
 
 Claude Code cannot switch off one hook of a plugin, so every hook here reads `kit.json`
@@ -63,20 +83,26 @@ quiet unless `kit.json` sets `"ledger": true`.
 | 14 | `commitSubject` | Conventional Commits | The subject form `/git commit` writes, a template such as `<slug>: <subject>` (`<type>`, `<scope>`, `<slug>`, `<ITEM-ID>`, `<subject>`); `git-branch-context` passes it to `git-ops` |
 | 14 | `commands.evolutionRender` | none | Renders a page's printable version after `evolution bump`; `{page}` becomes the quoted page path (appended without it) |
 | 15 | `ledgerAutoClose.questionDays` | `7` | Days after a record was last active before its `Open question at Stop` item counts as closed: hidden from the brief, listed apart by `--owed`, marked by `--sweep` |
+| 16 | `parentFiles` | `[]` | Globs of shared summary files only the main session edits; a sub-session's commit of one prints `parent-files:` |
+| 17 | `regenerate` | none | `[{ "match": [globs], "command": "…" }]`: generated files `worktree-flow regenerate` rebuilds after a merge conflict |
 
 `preflight` names a project's optional steps, never a tool the kit knows: each has a
 `description`, an optional `command`, optional `match` globs (left out: any commit outside the
-ledger) and `remindAfter` (default 1). The counts live in the repository's common git folder, shared
-by its worktrees. `preflight run <id>` runs the command and clears the count on success;
-`preflight done <id>` clears a step that ran another way, such as a skill.
+ledger), `remindAfter` (default 1) and `scope` (`any`, the default, or `main`: run once in the main
+session, never reminded in a sub-session). The counts live in the repository's common git folder,
+shared by its worktrees, so a sub-session's commits count towards the parent's run.
+`preflight run <id>` runs the command and clears the count on success; `preflight done <id>` clears
+a step that ran another way, such as a skill.
 
 ```json
 {
   "commands": { "commitAudit": "npx some-audit --base HEAD~1 --only {files}" },
   "preflight": {
-    "docs-review": { "description": "Docs review: the project's docs-review skill", "match": ["docs/**", "*.md"], "remindAfter": 3 },
+    "docs-review": { "description": "Docs review: the project's docs-review skill", "match": ["docs/**", "*.md"], "remindAfter": 3, "scope": "main" },
     "audit": { "description": "Dead-code and dependency audit", "command": "pnpm run audit" }
-  }
+  },
+  "parentFiles": ["CHANGELOG.md", "docs/roadmap.md"],
+  "regenerate": [{ "match": ["src/i18n/types.ts"], "command": "pnpm run i18n:types" }]
 }
 ```
 
@@ -92,12 +118,12 @@ a project may allow them in `.claude/settings.json` (`Bash(session-ledger --file
 | --- | --- | --- |
 | 1 | `session-ledger` | `--files`, `--record`, `--refresh`, `--conflicts`, `--owed`, `--done`, `--sweep`, `--archive`, `--backfill`; `--help` lists them |
 | 2 | `git-commit-session` | Commit by path; `--help` lists flags and exit codes |
-| 3 | `worktree-flow` | `status`, `resolve`, `base`, `adopt`, `conflicts`, `land`, `remove`, `stale-remote`; `--help` lists them |
+| 3 | `worktree-flow` | `status`, `resolve`, `base`, `role`, `adopt`, `conflicts`, `land`, `regenerate`, `remove`, `stale-remote`; `--help` lists them |
 | 4 | `worktree-setup` | The set-up the `worktree-setup` hook runs |
 | 5 | `git-branch-context` | Branch, upstream, base branch and item prefix as JSON, for `/git` |
 | 6 | `ledger-export` | Renders a record as a hand-off file outside the repo (`/handoff --export`) |
 | 7 | `scan-ledger-secrets` | Pre-commit backstop: fails on secret-shaped text in staged records (without paths: the staged files in the ledger folder) |
-| 8 | `preflight` | `status`, `run <id>`, `done <id>` for the `kit.json` `preflight` steps |
+| 8 | `preflight` | `status [--scope main]`, `run <id>`, `done <id>` for the `kit.json` `preflight` steps |
 | 9 | `evolution` | `status [--since-release [<tag>] \| --base <ref>]`, `init`, `bump <page>`, `check` for the evolution pages; `--help` lists them |
 | 10 | `kit-repo` | `<plugin\|plugin@marketplace\|path> [--json]`: the GitHub repo a kit gap is opened in, from the plugin's marketplace source, for `/close-out` and `/handoff` |
 

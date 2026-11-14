@@ -56,7 +56,14 @@ findings to the user. `{files}` in that command becomes the committed paths (als
 Each commit also counts a skip for every `kit.json` `preflight` step it touches (optional steps such
 as a docs review or an audit), and the script prints a `preflight:` line for a step that is due;
 relay those lines. `preflight run <id>` runs a step's command and clears its count; `preflight done
-<id>` clears a step that ran another way. Never run a step unasked: say which are due.
+<id>` clears a step that ran another way. Never run a step unasked: say which are due. A step
+scoped to the main session (`[main session]` in the status above) prints no line in a sub-session:
+its parent runs it on the merged tree (`/close-siblings` § 3).
+
+In a sub-session, a commit that holds a `kit.json` `parentFiles` path or a top-level
+`<paths.sdlc>/*.md` file prints a `parent-files:` line; relay it. Those files (a changelog,
+roadmaps, backlog ticks) are the parent's to write: the session undoes the edit and lists it in its
+record's `## Next` (`/close-out` § 1, Main-session steps).
 
 `commit --review` (also `commit and push --review`) adds a review pass before the commit: the agent
 reads the whole diff of the paths, reports findings, and commits only when none of them blocks. Route an amend only after the user asked for it, and say so in the operation

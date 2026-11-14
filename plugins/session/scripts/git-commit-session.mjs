@@ -8,6 +8,7 @@ import { isDirectRun } from "../lib/hook-utils.mjs";
 import { escapeRegExp, readKit } from "../lib/kit-config.mjs";
 import { doneMarks } from "./ledger-record.mjs";
 import { recordCommit } from "./preflight.mjs";
+import { isChildSession, parentFilesLine, parentOwned } from "./session-role.mjs";
 
 /**
  * Commit one session's paths in a working tree other sessions share (`git-commit-session` on the
@@ -898,6 +899,8 @@ function main() {
   auditCommit(paths);
   // An amend makes no new commit, so it skips no optional step.
   if (!options.amend) for (const line of recordCommit(top, paths)) console.log(line);
+  const owned = isChildSession(top) ? parentFilesLine(parentOwned(paths, kit)) : null;
+  if (owned) console.log(owned);
 }
 
 if (isDirectRun(import.meta.url)) main();

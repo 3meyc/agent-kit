@@ -118,9 +118,30 @@
           "description": { "type": "string", "minLength": 1, "description": "What the step checks and how to run it when it has no command (for example a skill name)." },
           "command": { "$ref": "#/$defs/command", "description": "Run from the repo root by `preflight run <id>`; exit 0 clears the count. Left out: the step runs another way, and `preflight done <id>` clears the count." },
           "match": { "$ref": "#/$defs/globs", "description": "Only commits touching one of these globs count. Left out: every commit with code." },
-          "remindAfter": { "type": "integer", "minimum": 1, "default": 1, "description": "Show the count after a commit once it reaches this many." }
+          "remindAfter": { "type": "integer", "minimum": 1, "default": 1, "description": "Show the count after a commit once it reaches this many." },
+          "scope": { "enum": ["any", "main"], "default": "any", "description": "`main`: the step runs once in the main session, on the merged tree: `/close-siblings` runs it after the merges and before the push, `/close-out` in a session with no parent before landing. A sub-session gets no reminder for it and records it as deferred to the parent. `any`: every session." }
         }
       }
+    },
+    "parentFiles": {
+      "$ref": "#/$defs/globs",
+      "description": "Shared summary files only the main session edits: roadmaps, a changelog's Unreleased lines, release notes, backlog ticks. A sub-session leaves them alone and lists the edit it owes in its own ledger record's `## Next`; the parent writes it at `/close-siblings`, after the merges. Top-level `<paths.sdlc>/*.md` files follow the same rule without being listed.",
+      "examples": [["CHANGELOG.md", "docs/roadmap*.md"]]
+    },
+    "regenerate": {
+      "type": "array",
+      "description": "Generated files a merge conflict never resolves by hand: `worktree-flow regenerate` keeps this branch's side of each conflicted file a rule matches, runs the rule's command from the repo root, and stages the result.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["match", "command"],
+        "additionalProperties": false,
+        "properties": {
+          "match": { "$ref": "#/$defs/globs", "type": "array", "minItems": 1, "description": "The generated files." },
+          "command": { "$ref": "#/$defs/command", "description": "Rebuilds every file the rule matches." }
+        }
+      },
+      "examples": [[{ "match": ["src/i18n/types.ts"], "command": "pnpm run i18n:types" }]]
     },
     "hooks": {
       "type": "object",
