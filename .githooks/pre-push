@@ -1,0 +1,6 @@
+#!/bin/sh
+# Run the naming guard before anything leaves this machine: the files at HEAD, the branch name and
+# the commits not yet on origin/main. Without its term list the guard refuses; a clone whose owner
+# keeps no list switches it off with `git config naming-guard.skip true`.
+# Installed by the package manager's install (`prepare` -> scripts/install-git-hooks.mjs).
+exec node scripts/naming-guard.mjs

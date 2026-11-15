@@ -7,7 +7,9 @@
 //   1. env NAMING_GUARD_WORDS        newline-separated (the GitHub Actions secret of that name)
 //   2. env NAMING_GUARD_FILE         path to a list file
 //   3. ~/.config/agent-kit/naming-guard.txt
-// An empty or missing list is an error: a guard with nothing to look for would always pass.
+// An empty or missing list is an error: a guard with nothing to look for would always pass. A
+// contributor's clone, which has no list, switches the guard off with
+// `git config naming-guard.skip true` (the pre-push hook in .githooks/ runs it).
 //
 // List syntax, one term per line:
 //   term        case-insensitive, whole word (letters and digits are word characters)
@@ -68,10 +70,15 @@ function parseTerms(text) {
 
 const { text, from } = loadList();
 const terms = parseTerms(text);
+if (terms.length === 0 && git(["config", "--bool", "naming-guard.skip"], { allowFail: true })?.trim() === "true") {
+  console.log("skip naming guard: switched off for this clone (git config naming-guard.skip true)");
+  process.exit(0);
+}
 if (terms.length === 0) {
   console.error(
     `naming-guard: no banned terms loaded (looked in ${from}).\n` +
-      "Set NAMING_GUARD_WORDS, or create ~/.config/agent-kit/naming-guard.txt, one term per line.",
+      "Set NAMING_GUARD_WORDS, or create ~/.config/agent-kit/naming-guard.txt, one term per line.\n" +
+      "Without a list of your own (a contributor's clone): git config naming-guard.skip true",
   );
   process.exit(2);
 }
