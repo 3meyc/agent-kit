@@ -4,6 +4,8 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 ## Unreleased
 
+- core: two new hooks run the machine tools' own Claude Code hooks from the plugin, so a machine with the tool needs no entry in `~/.claude/settings.json`. 1. `rtk-rewrite` (PreToolUse Bash and PowerShell, inside the `shell-pre` dispatcher, which now prints a duty's JSON answer) hands the call to `rtk hook claude` and passes RTK's rewrite on. RTK's installer writes its entry with the matcher `Bash` only, so PowerShell calls skipped it. 2. `codegraph-prompt` (UserPromptSubmit) hands the prompt to `codegraph prompt-hook` where a `.codegraph/` index exists. Each does nothing without its binary, when `kit.json` `hooks.off` lists it, or while a user, project or local settings file still runs the tool's hook itself, so nothing runs twice; delete your own entry to switch to the kit's.
+
 ## 2026-11-14 — fifteenth `stable`
 
 `stable` points at the commit that adds this entry. Follow-ups are triaged against a charter into one backlog (/backlog), and worktree adopt reinstalls dependencies when the lockfile changed.

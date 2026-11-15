@@ -1,5 +1,5 @@
 {
-  "description": "agent-kit core: always-on rules and update check at session start, lint on edit, shell deletions snapshot, CodeGraph worktree sync. Switch one off per project with kit.json hooks.off.",
+  "description": "agent-kit core: always-on rules and update check at session start, lint on edit, shell deletions snapshot, RTK command rewrite, CodeGraph worktree sync and prompt context. Switch one off per project with kit.json hooks.off.",
   "hooks": {
     "SessionStart": [
       {
@@ -8,6 +8,17 @@
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.mjs\"",
             "timeout": 15
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/codegraph-prompt.mjs\"",
+            "timeout": 20
           }
         ]
       }

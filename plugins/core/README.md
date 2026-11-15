@@ -30,11 +30,21 @@ quietly when its id is listed.
 | 3 | `lint-edited-file` | PostToolUse Edit, Write, MultiEdit | Runs every `lintOnEdit` rule whose globs match the edited file, in order; any failure is shown to the agent (exit 2) without undoing the edit | no `lintOnEdit`, or the file matches no rule |
 | 4 | `shell-deletions` | PreToolUse and PostToolUse Bash, PowerShell | Snapshots tracked files a script-running command deletes, for the session ledger; the only hook that does (the session plugin's former copy is gone) | `ledger` is not `true`, the command runs no script, or `hooks.off` lists it or `ledger-shell-deletions`, the former copy's id |
 | 5 | `codegraph-sync` | PreToolUse Bash, PowerShell, CodeGraph MCP tools | Syncs a linked worktree's own CodeGraph index before a query reads it | no `.codegraph/codegraph.db` in the worktree, or no `codegraph` CLI |
+| 6 | `rtk-rewrite` | PreToolUse Bash, PowerShell | Hands the call to RTK's own hook (`rtk hook claude`) and passes its answer on: a command RTK has a filter for runs as `rtk <command>`, so its output reaches the agent compressed. RTK answers `allow` only for a command the user's own permission rules already allow | no `rtk` binary, or a settings file (user, project, local) still runs `rtk hook claude` itself |
+| 7 | `codegraph-prompt` | UserPromptSubmit | Hands the prompt to CodeGraph's own hook (`codegraph prompt-hook`), which adds CodeGraph context to a prompt about code structure | no `.codegraph/` at or above the working folder, no `codegraph` CLI, or a settings file still runs `codegraph prompt-hook` itself |
 
-Hooks 4 and 5 share one PreToolUse process for shell calls (`hooks/shell-pre.mjs`), so a shell
-call starts one `node`, not two. No hook ever blocks a tool call; a failure is one stderr line.
-Hooks 3 to 5 read `kit.json` from the checkout that holds the call's working folder, so a linked
+Hooks 4 to 6 share one PreToolUse process for shell calls (`hooks/shell-pre.mjs`), so a shell
+call starts one `node`, not three. No hook ever blocks a tool call; a failure is one stderr line.
+Hooks 3 to 7 read `kit.json` from the checkout that holds the call's working folder, so a linked
 worktree's own `kit.json` (its `hooks.off`, its `ledger`) applies in that worktree.
+
+Hooks 6 and 7 replace the entries RTK's and CodeGraph's installers write into
+`~/.claude/settings.json`, so every machine with the tool gets them from the plugin. Until you
+delete your own entry the kit hook stands aside, so the tool never runs twice. RTK's own entry
+matches `Bash` only, so PowerShell calls skip it; hook 6 matches both. `rtk init -g` writes the
+entry back: after it, delete the entry again. Whether CodeGraph adds context to a given prompt is
+CodeGraph's choice; the kit only passes its answer on _(unverified: no prompt tried so far got an
+answer from `codegraph prompt-hook` 1.6.2)_.
 
 ## Commands
 
