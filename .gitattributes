@@ -1,0 +1,6 @@
+# Line endings: LF in the index and in every working tree, whatever the clone's core.autocrlf.
+# Without this a Windows clone (core.autocrlf=true) checks every file out as CRLF, and tests that
+# read a config file, the vendored-copy check and every `git add` ("LF will be replaced by CRLF")
+# then disagree with Linux CI. Every tracked blob is already LF, so this changes no content, only
+# what Windows writes to disk. The repo has no .bat, .cmd or .ps1 file that would need CRLF.
+* text=auto eol=lf
