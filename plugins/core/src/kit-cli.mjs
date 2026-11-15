@@ -11,6 +11,7 @@ import { runInventory } from "./inventory.mjs";
 import { ownershipRootDirs } from "./kit-owned.mjs";
 import { readKit, rootFor } from "../lib/kit-config.mjs";
 import { runRelease } from "./release.mjs";
+import { runTools } from "./tools.mjs";
 import { checkUpdates, combinedUpdateCommand, defaultCacheFile } from "./update-check.mjs";
 
 const USAGE = `Usage: kit <command>
@@ -37,6 +38,9 @@ const USAGE = `Usage: kit <command>
                        (and their dependencies) from local kit checkouts (~/.config/agent-kit/checkouts.json);
                        --run starts it. Warns on a dirty checkout, one off its base branch, and a plugin with no checkout
   dev-server           The dev server port and the matching .claude/launch.json configuration
+  tools [--yes] [--check] [--dry-run] [--only rtk,codegraph] [--index | --no-index]
+                       Install rtk, CodeGraph and Fallow at the kit's pins (asks before each, Y by default;
+                       --yes for all), clear old copies, offer codegraph init for this repo; --check only reports
   release [--yes] [--summary <text>] [--summary-<lang> <text>]
                        Cut a release of a kit repo: notes, check, commit, push, move the stable tag
                        (dry run unless --yes; kit.json release says where the notes live)`;
@@ -218,6 +222,8 @@ export function main(argv) {
       return printDev(root);
     case "release":
       return releaseCommand(args);
+    case "tools":
+      return runTools(args, { root });
     case undefined:
     case "help":
     case "--help":
@@ -232,5 +238,5 @@ export function main(argv) {
 
 // Run directly (`node src/kit-cli.mjs …`), as the skills do; bin/kit imports `main` instead.
 if (isDirectRun(import.meta.url)) {
-  process.exitCode = main(process.argv.slice(2));
+  process.exitCode = await main(process.argv.slice(2));
 }

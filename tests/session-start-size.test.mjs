@@ -10,6 +10,7 @@ import { dirname, join } from "node:path";
 import { after, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import { rulesText, updateText } from "../plugins/core/hooks/session-start.mjs";
+import { toolsNote } from "../plugins/core/src/tools.mjs";
 import { failureText } from "../plugins/session/scripts/worktree-setup-hook.mjs";
 
 /** Claude Code's cap on one hook's plain stdout, in characters (docs/spikes.md S10). */
@@ -47,8 +48,9 @@ describe("session-start output size", () => {
       latest: "fedcba9876543210fedcba9876543210fedcba98",
       ref: "stable",
     }));
-    const text = `${rulesText()}\n\n${updateText(lagging)}\n`;
-    assert.ok(report("core session-start (rules + 12 lagging plugins)", text) <= KIT_HOOK_BUDGET);
+    const tools = ["rtk", "codegraph", "fallow"].map((name) => ({ name, action: "install", now: "10.20.300", pin: "10.20.301", detail: "" }));
+    const text = `${rulesText()}\n\n${updateText(lagging)}\n\n${toolsNote(tools)}\n`;
+    assert.ok(report("core session-start (rules + 12 lagging plugins + every tool off its pin)", text) <= KIT_HOOK_BUDGET);
   });
 
   it("core: the hook as a process prints the rules within the budget", () => {

@@ -6,6 +6,7 @@
 // `agent-kit doctor --strict` runs in CI with no Claude Code and no installed plugins: it reads
 // ownership from the plugin folders in this package and from each `--plugin-root`.
 import { devCommand, doctorCommand, releaseCommand } from "../plugins/core/src/kit-cli.mjs";
+import { runTools } from "../plugins/core/src/tools.mjs";
 import { main as scanLedgerSecrets } from "../plugins/session/scripts/scan-ledger-secrets.mjs";
 
 const USAGE = `Usage: agent-kit <command>
@@ -29,21 +30,26 @@ const USAGE = `Usage: agent-kit <command>
         dependencies, from local kit checkouts (~/.config/agent-kit/checkouts.json, or
         --checkout); --run starts it. Warns on a dirty checkout, one off its base branch, and a
         plugin with no checkout (docs/changing.md, step 3).
+  tools [--yes] [--check] [--dry-run] [--only rtk,codegraph] [--index | --no-index]
+        The core plugin's \`kit tools\`: install rtk, CodeGraph and Fallow at the kit's pins, asking
+        before each (Y by default; --yes for all), clear old copies of them and stale plugin copies,
+        and offer codegraph init for the repo. --check only reports tools off their pin.
   ledger-scan-secrets [<path>...]
         Fail when a staged ledger record holds secret-shaped text (session plugin's scanner).
         Without paths: the staged files in kit.json paths.ledger.`;
 
-/** @type {Record<string, (args: string[]) => number>} */
+/** @type {Record<string, (args: string[]) => number | Promise<number>>} */
 export const COMMANDS = {
   doctor: (args) => doctorCommand(args),
   release: (args) => releaseCommand(args),
   dev: (args) => devCommand(args),
+  tools: (args) => runTools(args, { root: process.cwd() }),
   "ledger-scan-secrets": (args) => scanLedgerSecrets(args),
 };
 
 const [command, ...args] = process.argv.slice(2);
 if (command && Object.hasOwn(COMMANDS, command)) {
-  process.exitCode = COMMANDS[command](args);
+  process.exitCode = await COMMANDS[command](args);
 } else if (command === undefined || command === "help" || command === "--help" || command === "-h") {
   console.log(USAGE);
   process.exitCode = command === undefined ? 1 : 0;

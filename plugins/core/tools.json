@@ -1,0 +1,44 @@
+{
+  "$comment": "Machine tools `kit tools` installs at these pins, each optional: the kit's hooks skip quietly without them. `release` is the checksum-verified GitHub release download used on every OS that has an asset; `install` is the package command otherwise. {pin} is replaced by the pin.",
+  "tools": {
+    "rtk": {
+      "pin": "1.1.0",
+      "command": ["rtk", "--version"],
+      "why": "Compresses shell output before it reaches the agent; core's rtk-rewrite hook calls it.",
+      "release": {
+        "repo": "rtk-ai/rtk",
+        "tag": "v{pin}",
+        "checksums": "checksums.txt",
+        "binary": "rtk",
+        "assets": {
+          "win32-x64": "rtk-x86_64-pc-windows-msvc.zip",
+          "darwin-arm64": "rtk-aarch64-apple-darwin.tar.gz",
+          "darwin-x64": "rtk-x86_64-apple-darwin.tar.gz",
+          "linux-x64": "rtk-x86_64-unknown-linux-musl.tar.gz",
+          "linux-arm64": "rtk-aarch64-unknown-linux-gnu.tar.gz"
+        }
+      },
+      "manual": "download the asset for this OS from https://github.com/rtk-ai/rtk/releases/tag/v{pin} and put the rtk binary on PATH",
+      "knownIssues": [
+        "A different tool also publishes as 'rtk' (Rust Type Kit), including the crates.io `rtk` crate. If `rtk gain` fails you have the wrong binary."
+      ]
+    },
+    "codegraph": {
+      "pin": "1.6.2",
+      "command": ["codegraph", "--version"],
+      "why": "Code knowledge graph for symbol and impact questions; core's codegraph hooks and skill use it where a repo has an index.",
+      "install": "npm install -g @colbymchenry/codegraph@{pin}",
+      "package": "@colbymchenry/codegraph",
+      "knownIssues": [
+        "On Windows npm cannot replace codegraph while a Claude Code session runs its MCP server (EPERM): close those sessions, then run kit tools again."
+      ]
+    },
+    "fallow": {
+      "pin": "3.36.0",
+      "command": ["fallow", "--version"],
+      "why": "Dead-code, duplication and doc-freshness audits for a JavaScript or TypeScript repo.",
+      "install": "npm install -g fallow@{pin}",
+      "package": "fallow"
+    }
+  }
+}

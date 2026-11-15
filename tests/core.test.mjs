@@ -494,7 +494,7 @@ describe("session-start", () => {
     assert.match(user, /claude plugin update core@agent-kit --scope user/);
     assert.doesNotMatch(user, /kit installs/);
     const project = updateText([{ plugin: "core", marketplace: "agent-kit", scope: "project", installed: "a".repeat(40), latest: "b".repeat(40), ref: "stable", loaded: true, userInstalled: "b".repeat(40) }]);
-    assert.match(project, /core@agent-kit \(project-scope copy, loaded instead of the user copy\): aaaaaaaaaaaa installed/);
+    assert.match(project, /core@agent-kit \(project copy, loaded instead of the user copy\): aaaaaaaaaaaa installed/);
     assert.match(project, /claude plugin update core@agent-kit --scope user/);
     assert.match(project, /^ {4}claude plugin marketplace update agent-kit; claude plugin update core@agent-kit --scope user; kit installs --clean$/m);
     assert.doesNotMatch(project, /--scope project/);
