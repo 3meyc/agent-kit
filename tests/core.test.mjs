@@ -24,7 +24,7 @@ import { globMatcher, matchesAny, withFile } from "../plugins/core/src/lint-matc
 import { enabledForProject, findKitCopies, isClaudeProcess, ownedBy, pluginDirArgs, pluginRoots, relativeImports, sessionPluginDirs, testsOfOwned, textCopies, textLines } from "../plugins/core/src/kit-owned.mjs";
 import { optionValues, printCommands } from "../plugins/core/src/kit-cli.mjs";
 import { validate } from "../plugins/core/src/schema-check.mjs";
-import { checkUpdates, pickRemoteSha, updateCommands } from "../plugins/core/src/update-check.mjs";
+import { checkUpdates, combinedUpdateCommand, pickRemoteSha, updateCommands } from "../plugins/core/src/update-check.mjs";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
 const core = join(repo, "plugins", "core");
@@ -496,11 +496,19 @@ describe("session-start", () => {
     const project = updateText([{ plugin: "core", marketplace: "agent-kit", scope: "project", installed: "a".repeat(40), latest: "b".repeat(40), ref: "stable", loaded: true, userInstalled: "b".repeat(40) }]);
     assert.match(project, /core@agent-kit \(project-scope copy, loaded instead of the user copy\): aaaaaaaaaaaa installed/);
     assert.match(project, /claude plugin update core@agent-kit --scope user/);
-    assert.match(project, /^ {4}kit installs --clean$/m);
+    assert.match(project, /^ {4}claude plugin marketplace update agent-kit; claude plugin update core@agent-kit --scope user; kit installs --clean$/m);
     assert.doesNotMatch(project, /--scope project/);
     const noUser = updateText([{ plugin: "core", marketplace: "agent-kit", scope: "project", installed: "a".repeat(40), latest: "b".repeat(40), ref: "stable", loaded: true, userInstalled: null }]);
     assert.match(noUser, /claude plugin install core@agent-kit --scope user/);
     assert.equal(updateText([]), "");
+  });
+
+  it("joins several plugins' update commands into one line, catalogs first", () => {
+    const item = (plugin, marketplace, scope = "user") => ({ plugin, marketplace, scope, userInstalled: "a" });
+    assert.equal(
+      combinedUpdateCommand([item("core", "agent-kit"), item("extra", "overlay", "project"), item("sdlc", "agent-kit")]),
+      "claude plugin marketplace update agent-kit; claude plugin marketplace update overlay; claude plugin update core@agent-kit --scope user; claude plugin update extra@overlay --scope user; claude plugin update sdlc@agent-kit --scope user; kit installs --clean",
+    );
   });
 });
 

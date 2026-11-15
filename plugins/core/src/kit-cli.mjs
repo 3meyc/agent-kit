@@ -11,7 +11,7 @@ import { runInventory } from "./inventory.mjs";
 import { ownershipRootDirs } from "./kit-owned.mjs";
 import { readKit, rootFor } from "../lib/kit-config.mjs";
 import { runRelease } from "./release.mjs";
-import { checkUpdates, defaultCacheFile, updateCommands } from "./update-check.mjs";
+import { checkUpdates, combinedUpdateCommand, defaultCacheFile } from "./update-check.mjs";
 
 const USAGE = `Usage: kit <command>
 
@@ -121,8 +121,8 @@ function printUpdates(root, print = console.log) {
   for (const item of lagging) {
     const copy = item.scope === "user" ? "user" : `${item.scope} copy for ${item.projectPath}`;
     print(`${item.plugin}@${item.marketplace} (${copy}${item.loaded && item.scope !== "user" ? ", loaded before the user copy" : ""}): installed ${item.installed.slice(0, 12)}, ${item.ref} is ${item.latest.slice(0, 12)}${item.from === "cache" ? " (cached)" : ""}`);
-    for (const command of updateCommands(item)) print(`  ${command}`);
   }
+  if (lagging.length > 0) print(`Update all of them (PowerShell, bash or zsh): ${combinedUpdateCommand(lagging)}`);
   const others = checked.filter((item) => !item.loaded && item.scope !== "user" && item.installed !== (item.latest ?? item.installed));
   if (others.length > 0) print(`${others.length} other project-scope cop${others.length === 1 ? "y" : "ies"} of this repository lag; \`kit installs\` lists them.`);
   return 0;

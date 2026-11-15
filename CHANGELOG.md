@@ -4,6 +4,9 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 ## Unreleased
 
+- core: the always-on output rule asks for one combined command, not one block per step, when the user runs several commands in a row (updating several plugins, kits or skills; an install sequence): one line joined with `; `, which PowerShell 5.1, bash and zsh all run in order. The session-start update note and `kit update-check` now print one such line for every lagging plugin (`combinedUpdateCommand`: catalog refreshes first, then the updates, then `kit installs --clean`), and the docs' back-to-back command blocks are merged where nothing is checked between them.
+- repo: every file is checked out with LF (`.gitattributes`), so a Windows clone no longer fails the vendored-copy check; CI runs on Linux, macOS and Windows (Windows non-blocking until its known path failures are fixed); the naming guard runs as a `pre-push` hook that `npm ci` installs, with `git config naming-guard.skip true` for a clone without a list.
+
 - core: two new hooks run the machine tools' own Claude Code hooks from the plugin, so a machine with the tool needs no entry in `~/.claude/settings.json`. 1. `rtk-rewrite` (PreToolUse Bash and PowerShell, inside the `shell-pre` dispatcher, which now prints a duty's JSON answer) hands the call to `rtk hook claude` and passes RTK's rewrite on. RTK's installer writes its entry with the matcher `Bash` only, so PowerShell calls skipped it. 2. `codegraph-prompt` (UserPromptSubmit) hands the prompt to `codegraph prompt-hook` where a `.codegraph/` index exists. Each does nothing without its binary, when `kit.json` `hooks.off` lists it, or while a user, project or local settings file still runs the tool's hook itself, so nothing runs twice; delete your own entry to switch to the kit's.
 
 ## 2026-11-14 — fifteenth `stable`

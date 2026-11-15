@@ -18,7 +18,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDirectRun, projectRoot, readHookInput } from "../lib/hook-utils.mjs";
 import { hookOff, readKit } from "../lib/kit-config.mjs";
-import { checkUpdates, defaultCacheFile, updateCommands } from "../src/update-check.mjs";
+import { checkUpdates, combinedUpdateCommand, defaultCacheFile, updateCommands } from "../src/update-check.mjs";
 
 const pluginRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -31,7 +31,7 @@ export function updateText(lagging) {
   if (lagging.length === 0) return "";
   const lines = ["## agent-kit updates", ""];
   lines.push(
-    "Installed kit plugins differ from their channel. Tell the user once, briefly; updating is their step (new session after):",
+    "Installed kit plugins differ from their channel. Tell the user once, briefly; updating is their step (new session after); give this line as one block:",
   );
   const commands = new Set();
   for (const item of lagging) {
@@ -39,7 +39,7 @@ export function updateText(lagging) {
     lines.push(`- ${item.plugin}@${item.marketplace}${copy}: ${item.installed.slice(0, 12)} installed, ${item.ref} is ${item.latest.slice(0, 12)}`);
     for (const command of updateCommands(item)) commands.add(command);
   }
-  lines.push("", ...[...commands].map((command) => `    ${command}`));
+  lines.push("", `    ${combinedUpdateCommand(lagging)}`);
   if (commands.has("kit installs --clean")) {
     lines.push("", "`kit installs --clean` (a kit command in the session's shell) uninstalls stale project-scope copies and keeps each folder's .claude/settings.json as it was.");
   }

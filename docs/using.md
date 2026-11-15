@@ -13,11 +13,7 @@ and enables the plugins in its committed `.claude/settings.json`; it installs no
 | 2 | The marketplace and the enabled plugins | `.claude/settings.json` of the project (commit it) | The project, once: `/core:kit-adopt` writes both |
 
 ```bash
-claude plugin marketplace add 3meyc/agent-kit#stable
-```
-
-```bash
-claude plugin install core@agent-kit --scope user
+claude plugin marketplace add 3meyc/agent-kit#stable; claude plugin install core@agent-kit --scope user
 ```
 
 Repeat the install for each plugin you want (`sdlc`, `session`, `svelte`, `python`).
@@ -126,11 +122,7 @@ evolution init
 Update explicitly, at user scope. A new `stable` takes two commands, then a new session:
 
 ```bash
-claude plugin marketplace update agent-kit
-```
-
-```bash
-claude plugin update core@agent-kit --scope user
+claude plugin marketplace update agent-kit; claude plugin update core@agent-kit --scope user
 ```
 
 1. Run the second command for each kit plugin you installed (`sdlc`, `session`, …). The first one
@@ -176,11 +168,7 @@ kit installs --clean
 An overlay kit in a private repo is cloned with this machine's git credentials:
 
 ```bash
-gh auth login
-```
-
-```bash
-gh auth setup-git
+gh auth login; gh auth setup-git
 ```
 
 With several GitHub accounts on one machine, check that the account that can read the overlay is

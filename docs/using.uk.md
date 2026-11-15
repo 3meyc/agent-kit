@@ -13,11 +13,7 @@
 | 2 | Маркетплейс і ввімкнені плагіни | `.claude/settings.json` проєкту (закомітьте його) | Проєкт, один раз: `/core:kit-adopt` записує обидва |
 
 ```bash
-claude plugin marketplace add 3meyc/agent-kit#stable
-```
-
-```bash
-claude plugin install core@agent-kit --scope user
+claude plugin marketplace add 3meyc/agent-kit#stable; claude plugin install core@agent-kit --scope user
 ```
 
 Повторіть встановлення для кожного потрібного плагіна (`sdlc`, `session`, `svelte`, `python`).
@@ -127,11 +123,7 @@ evolution init
 Оновлюйте явно, в області користувача. Новий `stable` — це дві команди, а потім нова сесія:
 
 ```bash
-claude plugin marketplace update agent-kit
-```
-
-```bash
-claude plugin update core@agent-kit --scope user
+claude plugin marketplace update agent-kit; claude plugin update core@agent-kit --scope user
 ```
 
 1. Запустіть другу команду для кожного встановленого плагіна набору (`sdlc`, `session`, …). Перша
@@ -178,11 +170,7 @@ kit installs --clean
 Надбудову з приватного репозиторію клонують з git-обліковими даними цієї машини:
 
 ```bash
-gh auth login
-```
-
-```bash
-gh auth setup-git
+gh auth login; gh auth setup-git
 ```
 
 Якщо на машині кілька облікових записів GitHub, перевірте, що git для надбудови використовує

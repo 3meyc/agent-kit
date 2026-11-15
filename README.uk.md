@@ -53,11 +53,7 @@ flowchart TB
 ## Швидкий старт
 
 ```bash
-claude plugin marketplace add 3meyc/agent-kit#stable
-```
-
-```bash
-claude plugin install sdlc@agent-kit
+claude plugin marketplace add 3meyc/agent-kit#stable; claude plugin install sdlc@agent-kit
 ```
 
 Далі додайте `kit.json` у корінь проєкту — див. [Використання набору](docs/using.uk.md).

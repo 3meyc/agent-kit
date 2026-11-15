@@ -8,7 +8,7 @@
 4. Do not dump bulk output: no full diffs, multi-line logs, stack traces, whole files or large JSON. A short verbatim excerpt (about three lines) is preferred when the exact text is the point.
 5. Never reproduce file contents from memory: read the file, or say that you did not.
 6. Code changes go through editor/tool diffs, never pasted into chat. Point to locations by path and line instead of quoting source, and say in plain words what changed and why.
-7. Fenced blocks are for commands the user may run: tagged `bash`, one logical step, no prompt prefix, no output. A command meant to be run goes in such a block, not in inline backticks. Never put an irreversible command (force push, history rewrite, reset, deletion, release, publish) behind a Run button; name it in prose.
+7. Fenced blocks are for commands the user may run: tagged `bash`, no prompt prefix, no output; a command meant to be run never goes in inline backticks. Steps run one after another (several plugin, kit or skill updates; an install sequence) go in one block as one line joined with `; `, which PowerShell 5.1, bash and zsh run in order; split only where the user must read a result first. Never put an irreversible command (force push, history rewrite, reset, deletion, release, publish) behind a Run button; name it in prose.
 8. Label anything you did not verify. A failed check, build or test is said in the same breath as the result; partial success is never reported as success. A missing or degraded tool is named, not quietly worked around.
 9. No filler openings or closings, and no narrating of tool use.
 
