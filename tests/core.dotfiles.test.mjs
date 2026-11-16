@@ -5,7 +5,7 @@ import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSyn
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, describe, it } from "node:test";
-import { dotfilesDir, ignoreLines, parseDotfilesArgs, pathState, readDotfilesManifest, runDotfiles, scanText } from "../plugins/core/src/dotfiles.mjs";
+import { dotfilesDir, folderProblems, ignoreLines, mergeManifests, parseDotfilesArgs, pathState, readDotfilesManifest, runDotfiles, scanText } from "../plugins/core/src/dotfiles.mjs";
 
 const scratch = mkdtempSync(join(tmpdir(), "agent-kit-dotfiles-"));
 after(() => rmSync(scratch, { recursive: true, force: true }));
@@ -131,5 +131,37 @@ describe("kit dotfiles init, apply and check", () => {
     assert.equal(checked.code, 1);
     assert.match(checked.out, /FAIL {2}\.credentials\.json is in the folder/);
     assert.equal(run(["apply", "--dir", join(home, "missing")], home).code, 1);
+  });
+});
+
+describe("kit dotfiles under an overlay kit", () => {
+  it("merges the overlay's paths over the kit's: same path replaced in place, new ones last", () => {
+    const merged = mergeManifests(manifest, {
+      portable: [{ path: "~/.claude/CLAUDE.md", what: "overlay says" }, { path: "~/.config/overlay/list.txt", what: "overlay list" }],
+      neverSync: [{ path: "~/.fallow", why: "caches" }],
+    });
+    assert.equal(merged.portable.length, manifest.portable.length + 1);
+    assert.equal(merged.portable[1].what, "overlay says");
+    assert.equal(merged.portable.at(-1).path, "~/.config/overlay/list.txt");
+    assert.equal(merged.neverSync.at(-1).path, "~/.fallow");
+    assert.deepEqual(mergeManifests(manifest, {}), { portable: manifest.portable, neverSync: manifest.neverSync });
+  });
+
+  it("uses the caller's folder and command names, and reports the folder's problems", () => {
+    const home = makeHome("overlay");
+    const dir = join(home, ".overlay-dotfiles");
+    const lines = [];
+    const names = { init: "overlay-tools bootstrap --init", apply: "overlay-tools bootstrap", repo: "overlay-dotfiles" };
+    const code = runDotfiles(["init"], { home, env: {}, dir, names, print: (line) => lines.push(line) });
+    assert.equal(code, 0);
+    const out = lines.join("\n");
+    assert.match(out, /^overlay-tools bootstrap --init · /);
+    assert.match(out, /gh repo create <you>\/overlay-dotfiles --private/);
+    assert.match(out, /Then, on this machine and each other one: overlay-tools bootstrap \(/);
+    assert.ok(existsSync(join(dir, "settings.json")));
+    writeFileSync(join(dir, ".claude.json"), "{}\n");
+    const problems = folderProblems(manifest, dir);
+    assert.deepEqual(problems.neverSync.map((item) => item.path), ["~/.claude.json"]);
+    assert.deepEqual(problems.findings, []);
   });
 });

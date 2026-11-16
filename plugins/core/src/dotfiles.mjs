@@ -37,6 +37,36 @@ export function readDotfilesManifest(file = DOTFILES_FILE) {
   return JSON.parse(readFileSync(file, "utf8"));
 }
 
+/**
+ * The kit's manifest with a caller's paths added, for an overlay kit that carries more: an entry
+ * with the same path replaces the base one in place, a new one goes last. Pure.
+ * @param {DotfilesManifest} base @param {Partial<DotfilesManifest>} extra
+ * @returns {DotfilesManifest}
+ */
+export function mergeManifests(base, extra) {
+  /** @template {{ path: string }} T @param {T[]} first @param {T[] | undefined} second */
+  const merge = (first, second = []) => {
+    const replaced = first.map((item) => second.find((other) => other.path === item.path) ?? item);
+    return [...replaced, ...second.filter((item) => !first.some((other) => other.path === item.path))];
+  };
+  return { portable: merge(base.portable, extra.portable), neverSync: merge(base.neverSync, extra.neverSync) };
+}
+
+/**
+ * What must be fixed or known before the folder is pushed: never-sync paths found in it, and the
+ * scan's findings. @param {DotfilesManifest} manifest @param {string} dir
+ * @returns {{ neverSync: { path: string; why: string }[]; findings: Finding[] }}
+ */
+export function folderProblems(manifest, dir) {
+  return {
+    neverSync: manifest.neverSync.filter((item) => existsSync(join(dir, basename(item.path)))),
+    findings: scanDir(dir),
+  };
+}
+
+/** How messages name the commands, for a caller that wraps these under its own. */
+export const KIT_NAMES = { init: "kit dotfiles init", apply: "kit dotfiles apply", check: "kit dotfiles check", repo: "claude-dotfiles" };
+
 /** `~` or `~/…` under `home`. @param {string} path @param {string} home */
 export function underHome(path, home) {
   if (path === "~") return home;
@@ -209,9 +239,14 @@ function linkOrCopy(/** @type {string} */ source, /** @type {string} */ destinat
   return "copy";
 }
 
-/** @param {DotfilesManifest} manifest @param {string} dir @param {string} home @param {DotfilesOptions} options @param {(line: string) => void} print */
-function init(manifest, dir, home, options, print) {
-  print(`kit dotfiles init · ${dir}${options.dryRun ? " · dry run" : ""}`);
+/**
+ * @typedef {typeof KIT_NAMES} Names
+ * @typedef {{ manifest: DotfilesManifest; dir: string; home: string; options: DotfilesOptions; print: (line: string) => void; names: Names }} Run
+ */
+
+/** @param {Run} run */
+function init({ manifest, dir, home, options, print, names }) {
+  print(`${names.init} · ${dir}${options.dryRun ? " · dry run" : ""}`);
   if (!options.dryRun) mkdirSync(dir, { recursive: true });
   for (const item of manifest.portable) {
     const here = underHome(item.path, home);
@@ -235,8 +270,8 @@ function init(manifest, dir, home, options, print) {
   reportFindings(findings, print);
   print("");
   print("Next, once nothing above needs fixing: make the folder a private repo of your own and push it.");
-  print(`  git -C "${dir}" init; git -C "${dir}" add .; git -C "${dir}" commit -m "chore: seed dotfiles"; gh repo create <you>/claude-dotfiles --private --source "${dir}" --push`);
-  print("Then, on this machine and each other one: kit dotfiles apply (after cloning the repo to the same folder).");
+  print(`  git -C "${dir}" init; git -C "${dir}" add .; git -C "${dir}" commit -m "chore: seed dotfiles"; gh repo create <you>/${names.repo} --private --source "${dir}" --push`);
+  print(`Then, on this machine and each other one: ${names.apply} (after cloning the repo to the same folder).`);
   return findings.some((finding) => finding.kind !== "machine path") ? 1 : 0;
 }
 
@@ -250,13 +285,13 @@ function reportFindings(findings, print) {
   }
 }
 
-/** @param {DotfilesManifest} manifest @param {string} dir @param {string} home @param {DotfilesOptions} options @param {(line: string) => void} print */
-function apply(manifest, dir, home, options, print) {
+/** @param {Run} run */
+function apply({ manifest, dir, home, options, print, names }) {
   if (!existsSync(dir)) {
-    print(`kit dotfiles: ${dir} does not exist. Clone your dotfiles repo there, or run \`kit dotfiles init\` on a machine that is set up.`);
+    print(`${names.apply}: ${dir} does not exist. Clone your dotfiles repo there, or run \`${names.init}\` on a machine that is set up.`);
     return 1;
   }
-  print(`kit dotfiles apply · ${dir}${options.dryRun ? " · dry run" : ""}`);
+  print(`${names.apply} · ${dir}${options.dryRun ? " · dry run" : ""}`);
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   for (const item of manifest.portable) {
     const here = underHome(item.path, home);
@@ -308,37 +343,37 @@ const STATE_LINES = {
   absent: ["ok", "on neither"],
 };
 
-/** @param {DotfilesManifest} manifest @param {string} dir @param {string} home @param {(line: string) => void} print */
-function check(manifest, dir, home, print) {
+/** @param {Run} run */
+function check({ manifest, dir, home, print, names }) {
   if (!existsSync(dir)) {
-    print(`kit dotfiles: ${dir} does not exist. \`kit dotfiles init\` seeds it.`);
+    print(`${names.check}: ${dir} does not exist. \`${names.init}\` seeds it.`);
     return 1;
   }
-  print(`kit dotfiles check · ${dir}`);
+  print(`${names.check} · ${dir}`);
   let failed = false;
   for (const item of manifest.portable) {
     const [level, text] = STATE_LINES[pathState(item, dir, home)];
     print(`  ${level.padEnd(4)}  ${item.path}: ${text}`);
   }
-  for (const item of manifest.neverSync) {
-    if (existsSync(join(dir, basename(item.path)))) {
-      failed = true;
-      print(`  FAIL  ${basename(item.path)} is in the folder: ${item.why}. Remove it from the folder and from the repo's history.`);
-    }
+  const { neverSync, findings } = folderProblems(manifest, dir);
+  for (const item of neverSync) {
+    failed = true;
+    print(`  FAIL  ${basename(item.path)} is in the folder: ${item.why}. Remove it from the folder and from the repo's history.`);
   }
   const ignore = join(dir, ".gitignore");
   const present = existsSync(ignore) ? readFileSync(ignore, "utf8").split(/\r?\n/) : [];
   const missing = ignoreLines(manifest).filter((line) => !present.includes(line));
-  if (missing.length > 0) print(`  warn  .gitignore lacks ${missing.join(", ")}: \`kit dotfiles init\` adds it`);
-  const findings = scanDir(dir);
+  if (missing.length > 0) print(`  warn  .gitignore lacks ${missing.join(", ")}: \`${names.init}\` adds it`);
   reportFindings(findings, print);
   if (findings.some((finding) => finding.kind !== "machine path")) failed = true;
   return failed ? 1 : 0;
 }
 
 /**
- * `kit dotfiles <init | apply | check>`. @param {string[]} args
- * @param {{ home?: string; env?: NodeJS.ProcessEnv; manifest?: DotfilesManifest; print?: (line: string) => void }} [deps]
+ * `kit dotfiles <init | apply | check>`. An overlay kit calls it with its own `manifest` (see
+ * `mergeManifests`), its default `dir` and the `names` its users type, so they read their own
+ * commands in every message. @param {string[]} args
+ * @param {{ home?: string; env?: NodeJS.ProcessEnv; manifest?: DotfilesManifest; dir?: string; names?: Partial<Names>; print?: (line: string) => void }} [deps]
  * @returns {number}
  */
 export function runDotfiles(args, deps = {}) {
@@ -354,8 +389,11 @@ export function runDotfiles(args, deps = {}) {
   }
   const home = deps.home ?? homedir();
   const manifest = deps.manifest ?? readDotfilesManifest();
-  const dir = options.dir ? resolve(underHome(options.dir, home)) : dotfilesDir(deps.env ?? process.env, home);
-  if (options.action === "init") return init(manifest, dir, home, options, print);
-  if (options.action === "apply") return apply(manifest, dir, home, options, print);
-  return check(manifest, dir, home, print);
+  const fallback = deps.dir ?? dotfilesDir(deps.env ?? process.env, home);
+  const dir = options.dir ? resolve(underHome(options.dir, home)) : fallback;
+  /** @type {Run} */
+  const run = { manifest, dir, home, options, print, names: { ...KIT_NAMES, ...deps.names } };
+  if (options.action === "init") return init(run);
+  if (options.action === "apply") return apply(run);
+  return check(run);
 }
