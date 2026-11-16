@@ -30,11 +30,22 @@ quietly when its id is listed.
 | 3 | `lint-edited-file` | PostToolUse Edit, Write, MultiEdit | Runs every `lintOnEdit` rule whose globs match the edited file, in order; any failure is shown to the agent (exit 2) without undoing the edit | no `lintOnEdit`, or the file matches no rule |
 | 4 | `shell-deletions` | PreToolUse and PostToolUse Bash, PowerShell | Snapshots tracked files a script-running command deletes, for the session ledger; the only hook that does (the session plugin's former copy is gone) | `ledger` is not `true`, the command runs no script, or `hooks.off` lists it or `ledger-shell-deletions`, the former copy's id |
 | 5 | `codegraph-sync` | PreToolUse Bash, PowerShell, CodeGraph MCP tools | Syncs a linked worktree's own CodeGraph index before a query reads it | no `.codegraph/codegraph.db` in the worktree, or no `codegraph` CLI |
+| 6 | `rtk-rewrite` | PreToolUse Bash, PowerShell | Hands the call to RTK's own hook (`rtk hook claude`) and passes its answer on: a command RTK has a filter for runs as `rtk <command>`, so its output reaches the agent compressed. RTK answers `allow` only for a command the user's own permission rules already allow | no `rtk` binary, or a settings file (user, project, local) still runs `rtk hook claude` itself |
+| 7 | `codegraph-prompt` | UserPromptSubmit | Hands the prompt to CodeGraph's own hook (`codegraph prompt-hook`), which adds CodeGraph context to a prompt about code structure | no `.codegraph/` at or above the working folder, no `codegraph` CLI, or a settings file still runs `codegraph prompt-hook` itself |
+| 8 | `tools-check` | SessionStart | One short note when rtk, CodeGraph or Fallow is missing or off the pin in [tools.json](tools.json), offering `/core:kit-tools`; probed at most once a day (cached by pin in the plugin's data folder) | every tool is at its pin, or the session restarted after a compaction |
 
-Hooks 4 and 5 share one PreToolUse process for shell calls (`hooks/shell-pre.mjs`), so a shell
-call starts one `node`, not two. No hook ever blocks a tool call; a failure is one stderr line.
-Hooks 3 to 5 read `kit.json` from the checkout that holds the call's working folder, so a linked
+Hooks 4 to 6 share one PreToolUse process for shell calls (`hooks/shell-pre.mjs`), so a shell
+call starts one `node`, not three. No hook ever blocks a tool call; a failure is one stderr line.
+Hooks 3 to 7 read `kit.json` from the checkout that holds the call's working folder, so a linked
 worktree's own `kit.json` (its `hooks.off`, its `ledger`) applies in that worktree.
+
+Hooks 6 and 7 replace the entries RTK's and CodeGraph's installers write into
+`~/.claude/settings.json`, so every machine with the tool gets them from the plugin. Until you
+delete your own entry the kit hook stands aside, so the tool never runs twice. RTK's own entry
+matches `Bash` only, so PowerShell calls skip it; hook 6 matches both. `rtk init -g` writes the
+entry back: after it, delete the entry again. Whether CodeGraph adds context to a given prompt is
+CodeGraph's choice; the kit only passes its answer on _(unverified: no prompt tried so far got an
+answer from `codegraph prompt-hook` 1.6.2)_.
 
 ## Commands
 
@@ -49,6 +60,7 @@ worktree's own `kit.json` (its `hooks.off`, its `ledger`) applies in that worktr
 | 7 | `codegraph` skill | How to use the CodeGraph CLI (impact before changing a shared symbol; grep members read as `obj.prop`). Applies only where `.codegraph/` exists |
 | 8 | `/core:change-review [uncommitted \| staged \| last \| branch \| <commit or range> \| <PR> \| <path>]` | Reviews one change for behavior: bug, risk, scale, missing test, speed, lean. Reads the callers and tests the diff touches; numbered findings in Must fix / Should fix / Nice to have, each with a concrete case, then `Verdict:` and `Not checked:`. Empty: the uncommitted changes (untracked files included), else the last commit; `branch` diffs from the newer fork point of the local base and `origin/<base>`. Changes no code |
 | 9 | `/core:repo-audit [<folder> \| all]` | The same checks over a whole repo or folder, in a forked sub-agent: maps entry points and main flows first, goes deep where mistakes cost most, at most 20 ranked findings, and names what it did not read. Changes no code |
+| 10 | `/core:kit-tools` | Installs rtk, CodeGraph and Fallow at the kit's pins after one multi-select question (all selected by default): rtk from its GitHub release, sha256-checked, the others with `npm install -g`; clears old copies and stale plugin copies, checks the shell runs each pinned copy, and offers `codegraph init` for the repo |
 
 The docs say the bare names (`/check`, `/dev`, …) work too while no other command has them
 _(unverified here)_. Agents:
@@ -82,7 +94,7 @@ On the Bash tool's PATH while the plugin is enabled:
 | --- | --- | --- |
 | 1 | `count-lines <file>...` | Line counts, the same on every OS |
 | 2 | `git-branch-context` | Branch, upstream, default base and `kit.json` `baseBranch` as JSON |
-| 3 | `kit doctor \| adopt \| inventory \| drift \| update-check \| installs \| commands \| dev \| dev-server \| release` | The commands behind the skills above; `kit dev [--run]` prints (or starts) the `claude --plugin-dir …` command that loads the project's enabled kit plugins from local kit checkouts ([using](../../docs/using.md) § 7); `kit dev-server` backs `/core:dev`; `kit installs [--clean]` lists the project-scope copies of kit plugins that differ from the user copy or the channel, and clears them ([using](../../docs/using.md) § 3); `kit release [--yes]` cuts a kit repo's `stable` release ([changing](../../docs/changing.md), Releasing) |
+| 3 | `kit doctor \| adopt \| inventory \| drift \| update-check \| installs \| commands \| dev \| dev-server \| release \| tools` | `kit tools [--yes] [--check] [--only rtk,codegraph] [--index]` asks before each install, Y by default, and only prints the plan where there is no terminal; The commands behind the skills above; `kit dev [--run]` prints (or starts) the `claude --plugin-dir …` command that loads the project's enabled kit plugins from local kit checkouts ([using](../../docs/using.md) § 7); `kit dev-server` backs `/core:dev`; `kit installs [--clean]` lists the project-scope copies of kit plugins that differ from the user copy or the channel, and clears them ([using](../../docs/using.md) § 3); `kit release [--yes]` cuts a kit repo's `stable` release ([changing](../../docs/changing.md), Releasing) |
 | 4 | `kit-docs-parity [path...]` | Checks that each `name.md` / `name.uk.md` pair keeps the same headings, tables, Mermaid blocks, command blocks and numbered items |
 
 Skills call `node "${CLAUDE_PLUGIN_ROOT}/src/kit-cli.mjs" …`, which needs no PATH.

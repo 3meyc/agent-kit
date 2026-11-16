@@ -376,6 +376,20 @@ export function updateCommands(item) {
 }
 
 /**
+ * The update commands of several lagging plugins as one line the user runs once: every catalog
+ * refresh first, then the installs and updates, then `kit installs --clean`, duplicates dropped.
+ * Joined with `; `, which PowerShell 5.1, bash and zsh all read as "then" (5.1 has no `&&`). Pure.
+ * @param {Array<Parameters<typeof updateCommands>[0]>} items
+ * @returns {string}
+ */
+export function combinedUpdateCommand(items) {
+  const all = [...new Set(items.flatMap((item) => updateCommands(item)))];
+  const rank = (/** @type {string} */ command) =>
+    command.startsWith("claude plugin marketplace ") ? 0 : command.startsWith("claude plugin ") ? 1 : 2;
+  return all.sort((a, b) => rank(a) - rank(b)).join("; ");
+}
+
+/**
  * Where remote SHAs are cached: the plugin's data folder when set (hooks), else the folder Claude
  * Code gives `core@agent-kit`, `plugins/data/core-agent-kit` (observed: `<plugin>-<marketplace>`),
  * so `kit doctor` run from a shell shares the hook's cache.

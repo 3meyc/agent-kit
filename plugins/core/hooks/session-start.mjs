@@ -1,7 +1,7 @@
 /**
  * SessionStart hook of the core plugin. Its stdout is rendered into the session as context
  * (docs/spikes.md S1a), which is how the kit's always-on rules reach every session without a
- * copy in the project. Two duties, each with its own id for `kit.json` `hooks.off`:
+ * copy in the project. Three duties, each with its own id for `kit.json` `hooks.off`:
  *
  * 1. `rules` — print `rules/always-on.md`.
  * 2. `update-check` — one short line per kit plugin whose installed commit differs from its
@@ -10,6 +10,8 @@
  *    (S11); the update names `--scope user`, and a project-scope copy is cleared with
  *    `kit installs --clean`. Remote SHAs are cached for six hours in the plugin's data folder;
  *    offline or slow remotes print nothing.
+ * 3. `tools-check` — one short note when rtk, CodeGraph or Fallow is missing or off the kit's pin
+ *    (tools.json), offering `/core:kit-tools`; probed at most once a day.
  *
  * Never blocks the session: every failure goes to stderr and the hook exits 0.
  */
@@ -18,7 +20,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDirectRun, projectRoot, readHookInput } from "../lib/hook-utils.mjs";
 import { hookOff, readKit } from "../lib/kit-config.mjs";
-import { checkUpdates, defaultCacheFile, updateCommands } from "../src/update-check.mjs";
+import { cachedToolsNote, toolsCacheFile } from "../src/tools.mjs";
+import { checkUpdates, combinedUpdateCommand, defaultCacheFile, updateCommands } from "../src/update-check.mjs";
 
 const pluginRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -31,17 +34,17 @@ export function updateText(lagging) {
   if (lagging.length === 0) return "";
   const lines = ["## agent-kit updates", ""];
   lines.push(
-    "Installed kit plugins differ from their channel. Tell the user once, briefly; updating is their step (new session after):",
+    "Kit plugins differ from their channel. Tell the user once; updating is theirs (new session after), as one block:",
   );
   const commands = new Set();
   for (const item of lagging) {
-    const copy = item.scope === "user" || item.scope === "managed" || !item.scope ? "" : ` (${item.scope}-scope copy${item.loaded ? ", loaded instead of the user copy" : ""})`;
+    const copy = item.scope === "user" || item.scope === "managed" || !item.scope ? "" : ` (${item.scope} copy${item.loaded ? ", loaded instead of the user copy" : ""})`;
     lines.push(`- ${item.plugin}@${item.marketplace}${copy}: ${item.installed.slice(0, 12)} installed, ${item.ref} is ${item.latest.slice(0, 12)}`);
     for (const command of updateCommands(item)) commands.add(command);
   }
-  lines.push("", ...[...commands].map((command) => `    ${command}`));
+  lines.push("", `    ${combinedUpdateCommand(lagging)}`);
   if (commands.has("kit installs --clean")) {
-    lines.push("", "`kit installs --clean` (a kit command in the session's shell) uninstalls stale project-scope copies and keeps each folder's .claude/settings.json as it was.");
+    lines.push("", "`kit installs --clean` clears stale project-scope copies; each folder's settings files stay as they were.");
   }
   const misregistered = [...new Set(lagging.filter((item) => item.registeredRef && item.registeredRef !== item.ref).map((item) => `${item.marketplace} (${item.registeredRef}, project wants ${item.ref})`))];
   if (misregistered.length > 0) {
@@ -82,6 +85,13 @@ export async function main(input, { budgetMs = UPDATE_BUDGET_MS } = {}) {
       print(updateText(lagging.filter((item) => item.loaded || item.scope === "user")));
     } catch (error) {
       console.error(`core update-check: ${error instanceof Error ? error.message : error}`);
+    }
+  }
+  if (!hookOff("tools-check", config) && input?.source !== "compact") {
+    try {
+      print(cachedToolsNote({ cacheFile: toolsCacheFile(defaultCacheFile()) }));
+    } catch (error) {
+      console.error(`core tools-check: ${error instanceof Error ? error.message : error}`);
     }
   }
 }

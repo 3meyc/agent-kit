@@ -9,8 +9,19 @@ permissions:
   contents: read
 
 jobs:
+  # Linux, macOS and Windows: developers run the kit on all three. Windows is non-blocking until
+  # its known failures (path separators in test expectations) are fixed; its result still shows.
   check:
-    runs-on: ubuntu-latest
+    name: check (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.os == 'windows-latest' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

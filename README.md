@@ -53,11 +53,7 @@ Three layers, each with one owner:
 ## Quick start
 
 ```bash
-claude plugin marketplace add 3meyc/agent-kit#stable
-```
-
-```bash
-claude plugin install sdlc@agent-kit
+claude plugin marketplace add 3meyc/agent-kit#stable; claude plugin install sdlc@agent-kit
 ```
 
 Then add a `kit.json` to the project root — see [Using the kit](docs/using.md).

@@ -13,14 +13,24 @@ and enables the plugins in its committed `.claude/settings.json`; it installs no
 | 2 | The marketplace and the enabled plugins | `.claude/settings.json` of the project (commit it) | The project, once: `/core:kit-adopt` writes both |
 
 ```bash
-claude plugin marketplace add 3meyc/agent-kit#stable
-```
-
-```bash
-claude plugin install core@agent-kit --scope user
+claude plugin marketplace add 3meyc/agent-kit#stable; claude plugin install core@agent-kit --scope user
 ```
 
 Repeat the install for each plugin you want (`sdlc`, `session`, `svelte`, `python`).
+
+Then the machine tools the kit's hooks use, each optional: rtk (compressed shell output), CodeGraph
+(a code graph) and Fallow (dead-code and duplication audits). In a Claude session run
+`/core:kit-tools`, or in a terminal (it asks before each install, Y by default; `--yes` for all)
+_(unverified: `npx` with a GitHub spec runs the package's `agent-kit` command)_:
+
+```bash
+npx github:3meyc/agent-kit#stable tools
+```
+
+It installs the pins in [tools.json](../plugins/core/tools.json) on Windows, macOS and Linux (rtk
+from its GitHub release, sha256-checked; CodeGraph and Fallow with `npm install -g`), clears old
+copies, and offers `codegraph init` for the repo. `core` says at session start when a tool is
+missing or off its pin.
 
 Why user scope only ([spikes](spikes.md) S11, tried with Claude Code 2.1.300 and 2.1.321):
 
@@ -126,11 +136,7 @@ evolution init
 Update explicitly, at user scope. A new `stable` takes two commands, then a new session:
 
 ```bash
-claude plugin marketplace update agent-kit
-```
-
-```bash
-claude plugin update core@agent-kit --scope user
+claude plugin marketplace update agent-kit; claude plugin update core@agent-kit --scope user
 ```
 
 1. Run the second command for each kit plugin you installed (`sdlc`, `session`, …). The first one
@@ -176,11 +182,7 @@ kit installs --clean
 An overlay kit in a private repo is cloned with this machine's git credentials:
 
 ```bash
-gh auth login
-```
-
-```bash
-gh auth setup-git
+gh auth login; gh auth setup-git
 ```
 
 With several GitHub accounts on one machine, check that the account that can read the overlay is

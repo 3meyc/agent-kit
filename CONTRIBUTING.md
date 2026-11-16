@@ -29,3 +29,7 @@ and the branch name. The term list is never committed: CI reads the `NAMING_GUAR
 and a local run reads `~/.config/agent-kit/naming-guard.txt` (one term per line; syntax in the
 script header). Pull requests from forks get no secrets, so the guard fails there until a
 maintainer re-runs it.
+
+`npm ci` points the clone's git hooks at `.githooks/`, whose `pre-push` runs the guard before
+anything leaves the machine; without a list it refuses the push. A clone whose owner keeps no
+list switches it off with `git config naming-guard.skip true`.

@@ -12,6 +12,9 @@ import { codegraphQueryDir, syncWorktree } from "../plugins/core/hooks/codegraph
 import { lintCommandsFor, lintRootFor } from "../plugins/core/hooks/lint-edited-file.mjs";
 import { updateText } from "../plugins/core/hooks/session-start.mjs";
 import { dispatch } from "../plugins/core/hooks/shell-pre.mjs";
+import { OWN_HOOK as RTK_OWN_HOOK, run as runRtk } from "../plugins/core/hooks/rtk-rewrite.mjs";
+import { OWN_HOOK as CODEGRAPH_OWN_HOOK, indexedRoot, run as runCodegraphPrompt } from "../plugins/core/hooks/codegraph-prompt.mjs";
+import { hookCommands, ownHookPresent, settingsFiles } from "../plugins/core/hooks/own-hooks.mjs";
 import { baseBranch, mergeSettings, otherCommands, parseAdoptArgs, repoName, sdlcPath, starterKitJson } from "../plugins/core/src/adopt.mjs";
 import { compare, outline } from "../plugins/core/src/docs-parity.mjs";
 import { checkKitJson, checkLoadedPlugins, checkMarketplaceRefs, checkSettings, checkVersions } from "../plugins/core/src/doctor.mjs";
@@ -21,7 +24,7 @@ import { globMatcher, matchesAny, withFile } from "../plugins/core/src/lint-matc
 import { enabledForProject, findKitCopies, isClaudeProcess, ownedBy, pluginDirArgs, pluginRoots, relativeImports, sessionPluginDirs, testsOfOwned, textCopies, textLines } from "../plugins/core/src/kit-owned.mjs";
 import { optionValues, printCommands } from "../plugins/core/src/kit-cli.mjs";
 import { validate } from "../plugins/core/src/schema-check.mjs";
-import { checkUpdates, pickRemoteSha, updateCommands } from "../plugins/core/src/update-check.mjs";
+import { checkUpdates, combinedUpdateCommand, pickRemoteSha, updateCommands } from "../plugins/core/src/update-check.mjs";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
 const core = join(repo, "plugins", "core");
@@ -280,13 +283,113 @@ describe("shell-pre dispatch", () => {
   });
 
   it("exits 0 and prints nothing for a non-shell payload and a no-op command, as a process", () => {
-    const project = tempProject("shell-pre", { "kit.json": { project: "my-app", ledger: true } });
+    // rtk-rewrite is off: on a machine with RTK, `git status` would come back rewritten.
+    const project = tempProject("shell-pre", { "kit.json": { project: "my-app", ledger: true, hooks: { off: ["rtk-rewrite"] } } });
     for (const payload of [{ tool_name: "Read", tool_input: {} }, { tool_name: "Bash", hook_event_name: "PreToolUse", tool_input: { command: "git status" }, cwd: project }]) {
       const result = runHook("shell-pre.mjs", payload, { CLAUDE_PROJECT_DIR: project });
       assert.equal(result.status, 0);
       assert.equal(result.stdout, "");
       assert.equal(result.stderr, "");
     }
+  });
+
+  it("returns the last object a duty hands back, as the hook's output", async () => {
+    const answer = { hookSpecificOutput: { hookEventName: "PreToolUse", updatedInput: { command: "rtk ls" } } };
+    const output = await dispatch({ tool_name: "Bash" }, [["a", () => undefined], ["b", () => answer], ["c", () => 3]], {});
+    assert.deepEqual(output, answer);
+    assert.equal(await dispatch({ tool_name: "Bash" }, [["a", () => undefined]], {}), null);
+  });
+});
+
+describe("own-hooks", () => {
+  const settings = { hooks: { PreToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: "rtk hook claude" }] }], UserPromptSubmit: [{ hooks: [{ type: "command", command: "codegraph.cmd prompt-hook" }] }] } };
+
+  it("lists every hook command and finds one by pattern across files", () => {
+    assert.deepEqual(hookCommands(settings), ["rtk hook claude", "codegraph.cmd prompt-hook"]);
+    assert.deepEqual(hookCommands({}), []);
+    const files = { "a.json": "not json", "b.json": JSON.stringify(settings) };
+    const read = (path) => {
+      if (!(path in files)) throw new Error("ENOENT");
+      return files[path];
+    };
+    assert.equal(ownHookPresent(RTK_OWN_HOOK, ["missing.json", "a.json", "b.json"], read), true);
+    assert.equal(ownHookPresent(CODEGRAPH_OWN_HOOK, ["b.json"], read), true);
+    assert.equal(ownHookPresent(RTK_OWN_HOOK, ["a.json"], read), false);
+  });
+
+  it("matches the tools' own hook commands and not the kit's wrappers", () => {
+    for (const command of ["rtk hook claude", "/usr/local/bin/rtk hook claude", "\"C:\\bin\\rtk.exe\" hook claude"]) assert.match(command, RTK_OWN_HOOK);
+    for (const command of ["codegraph prompt-hook", "codegraph.cmd prompt-hook"]) assert.match(command, CODEGRAPH_OWN_HOOK);
+    for (const command of ["node \"${CLAUDE_PLUGIN_ROOT}/hooks/shell-pre.mjs\"", "node \"${CLAUDE_PLUGIN_ROOT}/hooks/codegraph-prompt.mjs\"", "myrtk hook claude"]) {
+      assert.doesNotMatch(command, RTK_OWN_HOOK);
+      assert.doesNotMatch(command, CODEGRAPH_OWN_HOOK);
+    }
+  });
+
+  it("reads the user's, the project's and the local settings", () => {
+    assert.deepEqual(settingsFiles("/repo", "/home/me").map((f) => f.replace(/\\/g, "/")), ["/home/me/.claude/settings.json", "/repo/.claude/settings.json", "/repo/.claude/settings.local.json"]);
+    assert.equal(settingsFiles(null, "/home/me").length, 1);
+  });
+});
+
+describe("rtk-rewrite", () => {
+  const payload = { tool_name: "PowerShell", tool_input: { command: "git status" }, cwd: "/repo" };
+  const answer = { hookSpecificOutput: { hookEventName: "PreToolUse", updatedInput: { command: "rtk git status" } } };
+  const spawnWith = (result) => {
+    const calls = [];
+    return { calls, spawn: (cmd, args, options) => (calls.push([cmd, args, JSON.parse(options.input)]), result) };
+  };
+
+  it("passes RTK's answer on, for either shell", () => {
+    const { calls, spawn } = spawnWith({ status: 0, stdout: `${JSON.stringify(answer)}\n`, stderr: "" });
+    assert.deepEqual(runRtk(payload, {}, { spawn, files: [] }), answer);
+    assert.deepEqual(calls, [["rtk", ["hook", "claude"], payload]]);
+  });
+
+  it("does nothing when switched off, for other tools, when the user runs RTK's hook, or without RTK", () => {
+    const { calls, spawn } = spawnWith({ status: 0, stdout: JSON.stringify(answer), stderr: "" });
+    assert.equal(runRtk(payload, { hooks: { off: ["rtk-rewrite"] } }, { spawn, files: [] }), null);
+    assert.equal(runRtk({ ...payload, tool_name: "Read" }, {}, { spawn, files: [] }), null);
+    const own = join(scratch, "own-rtk.json");
+    writeFileSync(own, JSON.stringify({ hooks: { PreToolUse: [{ hooks: [{ type: "command", command: "rtk hook claude" }] }] } }));
+    assert.equal(runRtk(payload, {}, { spawn, files: [own] }), null);
+    assert.equal(calls.length, 0);
+    const missing = Object.assign(new Error("spawnSync rtk ENOENT"), { code: "ENOENT" });
+    assert.equal(runRtk(payload, {}, { spawn: () => ({ status: null, error: missing }), files: [] }), null);
+    assert.equal(runRtk(payload, {}, { spawn: () => ({ status: 0, stdout: "", stderr: "" }), files: [] }), null);
+  });
+
+  it("throws RTK's first stderr line on a failure, for the dispatcher to report", () => {
+    assert.throws(() => runRtk(payload, {}, { spawn: () => ({ status: 1, stdout: "", stderr: "bad payload\nmore" }), files: [] }), /^Error: bad payload$/);
+  });
+});
+
+describe("codegraph-prompt", () => {
+  const indexed = (path) => path.replace(/\\/g, "/").endsWith("/repo/.codegraph");
+  const payload = { prompt: "where is the store defined", cwd: "/repo/src/lib" };
+
+  it("finds the nearest indexed folder at or above the working folder", () => {
+    assert.equal(indexedRoot("/repo/src/lib", indexed)?.replace(/\\/g, "/").replace(/^[A-Z]:/, ""), "/repo");
+    assert.equal(indexedRoot("/elsewhere", indexed), null);
+    assert.equal(indexedRoot(undefined, indexed), null);
+  });
+
+  it("passes CodeGraph's text on in an indexed repo", () => {
+    const seen = [];
+    const spawn = (input) => (seen.push(JSON.parse(input)), { status: 0, stdout: "CodeGraph context", stderr: "" });
+    assert.equal(runCodegraphPrompt(payload, {}, { spawn, files: [], exists: indexed }), "CodeGraph context");
+    assert.deepEqual(seen, [payload]);
+  });
+
+  it("does nothing when switched off, outside an index, when the user runs the hook, or without CodeGraph", () => {
+    const spawn = () => assert.fail("must not run codegraph");
+    assert.equal(runCodegraphPrompt(payload, { hooks: { off: ["codegraph-prompt"] } }, { spawn, files: [], exists: indexed }), "");
+    assert.equal(runCodegraphPrompt({ ...payload, cwd: "/elsewhere" }, {}, { spawn, files: [], exists: indexed }), "");
+    const own = join(scratch, "own-codegraph.json");
+    writeFileSync(own, JSON.stringify({ hooks: { UserPromptSubmit: [{ hooks: [{ type: "command", command: "codegraph prompt-hook" }] }] } }));
+    assert.equal(runCodegraphPrompt(payload, {}, { spawn, files: [own], exists: indexed }), "");
+    const notRecognized = () => ({ status: 1, stdout: "", stderr: "'codegraph' is not recognized as an internal or external command" });
+    assert.equal(runCodegraphPrompt(payload, {}, { spawn: notRecognized, files: [], exists: indexed }), "");
   });
 });
 
@@ -391,13 +494,21 @@ describe("session-start", () => {
     assert.match(user, /claude plugin update core@agent-kit --scope user/);
     assert.doesNotMatch(user, /kit installs/);
     const project = updateText([{ plugin: "core", marketplace: "agent-kit", scope: "project", installed: "a".repeat(40), latest: "b".repeat(40), ref: "stable", loaded: true, userInstalled: "b".repeat(40) }]);
-    assert.match(project, /core@agent-kit \(project-scope copy, loaded instead of the user copy\): aaaaaaaaaaaa installed/);
+    assert.match(project, /core@agent-kit \(project copy, loaded instead of the user copy\): aaaaaaaaaaaa installed/);
     assert.match(project, /claude plugin update core@agent-kit --scope user/);
-    assert.match(project, /^ {4}kit installs --clean$/m);
+    assert.match(project, /^ {4}claude plugin marketplace update agent-kit; claude plugin update core@agent-kit --scope user; kit installs --clean$/m);
     assert.doesNotMatch(project, /--scope project/);
     const noUser = updateText([{ plugin: "core", marketplace: "agent-kit", scope: "project", installed: "a".repeat(40), latest: "b".repeat(40), ref: "stable", loaded: true, userInstalled: null }]);
     assert.match(noUser, /claude plugin install core@agent-kit --scope user/);
     assert.equal(updateText([]), "");
+  });
+
+  it("joins several plugins' update commands into one line, catalogs first", () => {
+    const item = (plugin, marketplace, scope = "user") => ({ plugin, marketplace, scope, userInstalled: "a" });
+    assert.equal(
+      combinedUpdateCommand([item("core", "agent-kit"), item("extra", "overlay", "project"), item("sdlc", "agent-kit")]),
+      "claude plugin marketplace update agent-kit; claude plugin marketplace update overlay; claude plugin update core@agent-kit --scope user; claude plugin update extra@overlay --scope user; claude plugin update sdlc@agent-kit --scope user; kit installs --clean",
+    );
   });
 });
 
