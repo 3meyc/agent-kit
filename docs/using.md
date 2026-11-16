@@ -2,6 +2,87 @@
 
 **English** · [Українська](using.uk.md)
 
+## From a bare machine to daily work
+
+The path for one developer with their own projects. Node ids match the table below it, which
+points at the section with the details; dashed steps are optional.
+
+```mermaid
+flowchart TD
+  P1{"P1 · Which OS?"}
+  P2a["P2a · macOS: Claude Code, git, gh, <br/>Node with npm"]
+  P2b["P2b · Windows: Claude Code, <br/>Git for Windows, gh, Node with npm"]
+  P3["P3 · gh auth login"]
+  P4{"P4 · New project <br/>or existing?"}
+  P4a["P4a · Create a private repo <br/>and a dev branch"]
+  P4b["P4b · Clone your repo"]
+  P5["P5 · Install core and the plugins <br/>you want, at user scope"]
+  P6["P6 · /core:kit-tools <br/>rtk, CodeGraph, Fallow"]
+  P7["P7 · /core:kit-adopt <br/>kit.json and plugin settings"]
+  P8["P8 · agent-kit as a dev dependency <br/>git hooks and CI doctor"]
+  P9["P9 · A private overlay kit"]
+  P10{"P10 · First machine?"}
+  P10a["P10a · kit dotfiles init, <br/>push a private repo"]
+  P10b["P10b · Clone it, <br/>kit dotfiles apply"]
+  P11["P11 · /core:kit-doctor"]
+  P12["P12 · Daily work from dev, <br/>take updates"]
+
+  P1 -- macOS --> P2a --> P3
+  P1 -- Windows --> P2b --> P3
+  P3 --> P4
+  P4 -- new --> P4a --> P5
+  P4 -- existing --> P4b --> P5
+  P5 --> P6 --> P7
+  P5 --> P7
+  P7 -.-> P8
+  P7 -.-> P9
+  P7 --> P10
+  P10 -- yes --> P10a --> P11
+  P10 -- no --> P10b --> P11
+  P11 --> P12
+
+  classDef os fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#111827
+  classDef repo fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#111827
+  classDef plug fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#111827
+  classDef tool fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#111827
+  classDef setup fill:#ccfbf1,stroke:#0d9488,stroke-width:2px,color:#111827
+  classDef daily fill:#ffe4e6,stroke:#e11d48,stroke-width:2px,color:#111827
+  classDef opt stroke-dasharray:6 4
+  class P1,P2a,P2b os
+  class P3,P4,P4a,P9,P10,P10a,P10b repo
+  class P5 plug
+  class P6 tool
+  class P4b,P7,P8,P11 setup
+  class P12 daily
+  class P6,P8,P9,P10a,P10b opt
+```
+
+- Amber: the OS and its prerequisites
+- Blue: GitHub, private repos and dotfiles
+- Violet: Claude Code and the kit plugins
+- Green: optional machine tools
+- Teal: project set-up and checks
+- Rose: daily work and updates
+- Dashed outline: optional
+
+| ID | Step | Details |
+| --- | --- | --- |
+| P1 | Pick the OS. The kit runs on macOS, Windows and Linux; on Windows its commands run in PowerShell 5.1 or Git Bash | § 1 |
+| P2a | macOS: install Claude Code (desktop app or CLI), git, the GitHub CLI and Node with npm | § 1 |
+| P2b | Windows: the same with Git for Windows. Put `%USERPROFILE%\.local\bin` on PATH if you will install rtk | § 1 |
+| P3 | `gh auth login; gh auth setup-git` | § 4 |
+| P4a | `gh repo create <you>/my-app --private --clone`, then a `dev` branch for integration | § 2, item 7 |
+| P4b | Clone the repo; `kit.json` `baseBranch` names its integration branch if it is not `dev` | § 2, item 7 |
+| P5 | Add the marketplace and install `core`, then each plugin you want, at user scope | § 1 |
+| P6 | Optional tools, each asked for: rtk, CodeGraph, Fallow | § 1 |
+| P7 | `/core:kit-adopt`, then commit `kit.json` and `.claude/settings.json` | § 2 |
+| P8 | Optional: agent-kit as a dev dependency, for git hooks and the strict doctor in CI | § 2, items 4–5 |
+| P9 | Optional: your own rules and skills in a private overlay kit | § 4 |
+| P10a | First machine: seed your dotfiles, scan them, push them as a private repo | § 8 |
+| P10b | Another machine: clone your dotfiles repo and apply it | § 8 |
+| P11 | `/core:kit-doctor` | § 2, item 3 |
+| P12 | Work branches and sessions from `dev`, landed with `/close-out`; take each new `stable` | § 2, item 7; § 3 |
+
 ## 1. Install
 
 Install the kit plugins once per machine, at user scope. A project only declares the marketplace
@@ -308,6 +389,63 @@ node ~/src/agent-kit/plugins/core/src/kit-cli.mjs dev
 
 ```bash
 node ~/src/agent-kit/plugins/core/src/kit-cli.mjs dev --checkout agent-kit=~/src/agent-kit/.claude/worktrees/my-change --run
+```
+
+## 8. Carry your setup between machines
+
+Your user-global layer lives in `~/.claude` on each machine, outside every project. `kit dotfiles`
+keeps it in a private folder you push as a git repo of your own and links it back onto each
+machine, so an edit on one machine reaches the others with a commit and a pull. In a session,
+`/core:kit-dotfiles` runs the same steps and asks before it changes anything.
+
+| ID | Kind | What |
+| --- | --- | --- |
+| 1 | Travels | `~/.claude/settings.json`, `~/.claude/CLAUDE.md` and the `RTK.md` it may import, your own skills, agents, commands and output styles, agent-kit's naming guard list ([dotfiles.json](../plugins/core/dotfiles.json)) |
+| 2 | Stays on the machine | `skills/synced/`, the desktop app's managed copy of Anthropic's skills: left out and written into the folder's `.gitignore` |
+| 3 | Never in the folder | Sign-in tokens (`~/.claude/.credentials.json`), `~/.claude.json`, installed plugins, session transcripts and memory (`~/.claude/projects`); `check` fails when one is there |
+
+1. **First machine.** Seed the folder (`--dir <folder>`, else `KIT_DOTFILES`, else
+   `~/.claude-dotfiles`). It copies what exists and scans the result: a `FAIL` line names a token
+   or a secret value by file and line, never the value; a `warn` line names a machine-local path,
+   such as an env value under your home folder, which another machine will not have.
+
+```bash
+kit dotfiles init --dry-run
+```
+
+```bash
+kit dotfiles init
+```
+
+2. **Push it as a private repo**, once nothing in the scan needs fixing:
+
+```bash
+git -C "$HOME/.claude-dotfiles" init; git -C "$HOME/.claude-dotfiles" add .; git -C "$HOME/.claude-dotfiles" commit -m "chore: seed dotfiles"; gh repo create <you>/claude-dotfiles --private --source "$HOME/.claude-dotfiles" --push
+```
+
+3. **Each machine, the first one included.** Clone the repo into the folder and apply it. Each real
+   file it replaces is kept as `<name>.backup-<time>`; merge anything machine-specific back from
+   there. On Windows, folders link as junctions; files need Developer Mode (Settings → System →
+   For developers), and without it `apply` copies them, so run it again after each pull.
+
+```bash
+git clone https://github.com/<you>/claude-dotfiles.git "$HOME/.claude-dotfiles"
+```
+
+```bash
+kit dotfiles apply --dry-run
+```
+
+```bash
+kit dotfiles apply
+```
+
+4. **Check now and then**: each path is linked, a copy that matches, or differs; the folder holds
+   no secret and nothing that must never sync. Outside a session `agent-kit dotfiles check` runs it
+   from a project that has the dev dependency (§ 2, item 4).
+
+```bash
+kit dotfiles check
 ```
 
 ## Troubleshooting

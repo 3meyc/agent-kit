@@ -2,6 +2,87 @@
 
 [English](using.md) · **Українська**
 
+## Від чистої машини до щоденної роботи
+
+Шлях для одного розробника з власними проєктами. Ідентифікатори вузлів збігаються з таблицею під
+схемою, яка вказує на розділ із подробицями; пунктирні кроки необов'язкові.
+
+```mermaid
+flowchart TD
+  P1{"P1 · Яка ОС?"}
+  P2a["P2a · macOS: Claude Code, git, gh, <br/>Node з npm"]
+  P2b["P2b · Windows: Claude Code, <br/>Git for Windows, gh, Node з npm"]
+  P3["P3 · gh auth login"]
+  P4{"P4 · Новий проєкт <br/>чи наявний?"}
+  P4a["P4a · Створити приватний репозиторій <br/>і гілку dev"]
+  P4b["P4b · Клонувати свій репозиторій"]
+  P5["P5 · Встановити core і потрібні плагіни <br/>в області користувача"]
+  P6["P6 · /core:kit-tools <br/>rtk, CodeGraph, Fallow"]
+  P7["P7 · /core:kit-adopt <br/>kit.json і налаштування плагінів"]
+  P8["P8 · agent-kit як dev-залежність <br/>git-хуки й doctor у CI"]
+  P9["P9 · Приватний набір-надбудова"]
+  P10{"P10 · Перша машина?"}
+  P10a["P10a · kit dotfiles init, <br/>push приватного репозиторію"]
+  P10b["P10b · Клонувати його, <br/>kit dotfiles apply"]
+  P11["P11 · /core:kit-doctor"]
+  P12["P12 · Щоденна робота від dev, <br/>оновлення"]
+
+  P1 -- macOS --> P2a --> P3
+  P1 -- Windows --> P2b --> P3
+  P3 --> P4
+  P4 -- новий --> P4a --> P5
+  P4 -- наявний --> P4b --> P5
+  P5 --> P6 --> P7
+  P5 --> P7
+  P7 -.-> P8
+  P7 -.-> P9
+  P7 --> P10
+  P10 -- так --> P10a --> P11
+  P10 -- ні --> P10b --> P11
+  P11 --> P12
+
+  classDef os fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#111827
+  classDef repo fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#111827
+  classDef plug fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#111827
+  classDef tool fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#111827
+  classDef setup fill:#ccfbf1,stroke:#0d9488,stroke-width:2px,color:#111827
+  classDef daily fill:#ffe4e6,stroke:#e11d48,stroke-width:2px,color:#111827
+  classDef opt stroke-dasharray:6 4
+  class P1,P2a,P2b os
+  class P3,P4,P4a,P9,P10,P10a,P10b repo
+  class P5 plug
+  class P6 tool
+  class P4b,P7,P8,P11 setup
+  class P12 daily
+  class P6,P8,P9,P10a,P10b opt
+```
+
+- Бурштиновий: ОС і її передумови
+- Синій: GitHub, приватні репозиторії й dotfiles
+- Фіолетовий: Claude Code і плагіни набору
+- Зелений: необов'язкові машинні інструменти
+- Бірюзовий: налаштування проєкту й перевірки
+- Рожевий: щоденна робота й оновлення
+- Пунктирна рамка: необов'язково
+
+| ID | Крок | Подробиці |
+| --- | --- | --- |
+| P1 | Виберіть ОС. Набір працює на macOS, Windows і Linux; на Windows його команди виконуються в PowerShell 5.1 або Git Bash | § 1 |
+| P2a | macOS: встановіть Claude Code (застосунок або CLI), git, GitHub CLI і Node з npm | § 1 |
+| P2b | Windows: те саме з Git for Windows. Додайте `%USERPROFILE%\.local\bin` до PATH, якщо встановлюватимете rtk | § 1 |
+| P3 | `gh auth login; gh auth setup-git` | § 4 |
+| P4a | `gh repo create <you>/my-app --private --clone`, далі гілка `dev` для інтеграції | § 2, пункт 7 |
+| P4b | Клонуйте репозиторій; `baseBranch` у `kit.json` називає його гілку інтеграції, якщо це не `dev` | § 2, пункт 7 |
+| P5 | Додайте маркетплейс і встановіть `core`, потім кожен потрібний плагін, в області користувача | § 1 |
+| P6 | Необов'язкові інструменти, кожен із запитанням: rtk, CodeGraph, Fallow | § 1 |
+| P7 | `/core:kit-adopt`, потім закомітьте `kit.json` і `.claude/settings.json` | § 2 |
+| P8 | Необов'язково: agent-kit як dev-залежність, для git-хуків і суворого doctor у CI | § 2, пункти 4–5 |
+| P9 | Необов'язково: власні правила й скіли в приватному наборі-надбудові | § 4 |
+| P10a | Перша машина: наповніть dotfiles, перевірте їх, запуште як приватний репозиторій | § 8 |
+| P10b | Інша машина: клонуйте репозиторій dotfiles і застосуйте його | § 8 |
+| P11 | `/core:kit-doctor` | § 2, пункт 3 |
+| P12 | Робочі гілки й сесії від `dev`, злиті через `/close-out`; беріть кожен новий `stable` | § 2, пункт 7; § 3 |
+
 ## 1. Встановлення
 
 Встановіть плагіни набору один раз на машину, в області користувача. Проєкт лише оголошує
@@ -316,6 +397,65 @@ node ~/src/agent-kit/plugins/core/src/kit-cli.mjs dev
 
 ```bash
 node ~/src/agent-kit/plugins/core/src/kit-cli.mjs dev --checkout agent-kit=~/src/agent-kit/.claude/worktrees/my-change --run
+```
+
+## 8. Перенесення налаштувань між машинами
+
+Ваш користувацький шар живе в `~/.claude` на кожній машині, поза будь-яким проєктом.
+`kit dotfiles` тримає його в приватній теці, яку ви пушите як власний git-репозиторій, і лінкує її
+назад на кожну машину, тож зміна на одній машині доходить до інших комітом і pull. У сесії
+`/core:kit-dotfiles` виконує ті самі кроки й питає, перш ніж щось змінити.
+
+| ID | Вид | Що |
+| --- | --- | --- |
+| 1 | Переноситься | `~/.claude/settings.json`, `~/.claude/CLAUDE.md` і `RTK.md`, який він може імпортувати, ваші власні скіли, агенти, команди й стилі виводу, список перевірки назв agent-kit ([dotfiles.json](../plugins/core/dotfiles.json)) |
+| 2 | Лишається на машині | `skills/synced/`, керована застосунком копія скілів Anthropic: її пропущено й записано в `.gitignore` теки |
+| 3 | Ніколи в теці | Токени входу (`~/.claude/.credentials.json`), `~/.claude.json`, встановлені плагіни, стенограми сесій і пам'ять (`~/.claude/projects`); `check` падає, коли щось із цього там є |
+
+1. **Перша машина.** Наповніть теку (`--dir <тека>`, інакше `KIT_DOTFILES`, інакше
+   `~/.claude-dotfiles`). Команда копіює те, що є, і перевіряє результат: рядок `FAIL` називає
+   токен чи секретне значення за файлом і рядком, ніколи не саме значення; рядок `warn` називає
+   шлях, властивий цій машині, як-от значення змінної середовища у вашій домашній теці, якого
+   інша машина не матиме.
+
+```bash
+kit dotfiles init --dry-run
+```
+
+```bash
+kit dotfiles init
+```
+
+2. **Запуште її як приватний репозиторій**, коли в перевірці нічого не треба виправляти:
+
+```bash
+git -C "$HOME/.claude-dotfiles" init; git -C "$HOME/.claude-dotfiles" add .; git -C "$HOME/.claude-dotfiles" commit -m "chore: seed dotfiles"; gh repo create <you>/claude-dotfiles --private --source "$HOME/.claude-dotfiles" --push
+```
+
+3. **Кожна машина, разом із першою.** Клонуйте репозиторій у теку й застосуйте його. Кожен
+   справжній файл, який команда замінює, зберігається як `<name>.backup-<time>`; перенесіть звідти
+   те, що властиве машині. На Windows теки лінкуються як junction; файлам потрібен режим
+   розробника (Параметри → Система → Для розробників), без нього `apply` копіює їх, тож запускайте
+   його знову після кожного pull.
+
+```bash
+git clone https://github.com/<you>/claude-dotfiles.git "$HOME/.claude-dotfiles"
+```
+
+```bash
+kit dotfiles apply --dry-run
+```
+
+```bash
+kit dotfiles apply
+```
+
+4. **Час від часу перевіряйте**: кожен шлях або злінкований, або копія, що збігається, або
+   відрізняється; у теці немає секретів і нічого, що ніколи не має синхронізуватися. Поза сесією
+   `agent-kit dotfiles check` запускає це з проєкту, де є dev-залежність (§ 2, пункт 4).
+
+```bash
+kit dotfiles check
 ```
 
 ## Розв'язання проблем
