@@ -466,15 +466,15 @@ describe("shell-deletions", () => {
 });
 
 describe("session-start", () => {
-  it("prints the always-on rules, and nothing when both duties are off", () => {
-    const on = tempProject("ss-on", { "kit.json": { project: "my-app", hooks: { off: ["update-check"] } } });
+  it("prints the always-on rules, and nothing when every duty is off", () => {
+    const on = tempProject("ss-on", { "kit.json": { project: "my-app", hooks: { off: ["update-check", "tools-check"] } } });
     const result = runHook("session-start.mjs", { source: "startup" }, { CLAUDE_PROJECT_DIR: on });
     assert.equal(result.status, 0);
     assert.match(result.stdout, /^# agent-kit core rules/);
     assert.match(result.stdout, /## Chat output/);
     assert.match(result.stdout, /## Shell \(per OS\)/);
     assert.match(result.stdout, /## Tooling limits/);
-    const off = tempProject("ss-off", { "kit.json": { project: "my-app", hooks: { off: ["rules", "update-check"] } } });
+    const off = tempProject("ss-off", { "kit.json": { project: "my-app", hooks: { off: ["rules", "update-check", "tools-check"] } } });
     const quiet = runHook("session-start.mjs", { source: "startup" }, { CLAUDE_PROJECT_DIR: off });
     assert.equal(quiet.status, 0);
     assert.equal(quiet.stdout, "");
