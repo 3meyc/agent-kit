@@ -17,7 +17,7 @@
     "naming-guard": "node scripts/naming-guard.mjs",
     "test": "node --test tests/*.test.mjs",
     "docs-parity": "node plugins/core/bin/kit-docs-parity",
-    "prepare": "node scripts/install-git-hooks.mjs"
+    "hooks:install": "node scripts/install-git-hooks.mjs"
   },
   "devDependencies": {
     "ajv": "8.20.0"

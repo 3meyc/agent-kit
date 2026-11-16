@@ -3,7 +3,7 @@
   "project": "agent-kit",
   "baseBranch": "dev",
   "commands": {
-    "install": "npm ci",
+    "install": "npm ci && npm run hooks:install",
     "check": "npm run check",
     "test": "npm test"
   },

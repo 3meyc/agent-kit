@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Point this clone's git hooks at .githooks/, so the naming guard runs before every push. Runs as
-// the `prepare` script on install. Does nothing outside this repo's own checkout (a tarball or a
+// `npm run hooks:install` (kit.json commands.install), never as `prepare`: pnpm refuses a git
+// dependency with a prepare script. Does nothing outside this repo's own checkout (a tarball or a
 // consumer's node_modules) and leaves another hooks path alone, saying so.
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";

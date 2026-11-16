@@ -30,7 +30,7 @@ This repo is the public base marketplace `agent-kit`: plugins `core`, `sdlc`, `s
 ## Checks
 
 ```bash
-npm ci
+npm ci; npm run hooks:install
 npm run check
 claude plugin validate .
 ```

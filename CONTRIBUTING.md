@@ -12,7 +12,7 @@ moving the `stable` tag releases it.
 
 | ID | Check | Command |
 | --- | --- | --- |
-| 1 | Install the repo tooling | `npm ci` |
+| 1 | Install the repo tooling and its git hooks | `npm ci; npm run hooks:install` |
 | 2 | Schema, vendored copies, tests, naming guard | `npm run check` |
 | 3 | Plugin and marketplace manifests | `claude plugin validate .` |
 
@@ -30,6 +30,8 @@ and a local run reads `~/.config/agent-kit/naming-guard.txt` (one term per line;
 script header). Pull requests from forks get no secrets, so the guard fails there until a
 maintainer re-runs it.
 
-`npm ci` points the clone's git hooks at `.githooks/`, whose `pre-push` runs the guard before
-anything leaves the machine; without a list it refuses the push. A clone whose owner keeps no
-list switches it off with `git config naming-guard.skip true`.
+`npm run hooks:install` (also `kit.json` `commands.install`) points the clone's git hooks at
+`.githooks/`, whose `pre-push` runs the guard before anything leaves the machine; without a list it
+refuses the push. A clone whose owner keeps no list switches it off with
+`git config naming-guard.skip true`. It is not a `prepare` script: pnpm refuses a git dependency
+with one, which would stop every project that depends on this repo from installing it.
