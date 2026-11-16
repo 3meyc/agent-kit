@@ -108,6 +108,14 @@ describe("kit tools helpers", () => {
     assert.equal(parseToolsArgs(["--no-index"]).index, false);
     assert.match(parseToolsArgs(["--only"]).error ?? "", /--only needs/);
     assert.match(parseToolsArgs(["--all"]).error ?? "", /unknown option/);
+    assert.equal(parseToolsArgs(["--yes", "-h"]).help, true);
+  });
+
+  it("prints its usage for --help and installs nothing", async () => {
+    const lines = [];
+    const code = await runTools(["--help"], { tools: {}, print: (line) => lines.push(line) });
+    assert.equal(code, 0);
+    assert.match(lines.join("\n"), /^Usage: kit tools/);
   });
 });
 

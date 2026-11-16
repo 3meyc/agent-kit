@@ -254,7 +254,13 @@ export function toolsCacheFile(updateCacheFile) {
   return updateCacheFile ? join(dirname(updateCacheFile), "tools-check.json") : null;
 }
 
-/** @typedef {{ yes: boolean; check: boolean; dryRun: boolean; index: boolean | null; only: string[] | null; error?: string }} ToolsOptions */
+/** @typedef {{ yes: boolean; check: boolean; dryRun: boolean; index: boolean | null; only: string[] | null; help?: boolean; error?: string }} ToolsOptions */
+
+export const TOOLS_USAGE = `Usage: kit tools [--yes] [--check] [--dry-run] [--only rtk,codegraph] [--index | --no-index]
+
+Install rtk, CodeGraph and Fallow at the kit's pins, asking before each (Y by default; --yes for
+all), clear old copies of them and stale plugin copies, and offer codegraph init for the repo.
+--check only reports tools off their pin; --dry-run prints the plan and changes nothing.`;
 
 /** @param {string[]} args @returns {ToolsOptions} */
 export function parseToolsArgs(args) {
@@ -262,6 +268,7 @@ export function parseToolsArgs(args) {
   const options = { yes: false, check: false, dryRun: false, index: null, only: null };
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
+    if (arg === "--help" || arg === "-h") return { ...options, help: true };
     if (arg === "--yes" || arg === "-y") options.yes = true;
     else if (arg === "--check") options.check = true;
     else if (arg === "--dry-run") options.dryRun = true;
@@ -301,8 +308,12 @@ export async function runTools(args, deps = {}) {
   const options = parseToolsArgs(args);
   const print = deps.print ?? console.log;
   if (options.error) {
-    console.error(`kit tools: ${options.error}`);
+    console.error(`kit tools: ${options.error}\n\n${TOOLS_USAGE}`);
     return 1;
+  }
+  if (options.help) {
+    print(TOOLS_USAGE);
+    return 0;
   }
   const all = deps.tools ?? readTools();
   const unknown = (options.only ?? []).filter((name) => !Object.hasOwn(all, name));
