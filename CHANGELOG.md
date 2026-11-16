@@ -4,6 +4,10 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 ## Unreleased
 
+## 2026-11-16 — seventeenth `stable`
+
+`stable` points at the commit that adds this entry. the git-hook installer is no longer a prepare script, so pnpm installs the kit as a git dependency again
+
 - repo: the git-hook installer is `npm run hooks:install` (in `kit.json` `commands.install`), no longer a `prepare` script: pnpm refuses a git dependency with one (`ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED`), so the sixteenth `stable` could not be installed or updated as `github:3meyc/agent-kit#stable`.
 
 ## 2026-11-16 — sixteenth `stable`
