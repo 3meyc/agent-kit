@@ -6,6 +6,7 @@ import { isDirectRun, projectRoot } from "../lib/hook-utils.mjs";
 import { runAdopt } from "./adopt.mjs";
 import { runDev } from "./dev-plugins.mjs";
 import { runDoctor } from "./doctor.mjs";
+import { runDotfiles } from "./dotfiles.mjs";
 import { runInstalls } from "./installs.mjs";
 import { runInventory } from "./inventory.mjs";
 import { ownershipRootDirs } from "./kit-owned.mjs";
@@ -41,6 +42,9 @@ const USAGE = `Usage: kit <command>
   tools [--yes] [--check] [--dry-run] [--only rtk,codegraph] [--index | --no-index]
                        Install rtk, CodeGraph and Fallow at the kit's pins (asks before each, Y by default;
                        --yes for all), clear old copies, offer codegraph init for this repo; --check only reports
+  dotfiles <init | apply | check> [--dir <folder>] [--dry-run] [--copy]
+                       Keep ~/.claude settings, CLAUDE.md and your skills in a private folder you push as your
+                       own repo: init seeds it, apply links it onto this machine, check reports and scans it
   release [--yes] [--summary <text>] [--summary-<lang> <text>]
                        Cut a release of a kit repo: notes, check, commit, push, move the stable tag
                        (dry run unless --yes; kit.json release says where the notes live)`;
@@ -224,6 +228,8 @@ export function main(argv) {
       return releaseCommand(args);
     case "tools":
       return runTools(args, { root });
+    case "dotfiles":
+      return runDotfiles(args);
     case undefined:
     case "help":
     case "--help":

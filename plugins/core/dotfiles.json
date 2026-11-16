@@ -1,0 +1,24 @@
+{
+  "$comment": "What `kit dotfiles` carries between machines. portable: paths kept in your private dotfiles folder and linked back onto each machine, stored there under their base name; exclude names entries inside a folder that stay on the machine (and go into the folder's .gitignore). neverSync: paths that must never be in the folder; `kit dotfiles check` fails when one is.",
+  "portable": [
+    { "path": "~/.claude/settings.json", "what": "Model, enabled plugins, marketplaces, permissions, output style" },
+    { "path": "~/.claude/CLAUDE.md", "what": "Your global instructions" },
+    { "path": "~/.claude/RTK.md", "what": "Imported by CLAUDE.md where it says @RTK.md" },
+    {
+      "path": "~/.claude/skills",
+      "what": "Your own user skills",
+      "exclude": ["synced"],
+      "excludeWhy": "the Claude desktop app's managed copy of Anthropic's skills; each machine's app rebuilds it"
+    },
+    { "path": "~/.claude/agents", "what": "Your own user agents" },
+    { "path": "~/.claude/commands", "what": "Your own slash commands" },
+    { "path": "~/.claude/output-styles", "what": "Your own output styles" },
+    { "path": "~/.config/agent-kit/naming-guard.txt", "what": "agent-kit's naming guard list, for its contributors" }
+  ],
+  "neverSync": [
+    { "path": "~/.claude/.credentials.json", "why": "Sign-in tokens" },
+    { "path": "~/.claude.json", "why": "Machine and account ids, per-project history and user-scope MCP entries" },
+    { "path": "~/.claude/plugins", "why": "Installed plugins and marketplace clones; each machine installs its own" },
+    { "path": "~/.claude/projects", "why": "Session transcripts and memory, keyed to this machine's paths" }
+  ]
+}

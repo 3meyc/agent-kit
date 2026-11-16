@@ -6,6 +6,7 @@
 // `agent-kit doctor --strict` runs in CI with no Claude Code and no installed plugins: it reads
 // ownership from the plugin folders in this package and from each `--plugin-root`.
 import { devCommand, doctorCommand, releaseCommand } from "../plugins/core/src/kit-cli.mjs";
+import { runDotfiles } from "../plugins/core/src/dotfiles.mjs";
 import { runTools } from "../plugins/core/src/tools.mjs";
 import { main as scanLedgerSecrets } from "../plugins/session/scripts/scan-ledger-secrets.mjs";
 
@@ -34,6 +35,12 @@ const USAGE = `Usage: agent-kit <command>
         The core plugin's \`kit tools\`: install rtk, CodeGraph and Fallow at the kit's pins, asking
         before each (Y by default; --yes for all), clear old copies of them and stale plugin copies,
         and offer codegraph init for the repo. --check only reports tools off their pin.
+  dotfiles <init | apply | check> [--dir <folder>] [--dry-run] [--copy]
+        The core plugin's \`kit dotfiles\`: keep ~/.claude settings, CLAUDE.md and your skills,
+        agents and commands in a private folder you push as your own repo. init seeds it from this
+        machine, apply links it onto this one, check reports each path and scans the folder for
+        secrets and machine-local paths. The folder is --dir, else KIT_DOTFILES, else
+        ~/.claude-dotfiles.
   ledger-scan-secrets [<path>...]
         Fail when a staged ledger record holds secret-shaped text (session plugin's scanner).
         Without paths: the staged files in kit.json paths.ledger.`;
@@ -44,6 +51,7 @@ export const COMMANDS = {
   release: (args) => releaseCommand(args),
   dev: (args) => devCommand(args),
   tools: (args) => runTools(args, { root: process.cwd() }),
+  dotfiles: (args) => runDotfiles(args),
   "ledger-scan-secrets": (args) => scanLedgerSecrets(args),
 };
 
