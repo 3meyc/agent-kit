@@ -29,6 +29,7 @@ export const KIT_DEFAULTS = Object.freeze({
     recipes: "docs/recipes",
     ledger: ".claude/ledger",
     evolution: "docs/evolution",
+    uiScopes: "docs/ui-scopes.md",
   }),
   commands: Object.freeze({}),
   lintOnEdit: Object.freeze([]),
