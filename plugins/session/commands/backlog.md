@@ -1,5 +1,5 @@
 ---
-description: The project's backlog of deferred follow-ups — show it, triage open ledger items into it (Keep, Defer, Drop), pick rows into a new session's charter, expire old rows. One file, <sdlc>/backlog.md, written by main sessions only
+description: The project's backlog of deferred follow-ups — show it, triage open ledger items into it (Keep, Open, Defer, Drop), pick rows into a new session's charter, expire old rows. One file, <sdlc>/backlog.md, written by main sessions only
 argument-hint: [triage [<word>] | pick B3 B7 … | expire]
 allowed-tools: Bash(session-ledger:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/session-ledger.mjs:*), Bash(git status:*), Bash(git log:*)
 ---
@@ -55,12 +55,16 @@ ones). A sub-session runs no triage: its follow-ups wait in its record for its p
    to the kit's issues, `/close-out` § 1). Columns: **#** (F1, F2 …, stable across replies),
    **What** (the change, one line), **Why** (who or what is hurt if it is left undone, one line;
    from the item's `— why:`, else written here, else `(no reason given)`), **Source**
-   (`<id8> <n>`, or `this session`), **Verdict** (proposed).
+   (`<id8> <n>`, or `this session`), **Verdict** (proposed, its marker before the word: `⚫ Keep,
+   done here`, `⚫ Open`, `⚪ Defer`, `◾ Drop`). Rows go in verdict order, Keep and Open first,
+   then Defer, then Drop; each keeps the id it was given, so the ids may run out of order.
 2. **Proposed verdict.**
    1. **Keep** only when leaving it hurts concretely: a defect a user sees, a release blocker, a
       failing or missing check, or an unfinished item of the current charter.
-   2. **Defer** for the rest: polish, wording, refactors, process tweaks.
-   3. **Drop** when the Why does not hold up: already done elsewhere, superseded, no reason given.
+   2. **Open** for a check only the user can make by hand (on screen, behind a sign-in, on a live
+      system): it stays open for them.
+   3. **Defer** for the rest: polish, wording, refactors, process tweaks.
+   4. **Drop** when the Why does not hold up: already done elsewhere, superseded, no reason given.
 3. **Ask.** Show the table, then end the turn with `mcp__ccd_turn__wrap_up` (elsewhere, one closing
    question); inside `/close-out` or `/close-siblings` it rides on their one question instead. The
    first button accepts the proposed verdicts. The user may answer by ids instead, lists and ranges
@@ -70,11 +74,13 @@ ones). A sub-session runs no triage: its follow-ups wait in its record for its p
       `/close-siblings`, before its § 3 checks). Any other Keep: a session of its own, its charter
       that one row, proposed as `/close-out` § 3 describes (after the landing, when there is one).
       It lands itself through `/close-out`; nothing waits for it.
-   2. **Defer**: a row in `<sdlc>/backlog.md` (Added today, Until in 14 days).
-   3. **Drop**: nothing more.
-   4. Every row with a Source: `session-ledger --done <id8> <n>`, so it leaves the inbox.
-   5. Every row: one line in this session's record's `## Decisions`:
-      `F3 a1b2c3d4 2: defer`, `F5 a1b2c3d4 4: drop — <why>`, `F1 a1b2c3d4 1: keep — <done here | session title>`.
+   2. **Open**: nothing; its item stays open in the record's `## Next`, as the user's to check.
+   3. **Defer**: a row in `<sdlc>/backlog.md` (Added today, Until in 14 days).
+   4. **Drop**: nothing more.
+   5. Every row with a Source, except Open: `session-ledger --done <id8> <n>`, so it leaves the inbox.
+   6. Every row: one line in this session's record's `## Decisions`:
+      `F3 a1b2c3d4 2: defer`, `F5 a1b2c3d4 4: drop — <why>`, `F1 a1b2c3d4 1: keep — <done here | session title>`,
+      `F2 a1b2c3d4 3: open — <the check>`.
 5. **Commit** the backlog and the records through `/git commit`.
 
 ## `pick B3 B7 …`: a new charter

@@ -35,7 +35,7 @@ below exist in the desktop app; elsewhere, ask the user which branches are the s
    branch is not finished.
 5. Per finished sub-session, its record's open `## Next` (found by its branch, when the project
    keeps a ledger): each item is a row of one triage table against this session's charter
-   (What, Why, Source, proposed Verdict: Keep, Defer or Drop), exactly as `/backlog` § triage
+   (What, Why, Source, proposed Verdict: Keep, Open, Defer or Drop), exactly as `/backlog` § triage
    says. After the user's § 6 answer: a Keep inside the charter and small is done here, after
    the merges and before § 3's checks; any other Keep is proposed as a session of its own after
    § 4's landing; a Defer becomes a row of `<sdlc>/backlog.md`, written in § 2 step 4. A
