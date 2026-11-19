@@ -55,8 +55,9 @@ ones). A sub-session runs no triage: its follow-ups wait in its record for its p
    to the kit's issues, `/close-out` § 1). Columns: **#** (F1, F2 …, stable across replies),
    **What** (the change, one line), **Why** (who or what is hurt if it is left undone, one line;
    from the item's `— why:`, else written here, else `(no reason given)`), **Source**
-   (`<id8> <n>`, or `this session`), **Verdict** (proposed, its marker before the word: `⚫ Keep,
-   done here`, `⚫ Open`, `⚪ Defer`, `◾ Drop`). Rows go in verdict order, Keep and Open first,
+   (`<id8> <n>`, or `this session`), **Verdict** (proposed, its marker before the word, a text symbol,
+   not an emoji: `☑︎ Keep, done here`, `□ Open`, `↓ Defer`, `☒︎ Drop`; the first and the last
+   carry U+FE0E so they draw as text). Rows go in verdict order, Keep and Open first,
    then Defer, then Drop; each keeps the id it was given, so the ids may run out of order.
 2. **Proposed verdict.**
    1. **Keep** only when leaving it hurts concretely: a defect a user sees, a release blocker, a
