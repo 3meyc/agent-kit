@@ -4,6 +4,8 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 ## Unreleased
 
+- core: chat answers draw Mermaid diagrams. Always-on chat rule 10: an answer with a flow, dependencies, steps between parties or states (about three or more related nodes) gets a fenced `mermaid` diagram, drawn by the new `diagrams` skill: one `classDef` colour group per kind of node (dark fills with light borders and text for blue, green, amber and violet, which read in both themes), short quoted labels, readable ids, and a numbered legend after it. The desktop app's Code tab renders it; a terminal shows the source, so it must read as text. Rule 7 names `mermaid` as the fenced block that is not a command, and rule 1 is shorter with the same meaning, so the worst-case SessionStart output stays within its 8,000-character budget (now 7,996: the next always-on line needs room made first).
+
 ## 2026-11-16 — eighteenth `stable`
 
 `stable` points at the commit that adds this entry. kit dotfiles carries the user-global layer between machines through a private repo of your own, and an overlay kit can run it with its own manifest; docs/using.md opens with the path from a bare machine to daily work

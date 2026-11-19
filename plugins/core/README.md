@@ -11,7 +11,8 @@ there. Everything is read from the project's `kit.json`; nothing project-specifi
 A `SessionStart` hook prints [rules/always-on.md](rules/always-on.md), which Claude Code renders
 into the session as context (no copy in the project). It holds:
 
-1. **Chat output**: length, formatting, runnable command blocks, reporting what was not verified.
+1. **Chat output**: length, formatting, runnable command blocks, reporting what was not verified,
+   when to draw a Mermaid diagram (how: the `diagrams` skill).
 2. **Shell per OS**: detect the shell first, PowerShell pitfalls, the kit's portable `count-lines`
    and `git-branch-context`.
 3. **Tooling limits**: what to do when a tool refuses, plus the generic limits (desktop-app base
@@ -62,6 +63,7 @@ answer from `codegraph prompt-hook` 1.6.2)_.
 | 9 | `/core:repo-audit [<folder> \| all]` | The same checks over a whole repo or folder, in a forked sub-agent: maps entry points and main flows first, goes deep where mistakes cost most, at most 20 ranked findings, and names what it did not read. Changes no code |
 | 10 | `/core:kit-tools` | Installs rtk, CodeGraph and Fallow at the kit's pins after one multi-select question (all selected by default): rtk from its GitHub release, sha256-checked, the others with `npm install -g`; clears old copies and stale plugin copies, checks the shell runs each pinned copy, and offers `codegraph init` for the repo |
 | 11 | `/core:kit-dotfiles` | Keeps your user-global layer (`~/.claude/settings.json`, `CLAUDE.md`, your skills, agents, commands, output styles) in a private folder you push as your own repo, and links it onto each machine: checks first, then seeds or applies on your word ([using](../../docs/using.md) § 8) |
+| 12 | `diagrams` skill | How to draw a Mermaid diagram in a chat answer (always-on rule 10): when one helps, one `classDef` colour group per kind of node with dark fills that read in both themes, short quoted labels, a numbered legend after it. A project's docs rules may set their own palette for files |
 
 The docs say the bare names (`/check`, `/dev`, …) work too while no other command has them
 _(unverified here)_. Agents:
