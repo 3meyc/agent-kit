@@ -12,7 +12,18 @@ flowchart LR
   O --> P3["проєкт C"]
   K --> P2
   K --> P3
+
+  classDef kit fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#111827
+  classDef over fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#111827
+  classDef proj fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#111827
+  class K kit
+  class O over
+  class P1,P2,P3 proj
 ```
+
+- Фіолетовий: базовий набір
+- Бурштиновий: набір-надбудова
+- Синій: проєкти
 
 Проєкт вмикає базовий набір напряму, а якщо належить до групи — ще й набір-надбудову.
 Надбудова ніколи не копіює базові плагіни: вона оголошує залежність від них.
@@ -26,7 +37,15 @@ flowchart BT
   svelte --> core
   python --> core
   sdlc -. "необов'язково" .-> session
+
+  classDef base fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#111827
+  classDef kit fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#111827
+  class core base
+  class sdlc,session,svelte,python kit
 ```
+
+- Зелений: `core`, потрібний кожному плагіну
+- Фіолетовий: плагіни, побудовані на ньому
 
 | ID | Плагін | Містить |
 | --- | --- | --- |
@@ -53,7 +72,18 @@ flowchart LR
     led["записи журналу"]
   end
   kj -- "каже набору, де що лежить" --> kit
+
+  classDef kitc fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#111827
+  classDef link fill:#ccfbf1,stroke:#0d9488,stroke-width:2px,color:#111827
+  classDef proj fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#111827
+  class rules,skills,hooks kitc
+  class kj,st link
+  class dom,voc,led proj
 ```
+
+- Фіолетовий: те, що дають набори
+- Бірюзовий: файли, що пов'язують проєкт із наборами
+- Синій: власні знання й записи проєкту
 
 Глосарій (доменні терміни) і рецепти (покрокові інструкції для повторюваних задач) описують
 домен самого проєкту, тож вони лишаються в проєкті. Набір знаходить їх через `kit.json`: скіли
@@ -127,10 +157,13 @@ dev-сервер там, де немає панелі Browser настільно
 ```mermaid
 gitGraph
   commit id: "sdlc: шаблон плану"
-  commit id: "session: виправлення журналу" tag: "stable"
+  commit id: "session: виправлення журналу" tag: "stable" type: HIGHLIGHT
   commit id: "core: новий хук"
   commit id: "sdlc: перевірки finish"
 ```
+
+- Заповнений квадрат: коміт, на який указує `stable`, тобто реліз
+- Кола: коміти в `dev`, канал latest
 
 | ID | Канал | Посилання | Хто користується |
 | --- | --- | --- | --- |

@@ -12,7 +12,18 @@ flowchart LR
   O --> P3["project C"]
   K --> P2
   K --> P3
+
+  classDef kit fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#111827
+  classDef over fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#111827
+  classDef proj fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#111827
+  class K kit
+  class O over
+  class P1,P2,P3 proj
 ```
+
+- Violet: the base kit
+- Amber: an overlay kit
+- Blue: projects
 
 A project enables the base kit directly, and an overlay kit if it belongs to a group. An overlay
 never copies base plugins: it declares a dependency on them.
@@ -26,7 +37,15 @@ flowchart BT
   svelte --> core
   python --> core
   sdlc -. "optional" .-> session
+
+  classDef base fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#111827
+  classDef kit fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#111827
+  class core base
+  class sdlc,session,svelte,python kit
 ```
+
+- Green: `core`, which every plugin needs
+- Violet: the plugins built on it
 
 | ID | Plugin | Contains |
 | --- | --- | --- |
@@ -53,7 +72,18 @@ flowchart LR
     led["ledger records"]
   end
   kj -- "tells the kit where things are" --> kit
+
+  classDef kitc fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#111827
+  classDef link fill:#ccfbf1,stroke:#0d9488,stroke-width:2px,color:#111827
+  classDef proj fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#111827
+  class rules,skills,hooks kitc
+  class kj,st link
+  class dom,voc,led proj
 ```
+
+- Violet: what the kits supply
+- Teal: the files that tie the project to the kits
+- Blue: the project's own knowledge and records
 
 The glossary (domain terms) and the recipes (step-by-step guides for recurring tasks) describe
 the project's own domain, so they stay in the project. The kit knows where they are from
@@ -126,10 +156,13 @@ plugin's `lib/`: it fills in the schema defaults and answers `hooks.off`.
 ```mermaid
 gitGraph
   commit id: "sdlc: plan template"
-  commit id: "session: ledger fix" tag: "stable"
+  commit id: "session: ledger fix" tag: "stable" type: HIGHLIGHT
   commit id: "core: new hook"
   commit id: "sdlc: finish checks"
 ```
+
+- Filled square: the commit `stable` points at, the release
+- Circles: commits on `dev`, the latest channel
 
 | ID | Channel | Ref | Who uses it |
 | --- | --- | --- | --- |

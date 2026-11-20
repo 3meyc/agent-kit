@@ -6,8 +6,8 @@
 сесії у worktree і спільні хуки. Одне джерело, встановлене в кожен проєкт: покращення одразу
 доходить усюди, а не копіюється з репозиторію в репозиторій.
 
-> **Статус: проєктування.** Тут описано цільову структуру. Плагіни виокремлюються з копій у
-> проєктах; позначене _(заплановано)_ ще не існує.
+> **Статус: у роботі.** Випускається на тезі `stable` з 2026-11-10; кожен реліз описано в
+> [CHANGELOG](CHANGELOG.md) (англійською), а шлях набору — в [Еволюції](docs/evolution.uk.md).
 
 ## Як усе поєднано
 
@@ -30,7 +30,18 @@ flowchart TB
   overlay -- залежить від --> base
   project -- вмикає --> base
   project -- вмикає --> overlay
+
+  classDef kit fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#111827
+  classDef over fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#111827
+  classDef proj fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#111827
+  class core,sdlc,session,svelte,python kit
+  class org over
+  class manifest,own proj
 ```
+
+- Фіолетовий: плагіни agent-kit
+- Бурштиновий: набір-надбудова
+- Синій: власні файли проєкту
 
 Три шари, у кожного один власник:
 

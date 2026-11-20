@@ -23,16 +23,37 @@ flowchart TD
   C --> G{"Містить специфіку<br/>проєкту чи компанії?"}
   G -- так --> H["загальну частину — сюди;<br/>специфіку — в надбудову чи kit.json"]
   G -- ні --> I["пишіть тут"]
+
+  classDef start fill:#ffe4e6,stroke:#e11d48,stroke-width:2px,color:#111827
+  classDef ask fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#111827
+  classDef kit fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#111827
+  classDef over fill:#ccfbf1,stroke:#0d9488,stroke-width:2px,color:#111827
+  classDef proj fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#111827
+  class A start
+  class B,D,G ask
+  class C,H,I kit
+  class E over
+  class F proj
 ```
+
+- Рожевий: потреба в зміні
+- Бурштиновий: питання
+- Фіолетовий: agent-kit
+- Бірюзовий: набір-надбудова
+- Синій: сам проєкт
 
 ## Процес
 
 ```mermaid
 sequenceDiagram
+  box rgba(37,99,235,0.15) Проєкт
   participant P as Сесія проєкту
+  end
+  box rgba(124,58,237,0.15) agent-kit
   participant K as Сесія agent-kit
   participant M as dev
   participant S as stable
+  end
   P->>K: відкриває issue kit-gap #n
   P->>K: відкрити worktree-сесію в agent-kit
   K->>K: редагувати plugins/<name>
@@ -42,6 +63,9 @@ sequenceDiagram
   M->>S: реліз: перемотати main, перенести stable
   S-->>P: кожен проєкт, наступна сесія
 ```
+
+- Синій: проєкт
+- Фіолетовий: agent-kit, його сесія, `dev` і `stable`
 
 1. **Повідомте.** У сесії проєкту відкрийте прогалину як issue в репозиторії набору (наступний
    розділ) і працюйте далі з поточною поведінкою. Не латайте локально, щоб розблокуватися.

@@ -61,6 +61,7 @@ flowchart TD
   T -- "Keep" --> K["New session<br/>charter: that item"]
   T -- "Defer" --> B["backlog.md row<br/>Until: 14 days"]
   T -- "Drop" --> D["Marked done<br/>reason in ## Decisions"]
+  T -- "Open" --> O["Stays in ## Next<br/>the user checks by hand"]
   K --> CO["/close-out<br/>own triage, lands itself"]
   B --> P["/backlog pick B3 B7<br/>rows become a charter"]
   B --> E["/backlog expire<br/>rows past Until"]
@@ -70,7 +71,7 @@ flowchart TD
   classDef record fill:#adb5bd26,stroke:#adb5bd,stroke-width:2px
   class R,C1,C2,C3,K,R2 session
   class CS,I,CO,P,E command
-  class T,B,D record
+  class T,B,D,O record
 ```
 
 - <small>navy — sessions</small>
@@ -78,8 +79,10 @@ flowchart TD
 - <small>gray — the triage table, the backlog and ledger marks</small>
 
 1. **Keep** only when leaving the item undone hurts: a defect a user sees, a release blocker, a
-   failing or missing check, an unfinished charter item. **Defer** polish, wording, refactors and
-   process tweaks. **Drop** an item whose Why does not hold up.
+   failing or missing check, an unfinished charter item. **Open** a check only the user can make
+   by hand (on screen, behind a sign-in, on a live system). **Defer** polish, wording, refactors
+   and process tweaks. **Drop** an item whose Why does not hold up. The table lists Keep and Open
+   first, then Defer, then Drop, each verdict marked `☑︎`, `□`, `↓` or `☒︎`.
 2. The user answers the table by ids (`F1 keep, F5–F7 drop`); unnamed rows keep the proposal.
 3. `<paths.sdlc>/backlog.md` is written by main sessions only, and `merge=union` lets two of them
    add rows at once; one session at a time picks and expires rows, normally a daily one.

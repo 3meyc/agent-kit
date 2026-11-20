@@ -5,6 +5,7 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 ## Unreleased
 
 - docs: the human docs catch up with the nineteenth `stable`. docs/using.md gains § 9 (`/ui-fixes` and its scope map, `paths.uiScopes`) and § 10 (Mermaid diagrams and text-symbol markers in chat), the Open verdict and verdict order in § 6, an overlay's own `kit dotfiles` in § 8, and a troubleshooting row for a diagram shown as source; docs/architecture.md and the README name the `diagrams` skill and `/ui-fixes`, and the `kit.json` example carries `paths.uiScopes`; docs/changing.md adds the SessionStart budget as a common case for a new always-on rule; docs/evolution.md colours its milestones with a legend and records three design decisions (chat diagrams and markers, the Open verdict, one UI polish sub-session per area).
+- docs: the kit keeps its own evolution pages, `docs/evolution/process-evolution.md` (how the kit is built: four stages) and `features-evolution.md` (what each `stable` gave a project), with Ukrainian mirrors, so `kit release` now names them when a release has not updated them. Every diagram in the README, the docs and the `sdlc` and `session` READMEs has colour groups and a legend; the session README's follow-up flow gains the Open verdict. The README's "Status: design" banner gives way to "in use".
 
 ## 2026-11-20 — nineteenth `stable`
 

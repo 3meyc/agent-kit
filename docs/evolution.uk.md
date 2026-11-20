@@ -51,4 +51,7 @@ flowchart LR
 
 ## Релізи
 
-Див. [CHANGELOG.md](../CHANGELOG.md) (англійською).
+Див. [CHANGELOG.md](../CHANGELOG.md) (англійською). Реліз за релізом: як будується набір — у
+[process-evolution.uk.md](evolution/process-evolution.uk.md), що його плагіни дають проєкту — у
+[features-evolution.uk.md](evolution/features-evolution.uk.md); обидві оновлюються перед кожним
+релізом.

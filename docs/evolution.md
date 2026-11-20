@@ -51,4 +51,7 @@ flowchart LR
 
 ## Releases
 
-See [CHANGELOG.md](../CHANGELOG.md).
+See [CHANGELOG.md](../CHANGELOG.md). Drawn release by release: how the kit is built in
+[process-evolution.md](evolution/process-evolution.md), what its plugins give a project in
+[features-evolution.md](evolution/features-evolution.md); both are brought up to date before each
+release.

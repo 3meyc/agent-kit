@@ -22,16 +22,37 @@ flowchart TD
   C --> G{"Does it carry project<br/>or company specifics?"}
   G -- yes --> H["keep the generic part here;<br/>specifics go to the overlay or kit.json"]
   G -- no --> I["write it here"]
+
+  classDef start fill:#ffe4e6,stroke:#e11d48,stroke-width:2px,color:#111827
+  classDef ask fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#111827
+  classDef kit fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#111827
+  classDef over fill:#ccfbf1,stroke:#0d9488,stroke-width:2px,color:#111827
+  classDef proj fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#111827
+  class A start
+  class B,D,G ask
+  class C,H,I kit
+  class E over
+  class F proj
 ```
+
+- Rose: the need for a change
+- Amber: a question
+- Violet: agent-kit
+- Teal: an overlay kit
+- Blue: the project itself
 
 ## The flow
 
 ```mermaid
 sequenceDiagram
+  box rgba(37,99,235,0.15) Project
   participant P as Project session
+  end
+  box rgba(124,58,237,0.15) agent-kit
   participant K as agent-kit session
   participant M as dev
   participant S as stable
+  end
   P->>K: opens a kit-gap issue #n
   P->>K: open a worktree session in agent-kit
   K->>K: edit plugins/<name>
@@ -41,6 +62,9 @@ sequenceDiagram
   M->>S: release: fast-forward main, move stable
   S-->>P: every project, next session
 ```
+
+- Blue: the project
+- Violet: agent-kit, its session, `dev` and `stable`
 
 1. **Report it.** In the project session, open the gap as an issue in the kit's repo (next
    section) and carry on with the current behaviour. Don't patch locally to unblock yourself.

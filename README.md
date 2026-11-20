@@ -6,8 +6,8 @@ Claude Code plugins for a spec-first development workflow: SDLC work items, a se
 worktree sessions and shared hooks. One source, installed into every project, so an improvement
 lands everywhere at once instead of being copied repo by repo.
 
-> **Status: design.** This is the target layout. Plugins are being extracted from per-project
-> copies; anything marked _(planned)_ does not exist yet.
+> **Status: in use.** Released on the `stable` tag since 2026-11-10; each release is in the
+> [CHANGELOG](CHANGELOG.md), and how the kit got here in [Evolution](docs/evolution.md).
 
 ## How it fits together
 
@@ -30,7 +30,18 @@ flowchart TB
   overlay -- depends on --> base
   project -- enables --> base
   project -- enables --> overlay
+
+  classDef kit fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#111827
+  classDef over fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#111827
+  classDef proj fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#111827
+  class core,sdlc,session,svelte,python kit
+  class org over
+  class manifest,own proj
 ```
+
+- Violet: agent-kit's plugins
+- Amber: an overlay kit
+- Blue: the project's own files
 
 Three layers, each with one owner:
 

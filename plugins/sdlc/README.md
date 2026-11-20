@@ -25,7 +25,14 @@ flowchart LR
   F -. "sdlc:verifier" .-> F
   F -- "FAIL: new step" --> B
   S["/sdlc:status"] -. "reads records" .-> I & P & B & F
+  classDef stage fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#111827
+  classDef report fill:#ccfbf1,stroke:#0d9488,stroke-width:2px,color:#111827
+  class I,P,B,F stage
+  class S report
 ```
+
+- Violet: the four stages, each with its record
+- Teal: the status report, which changes nothing
 
 | ID | Skill or agent | Does | Writes |
 | --- | --- | --- | --- |

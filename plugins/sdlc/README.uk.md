@@ -24,7 +24,14 @@ flowchart LR
   F -. "sdlc:verifier" .-> F
   F -- "FAIL: новий крок" --> B
   S["/sdlc:status"] -. "читає записи" .-> I & P & B & F
+  classDef stage fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#111827
+  classDef report fill:#ccfbf1,stroke:#0d9488,stroke-width:2px,color:#111827
+  class I,P,B,F stage
+  class S report
 ```
+
+- Фіолетовий: чотири стадії, кожна зі своїм записом
+- Бірюзовий: звіт про стан, який нічого не змінює
 
 | ID | Навичка або агент | Що робить | Що пише |
 | --- | --- | --- | --- |
