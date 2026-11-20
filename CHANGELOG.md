@@ -4,6 +4,8 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 ## Unreleased
 
+- docs: the human docs catch up with the nineteenth `stable`. docs/using.md gains § 9 (`/ui-fixes` and its scope map, `paths.uiScopes`) and § 10 (Mermaid diagrams and text-symbol markers in chat), the Open verdict and verdict order in § 6, an overlay's own `kit dotfiles` in § 8, and a troubleshooting row for a diagram shown as source; docs/architecture.md and the README name the `diagrams` skill and `/ui-fixes`, and the `kit.json` example carries `paths.uiScopes`; docs/changing.md adds the SessionStart budget as a common case for a new always-on rule; docs/evolution.md colours its milestones with a legend and records three design decisions (chat diagrams and markers, the Open verdict, one UI polish sub-session per area).
+
 ## 2026-11-20 — nineteenth `stable`
 
 `stable` points at the commit that adds this entry. chat answers draw Mermaid diagrams and mark status with text symbols, triage tables sort by verdict with an Open verdict, and /ui-fixes starts one UI polish sub-session per area
