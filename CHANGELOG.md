@@ -4,6 +4,10 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 ## Unreleased
 
+## 2026-11-20 — nineteenth `stable`
+
+`stable` points at the commit that adds this entry. chat answers draw Mermaid diagrams and mark status with text symbols, triage tables sort by verdict with an Open verdict, and /ui-fixes starts one UI polish sub-session per area
+
 - session: `/ui-fixes <scope>` starts a child session for UI fixes and enhancements of one area of the app from one brief: harness screenshots, a charter of the user's list plus the issues spotted, the project's rules, and `/close-out` onto the caller's branch; in a child session it runs the brief in place. The areas, code letters, harness routes, folders and brief additions come from the project's scope map, the new `kit.json` `paths.uiScopes` (default `docs/ui-scopes.md`).
 - core: chat answers draw Mermaid diagrams. Always-on chat rule 10: an answer with a flow, dependencies, steps between parties or states (about three or more related nodes) gets a fenced `mermaid` diagram, drawn by the new `diagrams` skill: one `classDef` colour group per kind of node (dark fills with light borders and text for blue, green, amber and violet, which read in both themes), short quoted labels, readable ids, and a numbered legend after it. The desktop app's Code tab renders it; a terminal shows the source, so it must read as text. Rule 7 names `mermaid` as the fenced block that is not a command, and rule 1 is shorter with the same meaning, so the worst-case SessionStart output stays within its 8,000-character budget.
 - core: always-on chat rule 11: status and verdict markers are text symbols (☑︎ □ ↓ ☒︎ ✓ ✗ ● ○ ▸), not emoji, with U+FE0E after a symbol some systems draw as emoji; ⚠︎ only for a warning that matters. To make room, rules 4, 6 and 7 and the Tooling limits text are shorter with the same meaning; the worst-case SessionStart output is 7,992 of its 8,000 characters, so the next always-on line needs room made first.
