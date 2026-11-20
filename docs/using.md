@@ -334,7 +334,10 @@ item on its own when one of these rules says it is settled:
    one table (What, Why, Source, a proposed verdict) and carries out your answer
    (`F1 keep, F5–F7 drop`): a Keep becomes a session whose charter is that item, a Defer becomes a
    row of `<paths.sdlc>/backlog.md` with an Until date 14 days out, a Drop is only marked done.
-   Each item leaves the list either way. `/close-out` and `/close-siblings` run the same triage on
+   Each of these leaves the list. **Open** is for a check only you can make by hand (on screen,
+   behind a sign-in, on a live system): its item stays in `## Next` for you. The rows come in
+   verdict order, Keep and Open first, then Defer, then Drop, each keeping its id, and each verdict
+   carries a text marker: `☑︎ Keep`, `□ Open`, `↓ Defer`, `☒︎ Drop`. `/close-out` and `/close-siblings` run the same triage on
    the follow-ups of the work they land, so `## Next` stays an inbox, not a backlog. `/backlog`
    shows the backlog, `/backlog pick B3 B7` starts a session with those rows as its charter, and
    `/backlog expire` removes rows past their date. Each `## Next` item ends with `— why: <who is
@@ -448,6 +451,53 @@ kit dotfiles apply
 kit dotfiles check
 ```
 
+5. **An overlay kit** can offer the same steps under its own command name, with its own manifest
+   (the base list plus its paths) and its own default folder, from the `agent-kit` package
+   ([core README](../plugins/core/README.md)).
+
+## 9. Polish the UI one area at a time
+
+`/ui-fixes <scope>` (`session`) starts a child session that polishes one area of the app: it
+screenshots the area in the dev server, asks you for your list of fixes and enhancements, builds
+the agreed items and lands on your branch through `/close-out`. Every such session starts from the
+same brief, filled from the project's scope map.
+
+1. **Write the scope map once**, at `kit.json` `paths.uiScopes` (default `docs/ui-scopes.md`), in
+   four sections:
+   1. **Harness**: how to open each page in the dev server, and any switch to set before a write
+      (a mock backend, an administrator caller).
+   2. **Scopes**: one row per area with its scope name, the code letter of its charter items, its
+      harness route, UI folders, state (stores, services) and docs.
+   3. **Names**: scope names that need a question (a name two pages share), and how free text is
+      resolved.
+   4. **Brief additions**: what every UI brief in the project also carries: the rule skills to
+      load, a shared component to use, extra checks for done.
+2. **Start one per area**, from the main session. `/ui-fixes <scope>` takes the next charter id
+   (`F<n>`), cuts the child's worktree from your current branch, names the folders of running
+   sibling sessions under **Avoid**, and titles it `<id>: <Scope> UI fixes and enhancements`.
+   Without a scope it asks which; without a map it asks for the area's folders and records the
+   missing map in the ledger record's `## Next`.
+3. **In the child**, the first reply states the charter: your list plus at most five issues it
+   spotted in the screenshots, numbered with the area's letter; an item joins only on your word.
+   Done means the project's check and lint pass on the touched paths, each item is checked in the
+   harness with a screenshot, and the area's docs are updated. The child pushes nothing and lands
+   only on your word; the full test suite and build run in the parent at `/close-siblings`.
+4. Run inside a child session, `/ui-fixes` starts nothing: it runs the brief in place.
+
+## 10. Diagrams and markers in chat
+
+`core`'s always-on chat rules shape two things you see in answers:
+
+1. **Diagrams.** An answer about a flow, dependencies, steps between parties or states (about three
+   or more related nodes) carries a `mermaid` diagram, drawn by the `core:diagrams` skill: one
+   colour group per kind of node, in dark fills that read in light and dark themes, short quoted
+   labels, and a numbered legend right after it. The desktop app's Code tab draws it; a terminal
+   shows its source, which is kept small enough to read as text. A project's docs rules may set
+   their own palette for diagrams in files.
+2. **Markers.** Status and verdict markers are text symbols, not emoji: ☑︎ □ ↓ ☒︎ ✓ ✗ ● ○ ▸, each
+   followed by U+FE0E where a system would draw it as emoji; ⚠︎ only for a warning that matters.
+   The triage table (§ 6) marks its verdicts this way.
+
 ## Troubleshooting
 
 | ID | Symptom | Check |
@@ -457,3 +507,4 @@ kit dotfiles check
 | 3 | A rule seems ignored | `/core:kit-doctor`; a project copy of a kit file shadows the kit |
 | 4 | `marketplace add …#stable` is refused: its source doesn't match its `extraKnownMarketplaces` entry | Add `"ref": "stable"` to that marketplace in `~/.claude/settings.json`, run `add` again, then `claude plugin update <plugin>@agent-kit --scope user` per plugin (§ 3) |
 | 5 | An update reports "already at the latest version", or a new session still runs the old kit | `kit installs`: a project-scope copy loads before the user copy or took the update; update at user scope, then `kit installs --clean` (§ 3) |
+| 6 | An answer shows a `mermaid` block as code, not a picture | A terminal shows the source; the desktop app's Code tab draws it (§ 10) |

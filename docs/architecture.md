@@ -30,9 +30,9 @@ flowchart BT
 
 | ID | Plugin | Contains |
 | --- | --- | --- |
-| 1 | `core` | Always-on rules, `check-runner` and `repo-sweep` agents, edit and shell hooks, `kit doctor`, `/kit-inventory`, `/kit-adopt`, `/change-review`, `/repo-audit`, docs parity check |
+| 1 | `core` | Always-on rules (chat output with Mermaid diagrams and text-symbol markers, shell, tooling limits), the `diagrams` skill, `check-runner` and `repo-sweep` agents, edit and shell hooks, `kit doctor`, `/kit-inventory`, `/kit-adopt`, `/change-review`, `/repo-audit`, docs parity check |
 | 2 | `sdlc` | Five `/sdlc:*` skills, `sdlc:simplifier` and `sdlc:verifier` agents |
-| 3 | `session` | Ledger hooks and scripts, `/handoff`, `/close-out`, `/close-siblings`, `/backlog`, `/git` with the `git-ops` agent, worktree set-up and landing, the `evolution` pages |
+| 3 | `session` | Ledger hooks and scripts, `/handoff`, `/close-out`, `/close-siblings`, `/backlog`, `/git` with the `git-ops` agent, `/ui-fixes`, worktree set-up and landing, the `evolution` pages |
 | 4 | `svelte` | Svelte 5 conventions |
 | 5 | `python` | Python conventions |
 
@@ -79,7 +79,8 @@ commands the plugins use. Draft v1; the final shape lives in `schema/kit.schema.
     "glossary": "docs/glossary.md",
     "recipes": "docs/recipes",
     "ledger": ".claude/ledger",
-    "evolution": "docs/evolution"
+    "evolution": "docs/evolution",
+    "uiScopes": "docs/ui-scopes.md"
   },
   "commands": {
     "install": "pnpm install --frozen-lockfile",
@@ -104,7 +105,9 @@ commands the plugins use. Draft v1; the final shape lives in `schema/kit.schema.
 specific tool; `{files}` in it becomes the committed paths (also in `KIT_COMMIT_PATHS`), so the
 audit can report only what the commit touched. `commands.install` sets up a fresh worktree (without
 it, `session` guesses pnpm or npm from the lockfile), and `commands.dev` starts the dev server where
-the desktop app's Browser pane is not available. `lintOnEdit` lints each edited file: one rule or a
+the desktop app's Browser pane is not available. `paths.uiScopes` is the scope map `/ui-fixes`
+reads: the app's areas with their harness routes and folders ([using](using.md) § 9). `lintOnEdit`
+lints each edited file: one rule or a
 list of rules, each a command where `{file}` is the quoted repo-relative path, and `match` globs
 that pick the files it takes; every matching rule runs. `checks` names suites of commands for
 `/core:check <suite>`, and `preflight` names optional steps whose skipped commits `session` counts;

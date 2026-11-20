@@ -30,9 +30,9 @@ flowchart BT
 
 | ID | Плагін | Містить |
 | --- | --- | --- |
-| 1 | `core` | Постійні правила, агенти `check-runner` і `repo-sweep`, хуки редагування й оболонки, `kit doctor`, `/kit-inventory`, `/kit-adopt`, `/change-review`, `/repo-audit`, перевірка парності документації |
+| 1 | `core` | Постійні правила (вивід у чат із діаграмами Mermaid і текстовими позначками, оболонка, межі інструментів), скіл `diagrams`, агенти `check-runner` і `repo-sweep`, хуки редагування й оболонки, `kit doctor`, `/kit-inventory`, `/kit-adopt`, `/change-review`, `/repo-audit`, перевірка парності документації |
 | 2 | `sdlc` | П'ять скілів `/sdlc:*`, агенти `sdlc:simplifier` і `sdlc:verifier` |
-| 3 | `session` | Хуки й скрипти журналу сесій, `/handoff`, `/close-out`, `/close-siblings`, `/backlog`, `/git` з агентом `git-ops`, підготовка й злиття worktree, сторінки `evolution` |
+| 3 | `session` | Хуки й скрипти журналу сесій, `/handoff`, `/close-out`, `/close-siblings`, `/backlog`, `/git` з агентом `git-ops`, `/ui-fixes`, підготовка й злиття worktree, сторінки `evolution` |
 | 4 | `svelte` | Домовленості для Svelte 5 |
 | 5 | `python` | Домовленості для Python |
 
@@ -80,7 +80,8 @@ SDLC читають глосарій, коли робочий елемент з�
     "glossary": "docs/glossary.md",
     "recipes": "docs/recipes",
     "ledger": ".claude/ledger",
-    "evolution": "docs/evolution"
+    "evolution": "docs/evolution",
+    "uiScopes": "docs/ui-scopes.md"
   },
   "commands": {
     "install": "pnpm install --frozen-lockfile",
@@ -105,7 +106,9 @@ SDLC читають глосарій, коли робочий елемент з�
 конкретного інструмента; `{files}` у ній стає закоміченими шляхами (вони також є в
 `KIT_COMMIT_PATHS`), тож аудит може показати лише те, що зачепив коміт. `commands.install` готує
 новий worktree (без нього `session` вгадує pnpm чи npm за lock-файлом), а `commands.dev` запускає
-dev-сервер там, де немає панелі Browser настільного застосунку. `lintOnEdit` перевіряє лінтером
+dev-сервер там, де немає панелі Browser настільного застосунку. `paths.uiScopes` — карта областей,
+яку читає `/ui-fixes`: області застосунку з їхніми маршрутами в harness і теками
+([використання](using.uk.md) § 9). `lintOnEdit` перевіряє лінтером
 кожен змінений файл: одне правило або список правил, кожне з командою, де `{file}` — шлях відносно
 репозиторію в лапках, і шаблонами `match`, що вибирають її файли; запускається кожне правило, що
 збіглося. `checks` називає набори команд для `/core:check <набір>`, а `preflight` — необов'язкові
