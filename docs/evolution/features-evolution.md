@@ -1,6 +1,6 @@
 ---
 id: features-evolution
-version: 1.0.0
+version: 1.0.1
 last_verified: 2026-11-20
 ---
 
@@ -86,11 +86,11 @@ flowchart TD
     triageOpen["[session] Triage in verdict order, Open verdict"]
     uiFixes --> chatDiagrams --> triageOpen
   end
-  subgraph unreleased["Unreleased"]
+  subgraph r20["20th stable, 11-20"]
     docsCatch["[infrastructure] Docs catch up with the 19th stable<br/>every diagram in colour groups"]
   end
   r1 --> r2 --> r3 --> r4 --> r5 --> r6 --> r7 --> r8 --> r9 --> r10
-  r10 --> r11 --> r12 --> r13 --> r14 --> r15 --> r16 --> r17 --> r18 --> r19 --> unreleased
+  r10 --> r11 --> r12 --> r13 --> r14 --> r15 --> r16 --> r17 --> r18 --> r19 --> r20
 
   classDef core fill:#a5d8ff,stroke:#1c7ed6,color:#0b3f75
   classDef sdlc fill:#d0bfff,stroke:#7048e8,color:#3b1f9e
@@ -144,4 +144,4 @@ flowchart TD
 | /ui-fixes | 2026-11-18 | CHANGELOG 2026-11-20, nineteenth `stable` |
 | Mermaid diagrams and text markers | 2026-11-19 | CHANGELOG 2026-11-20, nineteenth `stable` |
 | Triage in verdict order, Open | 2026-11-19 | CHANGELOG 2026-11-20, nineteenth `stable` |
-| Docs catch up with the 19th stable | 2026-11-20 | CHANGELOG `## Unreleased` |
+| Docs catch up with the 19th stable | 2026-11-20 | CHANGELOG 2026-11-20, twentieth `stable` |
