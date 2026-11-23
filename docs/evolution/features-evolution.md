@@ -1,7 +1,7 @@
 ---
 id: features-evolution
-version: 1.0.1
-last_verified: 2026-11-20
+version: 1.1.0
+last_verified: 2026-11-23
 ---
 
 # How the features grew
@@ -89,8 +89,11 @@ flowchart TD
   subgraph r20["20th stable, 11-20"]
     docsCatch["[infrastructure] Docs catch up with the 19th stable<br/>every diagram in colour groups"]
   end
+  subgraph r21["21st stable, 11-23"]
+    parityIgnore["[core] Docs parity can leave paths out<br/>a folder of Ukrainian-only pages passes"]
+  end
   r1 --> r2 --> r3 --> r4 --> r5 --> r6 --> r7 --> r8 --> r9 --> r10
-  r10 --> r11 --> r12 --> r13 --> r14 --> r15 --> r16 --> r17 --> r18 --> r19 --> r20
+  r10 --> r11 --> r12 --> r13 --> r14 --> r15 --> r16 --> r17 --> r18 --> r19 --> r20 --> r21
 
   classDef core fill:#a5d8ff,stroke:#1c7ed6,color:#0b3f75
   classDef sdlc fill:#d0bfff,stroke:#7048e8,color:#3b1f9e
@@ -98,7 +101,7 @@ flowchart TD
   classDef frameworks fill:#d8f5a2,stroke:#66a80f,color:#3a5f0b
   classDef infrastructure fill:#dee2e6,stroke:#495057,color:#212529
   classDef planned stroke-dasharray:5 5
-  class sweep,remoteRef,userScope,ownSource,strictDoctor,machineDoctor,kitReleaseF,kitDev,changeReview,auditLessons,kitTools,oneLine,dotfiles,chatDiagrams core
+  class sweep,remoteRef,userScope,ownSource,strictDoctor,machineDoctor,kitReleaseF,kitDev,changeReview,auditLessons,kitTools,oneLine,dotfiles,chatDiagrams,parityIgnore core
   class sdlcLessons,gapIssuesF sdlc
   class ledgerTitle,evoPagesF,autoClose,devBranch,staleRemote,mainOnce,backlog,adoptInstall,triageOpen,uiFixes session
   class shortNames frameworks
@@ -145,3 +148,4 @@ flowchart TD
 | Mermaid diagrams and text markers | 2026-11-19 | CHANGELOG 2026-11-20, nineteenth `stable` |
 | Triage in verdict order, Open | 2026-11-19 | CHANGELOG 2026-11-20, nineteenth `stable` |
 | Docs catch up with the 19th stable | 2026-11-20 | CHANGELOG 2026-11-20, twentieth `stable` |
+| Docs parity can leave paths out | 2026-11-23 | CHANGELOG 2026-11-23, twenty-first `stable` |
