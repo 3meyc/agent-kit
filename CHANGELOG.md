@@ -4,6 +4,10 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 ## Unreleased
 
+## 2026-11-23 — twenty-first `stable`
+
+`stable` points at the commit that adds this entry. docs parity can leave paths out, so a folder of Ukrainian-only pages passes the check
+
 - core: `kit-docs-parity` can leave paths out, so a repo that keeps Ukrainian-only pages in one folder (an end-user guide whose English pages come later) passes the check over `docs/`. New `kit.json` `docsParity.ignore` (globs from the repo root; one matching a folder leaves out all under it) and a repeatable `--ignore <glob>` flag; an ignored file is neither compared nor reported as a lone mirror, and the summary line ends `, M path(s) ignored`. An unknown `--` option is now an error instead of a path.
 
 ## 2026-11-20 — twentieth `stable`
