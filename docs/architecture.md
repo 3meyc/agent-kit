@@ -127,6 +127,7 @@ commands the plugins use. Draft v1; the final shape lives in `schema/kit.schema.
   "checks": { "i18n": ["pnpm run i18n:check", "pnpm run i18n:parity"] },
   "preflight": { "docs-review": { "description": "Docs review skill", "match": ["docs/**"], "remindAfter": 3 } },
   "hooks": { "off": ["ledger-stop"] },
+  "docsParity": { "ignore": ["docs/guide/**"] },
   "devServer": { "port": 5173 }
 }
 ```
@@ -146,7 +147,9 @@ names shared files only the main session edits, and `regenerate` the generated f
 conflict is resolved for by a command ([session README](../plugins/session/README.md), "Sub-sessions
 and the main session").
 `hooks.off` lists kit hooks this project skips: a plugin can't be switched off hook by hook, so each
-kit hook reads this list and exits quietly when named.
+kit hook reads this list and exits quietly when named. `docsParity.ignore` lists paths
+`kit-docs-parity` leaves out, such as a folder of Ukrainian-only pages whose English pages come
+later ([core README](../plugins/core/README.md), Shell commands).
 
 Every plugin reads `kit.json` through the same module, `shared/kit-config.mjs`, vendored into each
 plugin's `lib/`: it fills in the schema defaults and answers `hooks.off`.

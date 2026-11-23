@@ -191,6 +191,12 @@ describe("lintOnEdit, kitCommand and raw", () => {
     expect(schema.properties.preflight.additionalProperties.properties.scope.default).toBe("any");
   });
 
+  it("reads docsParity.ignore, dropping unusable globs", () => {
+    expect(normalizeKit({}).docsParity).toEqual({ ignore: [] });
+    expect(normalizeKit({ docsParity: { ignore: ["docs/guide/**", 3, ""] } }).docsParity).toEqual({ ignore: ["docs/guide/**"] });
+    expect(normalizeKit({ docsParity: { ignore: "docs/guide/**" } }).docsParity).toEqual({ ignore: [] });
+  });
+
   it("reads parentFiles and regenerate rules, dropping unusable ones", () => {
     expect(normalizeKit({}).parentFiles).toEqual([]);
     expect(normalizeKit({ parentFiles: ["CHANGELOG.md", 3, ""] }).parentFiles).toEqual(["CHANGELOG.md"]);

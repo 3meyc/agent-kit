@@ -42,5 +42,6 @@
       "ledger-stop"
     ]
   },
+  "docsParity": { "ignore": ["docs/guide/**"] },
   "devServer": { "port": 5173 }
 }

@@ -42,6 +42,8 @@ const broken = {
   "parentFiles as a string": { ...minimal, parentFiles: "CHANGELOG.md" },
   "regenerate rule without a command": { ...minimal, regenerate: [{ match: ["src/types.ts"] }] },
   "regenerate rule with no globs": { ...minimal, regenerate: [{ match: [], command: "pnpm run gen" }] },
+  "docsParity.ignore as a string": { ...minimal, docsParity: { ignore: "docs/guide/**" } },
+  "docsParity with an unknown key": { ...minimal, docsParity: { exclude: ["docs/guide/**"] } },
   "ledgerAutoClose questionDays of zero": { ...minimal, ledgerAutoClose: { questionDays: 0 } },
   "ledgerAutoClose with an unknown key": { ...minimal, ledgerAutoClose: { prDays: 3 } },
   "release notes in an unknown format": { ...minimal, release: { notes: [{ path: "docs/releases.md", format: "list" }] } },

@@ -98,7 +98,7 @@ _(тут не перевірено)_. Агенти: `check-runner` (запуск
 | 1 | `count-lines <file>...` | Кількість рядків, однаково на кожній ОС |
 | 2 | `git-branch-context` | Гілка, upstream, базова гілка за замовчуванням і `baseBranch` з `kit.json` у JSON |
 | 3 | `kit doctor \| adopt \| inventory \| drift \| update-check \| installs \| commands \| dev \| dev-server \| release \| tools \| dotfiles` | `kit tools [--yes] [--check] [--only rtk,codegraph] [--index]` питає перед кожним встановленням, типово «так», а без термінала лише друкує план; `kit dotfiles <init \| apply \| check>` стоїть за `/core:kit-dotfiles`; Команди, на яких стоять скіли вище; `kit dev [--run]` друкує (або запускає) команду `claude --plugin-dir …`, що завантажує увімкнені в проєкті плагіни набору з локальних копій ([використання](../../docs/using.uk.md) § 7); `kit dev-server` стоїть за `/core:dev`; `kit installs [--clean]` показує копії плагінів набору в області проєкту, що відрізняються від копії користувача чи каналу, і прибирає їх ([використання](../../docs/using.uk.md) § 3); `kit release [--yes]` випускає реліз `stable` репозиторію набору ([зміни](../../docs/changing.uk.md), Випуск) |
-| 4 | `kit-docs-parity [path...]` | Перевіряє, що в кожній парі `name.md` / `name.uk.md` збігаються заголовки, таблиці, блоки Mermaid, блоки команд і нумеровані пункти |
+| 4 | `kit-docs-parity [--ignore <glob>]... [path...]` | Перевіряє, що в кожній парі `name.md` / `name.uk.md` збігаються заголовки, таблиці, блоки Mermaid, блоки команд і нумеровані пункти; `name.uk.md` без `name.md` — помилка. `docsParity.ignore` з `kit.json` і кожен `--ignore` виключають шляхи (шаблони від кореня репозиторію; шаблон, що збігся з текою, виключає все в ній), наприклад теку сторінок лише українською, англійські версії яких з'являться пізніше; рядок підсумку їх рахує |
 
 Скіли викликають `node "${CLAUDE_PLUGIN_ROOT}/src/kit-cli.mjs" …`, якому PATH не потрібен.
 
@@ -114,6 +114,7 @@ _(тут не перевірено)_. Агенти: `check-runner` (запуск
 | 6 | `lintOnEdit` | `lint-edited-file` |
 | 7 | увесь файл | `kit doctor` перевіряє його за схемою з `schema/` |
 | 8 | `release`, `commands.check` | `kit release` у власному репозиторії набору |
+| 9 | `docsParity.ignore` | `kit-docs-parity` |
 
 `lintOnEdit` приймає одне правило або список правил, щоб різні файли перевірялися по-різному.
 Правило — це команда й необов'язкові шаблони; `{file}` замінюється на шлях відносно репозиторію в

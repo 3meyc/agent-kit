@@ -37,6 +37,7 @@ export const KIT_DEFAULTS = Object.freeze({
   parentFiles: Object.freeze([]),
   regenerate: Object.freeze([]),
   hooks: Object.freeze({ off: Object.freeze([]) }),
+  docsParity: Object.freeze({ ignore: Object.freeze([]) }),
   devServer: null,
 });
 
@@ -154,7 +155,7 @@ export function regenerateRules(kit) {
  *   commands: Record<string, string>, lintOnEdit: Array<{ command: string, match: string[] }>,
  *   checks: Record<string, string[]>, preflight: ReturnType<typeof preflightSteps>,
  *   parentFiles: string[], regenerate: ReturnType<typeof regenerateRules>,
- *   hooks: { off: string[] }, devServer: { port?: number } | null, raw: Record<string, any> | null }} Kit
+ *   hooks: { off: string[] }, docsParity: { ignore: string[] }, devServer: { port?: number } | null, raw: Record<string, any> | null }} Kit
  */
 
 /**
@@ -196,6 +197,7 @@ export function normalizeKit(raw, error = null) {
     parentFiles: strings(kit.parentFiles),
     regenerate: regenerateRules(kit),
     hooks: { off },
+    docsParity: { ignore: strings(kit.docsParity?.ignore) },
     devServer: kit.devServer && typeof kit.devServer === "object" ? kit.devServer : null,
     // The parsed file as written, for a caller that must tell "set" from "defaulted".
     raw,

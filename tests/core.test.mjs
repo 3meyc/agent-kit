@@ -16,7 +16,7 @@ import { OWN_HOOK as RTK_OWN_HOOK, run as runRtk } from "../plugins/core/hooks/r
 import { OWN_HOOK as CODEGRAPH_OWN_HOOK, indexedRoot, run as runCodegraphPrompt } from "../plugins/core/hooks/codegraph-prompt.mjs";
 import { hookCommands, ownHookPresent, settingsFiles } from "../plugins/core/hooks/own-hooks.mjs";
 import { baseBranch, mergeSettings, otherCommands, parseAdoptArgs, repoName, sdlcPath, starterKitJson } from "../plugins/core/src/adopt.mjs";
-import { compare, outline } from "../plugins/core/src/docs-parity.mjs";
+import { compare, ignoreMatcher, outline, parseArgs } from "../plugins/core/src/docs-parity.mjs";
 import { checkKitJson, checkLoadedPlugins, checkMarketplaceRefs, checkSettings, checkVersions } from "../plugins/core/src/doctor.mjs";
 import { collectInventory, groupOf, measureDrift, summarize } from "../plugins/core/src/inventory.mjs";
 import { hookOff, lintOnEdit } from "../plugins/core/lib/kit-config.mjs";
@@ -1115,6 +1115,58 @@ describe("docs parity", () => {
   it("passes on this repo's own docs, as a process", () => {
     const result = spawnSync(process.execPath, [join(core, "bin", "kit-docs-parity")], { cwd: repo, encoding: "utf8" });
     assert.equal(result.status, 0, result.stderr);
+  });
+
+  const parity = (cwd, args = []) => spawnSync(process.execPath, [join(core, "bin", "kit-docs-parity"), ...args], { cwd, encoding: "utf8" });
+  const lone = "# Посібник\n\n[English](intro.md) · **Українська**\n";
+
+  it("leaves out kit.json docsParity.ignore paths, in a git repo, and counts them in the summary", () => {
+    const dir = tempProject("parity-ignore-git", {
+      "kit.json": { project: "my-app", docsParity: { ignore: ["docs/guide/**"] } },
+      "docs/page.md": en,
+      "docs/page.uk.md": uk,
+      "docs/guide/intro.uk.md": lone,
+      "docs/guide/start/steps.uk.md": lone,
+    });
+    spawnSync("git", ["init", "-q"], { cwd: dir });
+    const passed = parity(dir, ["docs"]);
+    assert.equal(passed.status, 0, passed.stderr);
+    assert.match(passed.stdout, /ok {3}docs parity: 1 page pair\(s\) under docs, 2 path\(s\) ignored/);
+    // Run from a subfolder: the globs stay relative to the repo root.
+    assert.equal(parity(join(dir, "docs"), ["guide"]).status, 0);
+  });
+
+  it("still fails on the same lone mirror outside an ignored path", () => {
+    const dir = tempProject("parity-ignore-outside", {
+      "kit.json": { project: "my-app", docsParity: { ignore: ["docs/guide/**"] } },
+      "docs/guide/intro.uk.md": lone,
+      "docs/other/intro.uk.md": lone,
+    });
+    const failed = parity(dir);
+    assert.equal(failed.status, 1);
+    assert.match(failed.stderr, /FAIL docs\/other\/intro\.uk\.md: no intro\.md beside it/);
+    assert.doesNotMatch(failed.stderr, /docs\/guide/);
+  });
+
+  it("takes repeatable --ignore globs, a folder name alone included, and rejects an unknown option", () => {
+    const dir = tempProject("parity-ignore-flag", { "docs/guide/intro.uk.md": lone, "notes/intro.uk.md": lone, "docs/page.md": en, "docs/page.uk.md": uk });
+    assert.equal(parity(dir).status, 1);
+    const passed = parity(dir, ["--ignore", "docs/guide", "--ignore=notes/*.uk.md"]);
+    assert.equal(passed.status, 0, passed.stderr);
+    assert.match(passed.stdout, /1 page pair\(s\) under \., 2 path\(s\) ignored/);
+    assert.equal(parity(dir, ["--ignore", "guide", "--ignore", "notes"]).status, 0);
+    const unknown = parity(dir, ["--exclude", "docs/guide"]);
+    assert.equal(unknown.status, 1);
+    assert.match(unknown.stderr, /unknown option --exclude/);
+    assert.match(parity(dir, ["--ignore"]).stderr, /--ignore needs a glob/);
+  });
+
+  it("matches a path or any folder above it", () => {
+    const ignored = ignoreMatcher(["docs/guide", "*.draft.md"]);
+    assert.equal(ignored("docs/guide/a/b.uk.md"), true);
+    assert.equal(ignored("docs/guides/b.uk.md"), false);
+    assert.equal(ignored("x/y.draft.md"), true);
+    assert.deepEqual(parseArgs(["docs", "--ignore", "a/**", "--ignore=b"]), { targets: ["docs"], ignore: ["a/**", "b"] });
   });
 });
 

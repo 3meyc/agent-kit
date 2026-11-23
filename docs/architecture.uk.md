@@ -128,6 +128,7 @@ SDLC читають глосарій, коли робочий елемент з�
   "checks": { "i18n": ["pnpm run i18n:check", "pnpm run i18n:parity"] },
   "preflight": { "docs-review": { "description": "Docs review skill", "match": ["docs/**"], "remindAfter": 3 } },
   "hooks": { "off": ["ledger-stop"] },
+  "docsParity": { "ignore": ["docs/guide/**"] },
   "devServer": { "port": 5173 }
 }
 ```
@@ -147,7 +148,9 @@ dev-сервер там, де немає панелі Browser настільно
 сесія, а `regenerate` — згенеровані файли, конфлікт злиття в яких розв'язує команда
 ([README session](../plugins/session/README.uk.md), «Підсесії й головна сесія»). `hooks.off` перелічує хуки набору, які цей проєкт
 пропускає: плагін не можна вимкнути по одному хуку, тож кожен хук набору читає цей список і тихо
-завершується, якщо його названо.
+завершується, якщо його названо. `docsParity.ignore` перелічує шляхи, які пропускає
+`kit-docs-parity`, наприклад теку сторінок лише українською, англійські версії яких з'являться
+пізніше ([README core](../plugins/core/README.uk.md), «Команди оболонки»).
 
 Усі плагіни читають `kit.json` одним модулем, `shared/kit-config.mjs`, скопійованим у `lib/`
 кожного плагіна: він підставляє типові значення зі схеми й відповідає на `hooks.off`.

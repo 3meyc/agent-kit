@@ -200,6 +200,18 @@
         }
       }
     },
+    "docsParity": {
+      "type": "object",
+      "description": "How `kit-docs-parity` walks the repo's `name.md` / `name.uk.md` pairs.",
+      "additionalProperties": false,
+      "properties": {
+        "ignore": {
+          "$ref": "#/$defs/globs",
+          "description": "Paths the check leaves out, as globs over the repo-relative path (one without a slash matches a file or folder name anywhere). A glob that matches a folder leaves out everything under it. An ignored file is neither compared nor reported as a lone mirror, so a folder of Ukrainian-only pages whose English pages come later can sit under `docs/`. The `--ignore <glob>` flag adds to this list.",
+          "examples": [["docs/guide/**"]]
+        }
+      }
+    },
     "devServer": {
       "type": "object",
       "description": "The project's local development server.",
