@@ -43,8 +43,10 @@ worktree's own `kit.json` (its `hooks.off`, its `ledger`) applies in that worktr
 Hooks 6 and 7 replace the entries RTK's and CodeGraph's installers write into
 `~/.claude/settings.json`, so every machine with the tool gets them from the plugin. Until you
 delete your own entry the kit hook stands aside, so the tool never runs twice. RTK's own entry
-matches `Bash` only, so PowerShell calls skip it; hook 6 matches both. `rtk init -g` writes the
-entry back: after it, delete the entry again. Whether CodeGraph adds context to a given prompt is
+matches `Bash` only, so PowerShell calls skip it; hook 6 matches both. Without the entry rtk
+prints `No hook installed — run rtk init -g` on every command; `kit tools` silences it with
+`[hooks] suppress_hook_warning = true` in rtk's config.toml (the file `rtk config` names), or add
+that line yourself. Do not run `rtk init -g`: it writes the entry back, and then you delete it again. Whether CodeGraph adds context to a given prompt is
 CodeGraph's choice; the kit only passes its answer on _(unverified: no prompt tried so far got an
 answer from `codegraph prompt-hook` 1.6.2)_.
 

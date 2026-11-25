@@ -8,7 +8,8 @@
 // reads zip on Windows 10+ and macOS) and put on PATH; otherwise its package command runs
 // (`npm install -g`). After installing it clears `.old`/`.bak` files beside each tool, uninstalls
 // copies off the pin that a package manager owns once a pinned copy is on PATH, and checks that
-// the shell now runs the pinned copy. Last it offers `codegraph init` for the current repo
+// the shell now runs the pinned copy, and turns off rtk's "No hook installed" warning while core's
+// rtk-rewrite hook runs RTK's hook. Last it offers `codegraph init` for the current repo
 // (indexing is the user's call: asked even under --yes, unless --index).
 import { execFileSync, execSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -17,6 +18,8 @@ import { homedir, tmpdir } from "node:os";
 import { dirname, join, sep } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
+import { HOOK_ID as RTK_HOOK_ID } from "../hooks/rtk-rewrite.mjs";
+import { hookOff, readKit } from "../lib/kit-config.mjs";
 import { runInstalls } from "./installs.mjs";
 import { defaultCacheFile } from "./update-check.mjs";
 
@@ -362,6 +365,7 @@ export async function runTools(args, deps = {}) {
   }
   for (const [name, spec] of Object.entries(tools)) cleanupTool(name, spec, options.dryRun, print);
   if (!options.dryRun) for (const name of touched) if (!verifyTool(name, tools[name], print)) failed++;
+  if (Object.hasOwn(tools, "rtk")) silenceRtkHookWarning(deps.root ?? null, options.dryRun, print);
   if (!options.only) runInstalls(options.dryRun ? [] : ["--clean"], { print: (line) => print(`  plugins ${line}`) });
   if (!options.dryRun) {
     await offerIndex(deps.root ?? null, options, interactive, ask, print);
@@ -369,6 +373,77 @@ export async function runTools(args, deps = {}) {
     if (cache) rmSync(cache, { force: true });
   }
   return failed > 0 ? 1 : 0;
+}
+
+/** The rtk setting that stops its "No hook installed" warning, under `[hooks]` in its config.toml. */
+export const RTK_HOOK_WARNING_LINE = "suppress_hook_warning = true";
+
+/**
+ * rtk's config text with `[hooks] suppress_hook_warning = true`, or null when it already says so.
+ * Changes only that key: sets it in an existing `[hooks]` table, else adds the table at the end.
+ * Pure. @param {string} text
+ */
+export function withHookWarningOff(text) {
+  const eol = text.includes("\r\n") ? "\r\n" : "\n";
+  const lines = text.split(/\r?\n/);
+  let section = null;
+  let hooksAt = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const header = lines[i].match(/^\s*\[\[?\s*([^\]]+?)\s*\]\]?\s*(#.*)?$/);
+    if (header) {
+      section = header[1];
+      if (section === "hooks" && hooksAt < 0) hooksAt = i;
+      continue;
+    }
+    if (section !== "hooks" || !/^\s*suppress_hook_warning\s*=/.test(lines[i])) continue;
+    if (/^\s*suppress_hook_warning\s*=\s*true\s*(#.*)?$/.test(lines[i])) return null;
+    lines[i] = RTK_HOOK_WARNING_LINE;
+    return lines.join(eol);
+  }
+  if (hooksAt >= 0) {
+    lines.splice(hooksAt + 1, 0, RTK_HOOK_WARNING_LINE);
+    return lines.join(eol);
+  }
+  const body = text === "" || text.endsWith("\n") ? text : `${text}${eol}`;
+  return `${body}${body ? eol : ""}[hooks]${eol}${RTK_HOOK_WARNING_LINE}${eol}`;
+}
+
+/** The config file `rtk config` names (`Config: <path>`), or null. */
+function rtkConfigFile() {
+  const result = spawnSync("rtk", ["config"], { encoding: "utf8" });
+  if (result.status !== 0) return null;
+  return result.stdout.match(/^Config:\s*(.+?)\s*$/m)?.[1] ?? null;
+}
+
+/**
+ * Core's `rtk-rewrite` hook runs RTK's hook once the user deletes `rtk hook claude` from their
+ * settings, after which rtk warns on every command that no hook is installed (and `rtk init -g`
+ * would write the old Bash-only entry back). So, with that duty on and rtk on PATH, set rtk's own
+ * switch for the warning, or name the line to add when the config file cannot be found or written.
+ * @param {string | null} root @param {boolean} dryRun @param {(line: string) => void} print
+ */
+function silenceRtkHookWarning(root, dryRun, print) {
+  if (root && hookOff(RTK_HOOK_ID, readKit(root))) return;
+  if (!probeVersion(["rtk", "--version"]).found) return;
+  const by = `add \`${RTK_HOOK_WARNING_LINE}\` under \`[hooks]\` in rtk's config.toml (\`rtk config\` names it)`;
+  const file = rtkConfigFile();
+  if (!file) return print(`  rtk     ${by}, so rtk stops warning that no hook is installed`);
+  let text = "";
+  try {
+    text = existsSync(file) ? readFileSync(file, "utf8") : "";
+  } catch (error) {
+    return print(`  rtk     cannot read ${file} (${error.message}); ${by}`);
+  }
+  const next = withHookWarningOff(text);
+  if (next === null) return;
+  if (dryRun) return print(`  rtk     would set [hooks] ${RTK_HOOK_WARNING_LINE} in ${file}`);
+  try {
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, next);
+    print(`  rtk     set [hooks] ${RTK_HOOK_WARNING_LINE} in ${file}: core runs RTK's hook, so rtk need not warn that none is installed`);
+  } catch (error) {
+    print(`  rtk     cannot write ${file} (${error.message}); ${by}`);
+  }
 }
 
 /**

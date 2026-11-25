@@ -6,6 +6,7 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 - session: `worktree-flow base` no longer guesses a backup branch (`backup/…`, `backups/…`) as a worktree's base, and `kit.json` `baseBranch` now wins among the branches holding the most of the worktree's branch, not only a full tie. A worktree cut from `main` before the project moved its integration to `dev` is guessed onto `dev`, as the SessionStart note already measures it (#53).
 - core: the SessionStart update notice lists at most three lagging plugins and folds the rest into "and N more, each named in the command below", since the combined update command names every plugin anyway. The worst-case core SessionStart output (rules, 12 lagging plugins, every tool off its pin) drops from 7,992 to 6,948 of its 8,000 characters, so the next always-on rule fits without rewording agreed ones (#52).
+- core: `kit tools` sets `[hooks] suppress_hook_warning = true` in rtk's config.toml (the file `rtk config` names) when rtk is on PATH and the `rtk-rewrite` hook is on, or names the line to add when it cannot write the file; `--dry-run` says it would. Once core runs RTK's hook and the user deletes `rtk hook claude` from their settings, rtk no longer prints "No hook installed" on every command. The core README says so where it tells you to delete the entry (#51).
 
 ## 2026-11-23 — twenty-first `stable`
 

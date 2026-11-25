@@ -22,6 +22,7 @@ import {
   toolsNote,
   uninstallCommand,
   uninstallHint,
+  withHookWarningOff,
 } from "../plugins/core/src/tools.mjs";
 
 const scratch = mkdtempSync(join(tmpdir(), "agent-kit-tools-"));
@@ -38,6 +39,33 @@ describe("tools.json", () => {
       }
       if (spec.install) assert.ok(spec.package, `${name} names its package, for the clean-up`);
     }
+  });
+});
+
+describe("rtk hook warning setting", () => {
+  it("adds a [hooks] table to an empty or table-less config", () => {
+    assert.equal(withHookWarningOff(""), "[hooks]\nsuppress_hook_warning = true\n");
+    assert.equal(
+      withHookWarningOff("[tracking]\nenabled = true"),
+      "[tracking]\nenabled = true\n\n[hooks]\nsuppress_hook_warning = true\n",
+    );
+  });
+
+  it("sets the key inside an existing [hooks] table, and only there", () => {
+    assert.equal(
+      withHookWarningOff("[hooks]\nother = 1\n\n[tracking]\nsuppress_hook_warning = false\n"),
+      "[hooks]\nsuppress_hook_warning = true\nother = 1\n\n[tracking]\nsuppress_hook_warning = false\n",
+    );
+    assert.equal(
+      withHookWarningOff("[tracking]\nenabled = true\n[hooks]\nsuppress_hook_warning = false # was noisy\n"),
+      "[tracking]\nenabled = true\n[hooks]\nsuppress_hook_warning = true\n",
+    );
+  });
+
+  it("leaves a config that already says so alone, and keeps CRLF line ends", () => {
+    assert.equal(withHookWarningOff("[hooks]\nsuppress_hook_warning = true\n"), null);
+    assert.equal(withHookWarningOff("[ hooks ]\n  suppress_hook_warning=true  # set by hand\n"), null);
+    assert.equal(withHookWarningOff("[hooks]\r\nx = 1\r\n"), "[hooks]\r\nsuppress_hook_warning = true\r\nx = 1\r\n");
   });
 });
 

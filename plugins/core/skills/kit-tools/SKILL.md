@@ -32,7 +32,10 @@ description: Install and set up the machine tools the kit's hooks use — rtk, C
 
    It downloads rtk's release asset and checks its sha256, runs `npm install -g` for CodeGraph and
    Fallow, removes old `.old`/`.bak` copies and stale package-manager copies, clears stale
-   project-scope plugin copies, and checks that the shell runs each pinned copy.
+   project-scope plugin copies, and checks that the shell runs each pinned copy. With rtk on PATH
+   and the `rtk-rewrite` hook on, it sets `[hooks] suppress_hook_warning = true` in rtk's
+   config.toml (the file `rtk config` names), so rtk stops warning that no hook is installed once
+   the settings entry is gone.
 
 4. Report each tool's last line (`ok`, `skip` or `FAIL`), quoting a `FAIL` with its fix. A tool
    placed in a folder that is not on PATH needs a new shell after the user adds it; say so. Where
