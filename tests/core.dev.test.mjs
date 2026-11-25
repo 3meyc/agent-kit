@@ -8,6 +8,7 @@ import { dirname, join, resolve } from "node:path";
 import { after, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import { checkoutState, devPlan, loadCheckouts, parseDevArgs, runDev, shellWord } from "../plugins/core/src/dev-plugins.mjs";
+import { tilde } from "../plugins/core/src/installs.mjs";
 
 const scratch = realpathSync.native(mkdtempSync(join(tmpdir(), "agent-kit-dev-")));
 after(() => rmSync(scratch, { recursive: true, force: true }));
@@ -140,13 +141,14 @@ describe("kit dev", () => {
       assert.deepEqual(real, { repo: true, branch: "feat/review", base: "dev", dirty: 1 });
       const dir = project("app-dirty", ["core@agent-kit", "review@my-overlay"]);
       const plan = devPlan(dir, { checkouts: loadCheckouts({ file: configFile }).checkouts });
+      // Reports write a path under the home folder as ~ (the Windows runner's temp folder is there).
       assert.deepEqual(plan.warnings.filter((line) => line.includes("my-overlay")), [
-        `checkout my-overlay (${overlay}) has 1 uncommitted file`,
-        `checkout my-overlay (${overlay}) is on branch feat/review, not dev`,
+        `checkout my-overlay (${tilde(overlay)}) has 1 uncommitted file`,
+        `checkout my-overlay (${tilde(overlay)}) is on branch feat/review, not dev`,
       ]);
       assert.ok(!plan.warnings.some((line) => line.includes("checkout agent-kit")));
       const detached = devPlan(dir, { checkouts: loadCheckouts({ file: configFile }).checkouts, state: () => ({ repo: true, branch: null, base: "main", dirty: 0 }) });
-      assert.ok(detached.warnings.includes(`checkout agent-kit (${base}) is on a detached HEAD, not main`));
+      assert.ok(detached.warnings.includes(`checkout agent-kit (${tilde(base)}) is on a detached HEAD, not main`), detached.warnings.join("\n"));
     } finally {
       git(overlay, "checkout", "-q", "dev");
       rmSync(join(overlay, "plugins/review/notes.md"));
@@ -160,7 +162,7 @@ describe("kit dev", () => {
     assert.equal(runDev(dir, ["--config", configFile], { print: out.print, state: clean }), 0);
     const text = out.text();
     assert.match(text, /^1\. Plugins$/m);
-    assert.ok(text.split("\n").includes(`   1.2. review@my-overlay: ${join(overlay, "plugins", "review")}`), text);
+    assert.ok(text.split("\n").includes(`   1.2. review@my-overlay: ${tilde(join(overlay, "plugins", "review"))}`), text);
     assert.match(text, /^2\. Warnings\n {3}none$/m);
     // The overlay's folder name has a space, so its path is always quoted; the base's only when it
     // needs it (a Windows path's backslashes do).

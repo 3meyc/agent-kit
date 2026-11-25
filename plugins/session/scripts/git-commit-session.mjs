@@ -810,13 +810,27 @@ function auditCommit(paths) {
     return;
   }
   // The shell's "command not found": the tool is not installed on this machine. sh says 127;
-  // cmd.exe, which `shell: true` runs on Windows, says 9009.
-  if (run.status === 127 || (process.platform === "win32" && run.status === 9009)) {
+  // cmd.exe, which `shell: true` runs on Windows, exits 1 or 9009, so there a failed run asks
+  // `where` whether the command's first word exists at all.
+  if (run.status === 127 || (process.platform === "win32" && run.status !== 0 && missingOnWindows(command))) {
     console.log(`commit-audit: ${configured} is not installed here; this commit was not audited`);
     return;
   }
   console.log(`commit-audit: ${configured} (exit ${run.status}, ${seconds} s)`);
   for (const line of auditTail(`${run.stdout ?? ""}${run.stderr ?? ""}`)) console.log(`  ${line}`);
+}
+
+/**
+ * Whether a command line's program is missing on Windows: its first word (unquoted) is neither an
+ * existing path nor found by `where`. Asked only after a failed run, so a present tool costs nothing.
+ * @param {string} command
+ */
+function missingOnWindows(command) {
+  const first = command.trim().match(/^"([^"]+)"|^(\S+)/);
+  const program = first?.[1] ?? first?.[2];
+  if (!program) return false;
+  if (/[\\/]/.test(program)) return !existsSync(resolve(top, program));
+  return spawnSync("where", [program], { encoding: "utf8" }).status !== 0;
 }
 
 /**
