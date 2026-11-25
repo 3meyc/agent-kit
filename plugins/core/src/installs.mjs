@@ -15,7 +15,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, rmdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, sep } from "node:path";
 import {
   channelResolver,
   claudeDir,
@@ -32,7 +32,7 @@ const short = (sha) => (typeof sha === "string" ? sha.slice(0, 12) : "none");
 /** `path` with the home folder written as `~`, for reports. */
 export function tilde(path) {
   const home = homedir();
-  return typeof path === "string" && (path === home || path.startsWith(`${home}/`)) ? `~${path.slice(home.length)}` : path;
+  return typeof path === "string" && (path === home || path.startsWith(`${home}/`) || path.startsWith(`${home}${sep}`)) ? `~${path.slice(home.length)}` : path;
 }
 
 /**

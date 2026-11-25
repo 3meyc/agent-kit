@@ -4,6 +4,15 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 ## Unreleased
 
+- repo, core, session: the kit's tests pass on Windows and the Windows CI leg blocks a merge (#49). The failures hid real Windows bugs, now fixed:
+  - Windows 8.3 short folder names (`C:\Users\RUNNER~1`) against git's long form: `realPath` (update-check, installs), the lint-edited-file hook, `git-commit-session` (it refused every path as outside the repository) and `worktree-flow remove` now compare paths through `realpathSync.native`.
+  - `kit release` counts the releases of a CRLF changelog (a `core.autocrlf` checkout) and keeps its line endings.
+  - The lint-edited-file hook quotes a path for cmd.exe only when it needs it.
+  - `git-commit-session` reads cmd.exe's exit 9009 as a commit audit tool that is not installed.
+  - `shellWriteTargets` sees a path inside the working folder with Windows separators.
+  - A `gh` stand-in given as a `.mjs` file runs through node.
+  - Tests build their expected paths with `path` instead of hard-coding `/`.
+
 - session: `/close-out` and `/close-siblings` no longer miss issues. A commit's `Closes #n` closes an issue only when it reaches the forge's default branch, so an issue fixed on `dev` stayed open after the push, and nothing named it. New `worktree-flow issues [--base <b>] [--json]` lists the issues the landing's commits close or mention (GitHub's closing keywords before `#n`, `owner/repo#n` or an issue URL), each with its state and title through `gh api`, and prints the `gh issue close … --comment "Fixed on <base> by: <subjects>"` line for each the push will leave open; it closes nothing. `/close-out` preloads it and builds a close list (closing commits, plus a charter issue or a mention the work finished, added by hand); Done lines and the session resume name each `owner/repo#n`; the pushing button's message adds "close …", and the issues close after the push (on the default branch, each is confirmed closed instead). `/close-siblings` runs it after the merges, so the sub-sessions' issues are closed by the parent; a child session closes none.
 
 - session: `worktree-flow base` no longer guesses a backup branch (`backup/…`, `backups/…`) as a worktree's base, and `kit.json` `baseBranch` now wins among the branches holding the most of the worktree's branch, not only a full tie. A worktree cut from `main` before the project moved its integration to `dev` is guessed onto `dev`, as the SessionStart note already measures it (#53).

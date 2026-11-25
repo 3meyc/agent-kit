@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { after, describe, it } from "node:test";
 import { dotfilesDir, folderProblems, ignoreLines, mergeManifests, parseDotfilesArgs, pathState, readDotfilesManifest, runDotfiles, scanText } from "../plugins/core/src/dotfiles.mjs";
 
@@ -52,7 +52,7 @@ describe("kit dotfiles arguments", () => {
 
   it("finds the folder in KIT_DOTFILES, else ~/.claude-dotfiles", () => {
     assert.equal(dotfilesDir({}, "/h"), join("/h", ".claude-dotfiles"));
-    assert.equal(dotfilesDir({ KIT_DOTFILES: "/elsewhere" }, "/h"), "/elsewhere");
+    assert.equal(dotfilesDir({ KIT_DOTFILES: "/elsewhere" }, "/h"), resolve("/elsewhere"));
   });
 });
 

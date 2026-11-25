@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { isatty } from "node:tty";
 import { fileURLToPath } from "node:url";
 import { isDirectRun } from "../lib/hook-utils.mjs";
@@ -220,12 +220,31 @@ function parseArgs(argv) {
 }
 
 /**
+ * `path` with its longest existing part resolved by the OS: git prints the root that way, while the
+ * shell's cwd may name it through a symlink (macOS `/var`) or a Windows 8.3 short name
+ * (`C:\Users\RUNNER~1`), and `relative` across two spellings of one folder leaves the repository.
+ * Names that do not exist (yet, or any more) stay as given.
+ * @param {string} path an absolute path
+ */
+function canonicalPath(path) {
+  const parent = dirname(path);
+  try {
+    return realpathSync.native(path);
+  } catch {
+    return parent === path ? path : join(canonicalPath(parent), basename(path));
+  }
+}
+
+/**
  * Claims are repo-relative with `/`, so `./x`, `sub\\x` on Windows, an absolute path or a run from
  * a subdirectory must be turned into that form, or the check would match nothing and pass.
  */
 function normalizePaths(paths) {
+  const root = canonicalPath(top);
   const normalized = paths.map((path) => {
-    const rel = relative(top, resolve(process.cwd(), path)).split(sep).join("/");
+    // The last name stays as given: a tracked symlink is committed as itself, not as its target.
+    const absolute = resolve(process.cwd(), path);
+    const rel = relative(root, join(canonicalPath(dirname(absolute)), basename(absolute))).split(sep).join("/");
     if (!rel || rel.startsWith("../") || rel === ".." || isAbsolute(rel))
       fail(1, `not a path inside the repository: ${path}`);
     return rel;
@@ -790,13 +809,28 @@ function auditCommit(paths) {
     console.log(`commit-audit: ${configured} did not finish (${why}); this commit was not audited`);
     return;
   }
-  // 127 is the shell's "command not found": the tool is not installed on this machine.
-  if (run.status === 127) {
+  // The shell's "command not found": the tool is not installed on this machine. sh says 127;
+  // cmd.exe, which `shell: true` runs on Windows, exits 1 or 9009, so there a failed run asks
+  // `where` whether the command's first word exists at all.
+  if (run.status === 127 || (process.platform === "win32" && run.status !== 0 && missingOnWindows(command))) {
     console.log(`commit-audit: ${configured} is not installed here; this commit was not audited`);
     return;
   }
   console.log(`commit-audit: ${configured} (exit ${run.status}, ${seconds} s)`);
   for (const line of auditTail(`${run.stdout ?? ""}${run.stderr ?? ""}`)) console.log(`  ${line}`);
+}
+
+/**
+ * Whether a command line's program is missing on Windows: its first word (unquoted) is neither an
+ * existing path nor found by `where`. Asked only after a failed run, so a present tool costs nothing.
+ * @param {string} command
+ */
+function missingOnWindows(command) {
+  const first = command.trim().match(/^"([^"]+)"|^(\S+)/);
+  const program = first?.[1] ?? first?.[2];
+  if (!program) return false;
+  if (/[\\/]/.test(program)) return !existsSync(resolve(top, program));
+  return spawnSync("where", [program], { encoding: "utf8" }).status !== 0;
 }
 
 /**

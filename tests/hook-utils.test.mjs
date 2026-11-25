@@ -47,10 +47,12 @@ test("isInCheckout excludes linked worktrees", () => {
 });
 
 test("linkedWorktreeScript finds a worktree's own copy", () => {
-  const exists = (path) => path === "/work/my-app/.claude/worktrees/w1/scripts/hook.mjs";
+  // Built with join: the result uses the platform's separator.
+  const w1 = join(root, ".claude", "worktrees", "w1");
+  const exists = (path) => path === join(w1, "scripts", "hook.mjs");
   assert.deepEqual(linkedWorktreeScript("/work/my-app/.claude/worktrees/w1/src", "scripts/hook.mjs", root, exists), {
-    dir: "/work/my-app/.claude/worktrees/w1",
-    script: "/work/my-app/.claude/worktrees/w1/scripts/hook.mjs",
+    dir: w1,
+    script: join(w1, "scripts", "hook.mjs"),
   });
   assert.equal(linkedWorktreeScript("/work/my-app/.claude/worktrees/w2", "scripts/hook.mjs", root, exists), null);
   assert.equal(linkedWorktreeScript("/work/my-app/src", "scripts/hook.mjs", root, exists), null);

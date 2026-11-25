@@ -9,12 +9,10 @@ permissions:
   contents: read
 
 jobs:
-  # Linux, macOS and Windows: developers run the kit on all three. Windows is non-blocking until
-  # its known failures (path separators in test expectations) are fixed; its result still shows.
+  # Linux, macOS and Windows: developers run the kit on all three, and each one blocks a merge.
   check:
     name: check (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ matrix.os == 'windows-latest' }}
     strategy:
       fail-fast: false
       matrix:

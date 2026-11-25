@@ -125,10 +125,14 @@ function lsRemote(remote, timeoutMs) {
   return result.status === 0 ? pickRemoteSha(result.stdout, remote.ref) : null;
 }
 
-/** `path` with symlinks resolved when it exists (`/tmp` is `/private/tmp` on macOS), else as given. */
+/**
+ * `path` with symlinks resolved when it exists (`/tmp` is `/private/tmp` on macOS), else as given.
+ * The native call also expands Windows 8.3 short names (`C:\Users\RUNNER~1`), which git never
+ * prints, so a path from the payload or the temp folder compares equal to git's.
+ */
 export function realPath(path) {
   try {
-    return realpathSync(resolve(path));
+    return realpathSync.native(resolve(path));
   } catch {
     return resolve(path);
   }

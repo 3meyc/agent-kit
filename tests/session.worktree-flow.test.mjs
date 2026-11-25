@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "./session/vitest-compat.mjs";
@@ -396,7 +396,8 @@ describe("worktree-flow stale-remote with a bare origin", () => {
       .sort();
 
   beforeAll(() => {
-    root = realpathSync(mkdtempSync(join(tmpdir(), "worktree-flow-remote-")));
+    // The long, real form git prints (`realpathSync` keeps a Windows 8.3 short name), for `checked out in`.
+    root = realpathSync.native(mkdtempSync(join(tmpdir(), "worktree-flow-remote-")));
     const main = join(root, "main");
     spawnSync("git", ["init", "-q", "--bare", "-b", "main", join(root, "origin.git")]);
     spawnSync("git", ["init", "-q", "-b", "main", main]);
@@ -436,21 +437,24 @@ describe("worktree-flow stale-remote with a bare origin", () => {
     git(lead, "merge", "-q", "--ff-only", "claude/landing");
 
     const squashTip = git(main, "rev-parse", "claude/squash").stdout.trim();
-    gh = join(root, "gh");
+    // A node script, not a shebang one: Windows cannot spawn the latter.
+    gh = join(root, "gh.mjs");
+    const answers = {
+      "--head claude/squash --state": [{ number: 7, baseRefName: "dev", headRefOid: squashTip }],
+      "--head claude/late --state": [{ number: 8, baseRefName: "dev", headRefOid: "0000000" }],
+    };
     writeFileSync(
       gh,
       [
-        "#!/bin/sh",
-        `echo "$@" >> "${join(root, "gh-calls")}"`,
-        'case "$*" in',
-        `  *"--head claude/squash --state"*) echo '[{"number":7,"baseRefName":"dev","headRefOid":"${squashTip}"}]' ;;`,
-        `  *"--head claude/late --state"*) echo '[{"number":8,"baseRefName":"dev","headRefOid":"0000000"}]' ;;`,
-        "  *) echo '[]' ;;",
-        "esac",
+        'import { appendFileSync } from "node:fs";',
+        'const args = process.argv.slice(2).join(" ");',
+        `appendFileSync(${JSON.stringify(join(root, "gh-calls"))}, args + "\\n");`,
+        `const answers = ${JSON.stringify(answers)};`,
+        "const key = Object.keys(answers).find((part) => args.includes(part));",
+        "console.log(JSON.stringify(key ? answers[key] : []));",
         "",
       ].join("\n"),
     );
-    chmodSync(gh, 0o755);
   });
 
   afterAll(() => rmSync(root, { recursive: true, force: true }));

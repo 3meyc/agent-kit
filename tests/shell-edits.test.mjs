@@ -89,18 +89,19 @@ describe("shellWriteTargets", () => {
 
   it("expands a variable set earlier in the command when it follows cd", () => {
     // The verifier sub-agent's shape: its clone is outside the repo, so nothing here is claimed.
+    // Targets are absolute in the OS's form: `resolve` puts Windows' drive and separators on them.
     expect(targets("S=/tmp/scratch; cd $S/clone && echo b >> README.md").files).toEqual([
-      "/tmp/scratch/clone/README.md",
+      resolve("/tmp/scratch/clone/README.md"),
     ]);
     expect(targets('export H=/tmp/h LEDGER_NO_SUMMARY=1; cd "${H}" && pnpm install').files).toEqual([
-      "/tmp/h/package.json",
-      "/tmp/h/pnpm-lock.yaml",
+      resolve("/tmp/h/package.json"),
+      resolve("/tmp/h/pnpm-lock.yaml"),
     ]);
   });
 
   it("attributes no relative path after a cd it cannot resolve", () => {
     expect(targets('cd "$UNKNOWN/clone" && echo b >> README.md && pnpm install').files).toEqual([]);
-    expect(targets("cd $(mktemp -d) && echo x > a.txt; echo y > /tmp/abs.txt").files).toEqual(["/tmp/abs.txt"]);
+    expect(targets("cd $(mktemp -d) && echo x > a.txt; echo y > /tmp/abs.txt").files).toEqual([resolve("/tmp/abs.txt")]);
   });
 
   it("reads macOS sed -i '' as the in-place flag with an empty backup suffix", () => {
@@ -283,7 +284,7 @@ describe("shellWriteTargets", () => {
 
   it("expands a variable set earlier in the command in write targets", () => {
     expect(targets("S=/tmp/s; cat > $S/x.mjs <<'EOF'\nwrite()\nEOF")).toEqual({
-      files: ["/tmp/s/x.mjs"],
+      files: [resolve("/tmp/s/x.mjs")],
       globs: [],
       opaque: false,
     });

@@ -1,5 +1,5 @@
 import { homedir } from "node:os";
-import { basename, dirname, isAbsolute, resolve } from "node:path";
+import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path";
 
 /**
  * Write targets of a shell command, for the shell hooks (`shell-deletions`), the CodeGraph sync
@@ -711,7 +711,10 @@ function resolveOperand(state, token) {
 
 function literalPrefixIsOutside(prefix, cwd) {
   const known = prefix.slice(0, prefix.lastIndexOf("/") + 1);
-  return isAbsolute(known) && !`${resolve(known)}/`.startsWith(`${resolve(cwd)}/`);
+  if (!isAbsolute(known)) return false;
+  // `relative`, not a string prefix: on Windows `resolve` turns `/` into `\` and ignores case.
+  const rel = relative(resolve(cwd), resolve(known));
+  return rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel);
 }
 
 function addPath(state, token) {

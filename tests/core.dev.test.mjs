@@ -4,15 +4,17 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { after, describe, it } from "node:test";
+import { fileURLToPath } from "node:url";
 import { checkoutState, devPlan, loadCheckouts, parseDevArgs, runDev, shellWord } from "../plugins/core/src/dev-plugins.mjs";
+import { tilde } from "../plugins/core/src/installs.mjs";
 
-const scratch = realpathSync(mkdtempSync(join(tmpdir(), "agent-kit-dev-")));
+const scratch = realpathSync.native(mkdtempSync(join(tmpdir(), "agent-kit-dev-")));
 after(() => rmSync(scratch, { recursive: true, force: true }));
 const hooks = join(scratch, "no-hooks");
 mkdirSync(hooks);
-const REPO = join(dirname(new URL(import.meta.url).pathname), "..");
+const REPO = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 function git(cwd, ...args) {
   const result = spawnSync("git", args, { cwd, encoding: "utf8" });
@@ -89,7 +91,7 @@ describe("kit dev", () => {
     const loaded = loadCheckouts({ file: configFile, flags: { "agent-kit": "~/kits/agent-kit" }, home: "/home/me" });
     assert.deepEqual(loaded.errors, []);
     assert.equal(loaded.checkouts["my-overlay"].path, overlay);
-    assert.equal(loaded.checkouts["agent-kit"].path, "/home/me/kits/agent-kit");
+    assert.equal(loaded.checkouts["agent-kit"].path, resolve("/home/me/kits/agent-kit"));
     assert.equal(loaded.checkouts["agent-kit"].from, "--checkout");
     assert.deepEqual(loadCheckouts({ file: join(scratch, "none.json") }).checkouts, {});
     write(scratch, { "bad.json": "[1]" });
@@ -139,13 +141,14 @@ describe("kit dev", () => {
       assert.deepEqual(real, { repo: true, branch: "feat/review", base: "dev", dirty: 1 });
       const dir = project("app-dirty", ["core@agent-kit", "review@my-overlay"]);
       const plan = devPlan(dir, { checkouts: loadCheckouts({ file: configFile }).checkouts });
+      // Reports write a path under the home folder as ~ (the Windows runner's temp folder is there).
       assert.deepEqual(plan.warnings.filter((line) => line.includes("my-overlay")), [
-        `checkout my-overlay (${overlay}) has 1 uncommitted file`,
-        `checkout my-overlay (${overlay}) is on branch feat/review, not dev`,
+        `checkout my-overlay (${tilde(overlay)}) has 1 uncommitted file`,
+        `checkout my-overlay (${tilde(overlay)}) is on branch feat/review, not dev`,
       ]);
       assert.ok(!plan.warnings.some((line) => line.includes("checkout agent-kit")));
       const detached = devPlan(dir, { checkouts: loadCheckouts({ file: configFile }).checkouts, state: () => ({ repo: true, branch: null, base: "main", dirty: 0 }) });
-      assert.ok(detached.warnings.includes(`checkout agent-kit (${base}) is on a detached HEAD, not main`));
+      assert.ok(detached.warnings.includes(`checkout agent-kit (${tilde(base)}) is on a detached HEAD, not main`), detached.warnings.join("\n"));
     } finally {
       git(overlay, "checkout", "-q", "dev");
       rmSync(join(overlay, "plugins/review/notes.md"));
@@ -159,9 +162,11 @@ describe("kit dev", () => {
     assert.equal(runDev(dir, ["--config", configFile], { print: out.print, state: clean }), 0);
     const text = out.text();
     assert.match(text, /^1\. Plugins$/m);
-    assert.match(text, /^ {3}1\.2\. review@my-overlay: .*my overlay\/plugins\/review$/m);
+    assert.ok(text.split("\n").includes(`   1.2. review@my-overlay: ${tilde(join(overlay, "plugins", "review"))}`), text);
     assert.match(text, /^2\. Warnings\n {3}none$/m);
-    assert.ok(text.includes(`claude --plugin-dir ${join(base, "plugins", "core")} --plugin-dir '${join(overlay, "plugins", "review")}'`));
+    // The overlay's folder name has a space, so its path is always quoted; the base's only when it
+    // needs it (a Windows path's backslashes do).
+    assert.ok(text.includes(`claude --plugin-dir ${shellWord(join(base, "plugins", "core"))} --plugin-dir '${join(overlay, "plugins", "review")}'`), text);
     assert.match(text, /kit doctor.*\n.*loaded for this session with --plugin-dir/);
     assert.equal(shellWord("it's"), `'it'\\''s'`);
   });
@@ -191,7 +196,7 @@ describe("kit dev", () => {
     for (const script of [join(REPO, "plugins", "core", "src", "kit-cli.mjs"), join(REPO, "bin", "agent-kit.mjs")]) {
       const result = spawnSync(process.execPath, [script, "dev"], { cwd: dir, env, encoding: "utf8" });
       assert.equal(result.status, 0, result.stderr);
-      assert.ok(result.stdout.includes(`claude --plugin-dir ${join(base, "plugins", "core")}`), result.stdout);
+      assert.ok(result.stdout.includes(`claude --plugin-dir ${shellWord(join(base, "plugins", "core"))}`), result.stdout);
     }
   });
 });

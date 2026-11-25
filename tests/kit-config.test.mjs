@@ -26,7 +26,8 @@ const schema = JSON.parse(readFileSync(new URL("../schema/kit.schema.json", impo
 
 let dir;
 beforeEach(() => {
-  dir = realpathSync(mkdtempSync(join(tmpdir(), "kit-config-")));
+  // Native: it expands a Windows 8.3 temp path (RUNNER~1) the way git prints its top level.
+  dir = realpathSync.native(mkdtempSync(join(tmpdir(), "kit-config-")));
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 

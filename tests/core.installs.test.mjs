@@ -4,13 +4,14 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative, sep } from "node:path";
 import { after, describe, it } from "node:test";
 import { checkInstalled, checkNestedWorktree, checkVersions, outerCheckout } from "../plugins/core/src/doctor.mjs";
 import { runInstalls, surveyInstalls, uninstallCopy } from "../plugins/core/src/installs.mjs";
 import { checkUpdates, loadedRecord, recordApplies, repoRoot } from "../plugins/core/src/update-check.mjs";
 
-const scratch = realpathSync(mkdtempSync(join(tmpdir(), "agent-kit-installs-")));
+// Native: it expands a Windows 8.3 temp path (RUNNER~1) the way git prints worktree paths.
+const scratch = realpathSync.native(mkdtempSync(join(tmpdir(), "agent-kit-installs-")));
 after(() => rmSync(scratch, { recursive: true, force: true }));
 
 const git = (cwd, ...args) => {
@@ -188,7 +189,7 @@ describe("kit installs", () => {
     state.installed["sdlc@agent-kit"] = [record("project", "a", dirs.main)];
     state.installed["svelte@agent-kit"] = [record("user", "a"), record("project", "a", dirs.main)];
     const copies = surveyInstalls({ state, channels });
-    const view = copies.map(({ id, projectPath, stale, loads, exists, blocked }) => ({ id, at: projectPath.slice(dirs.base.length + 1), stale, loads, exists, blocked: blocked ? blocked.split(";")[0] : null }));
+    const view = copies.map(({ id, projectPath, stale, loads, exists, blocked }) => ({ id, at: relative(dirs.base, projectPath).split(sep).join("/"), stale, loads, exists, blocked: blocked ? blocked.split(";")[0] : null }));
     assert.deepEqual(view, [
       { id: "core@agent-kit", at: "my-app-sibling", stale: true, loads: true, exists: true, blocked: null },
       { id: "core@agent-kit", at: "my-app/.claude/worktrees/inner", stale: false, loads: false, exists: true, blocked: null },
