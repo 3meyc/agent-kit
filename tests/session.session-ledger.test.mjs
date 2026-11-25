@@ -154,6 +154,32 @@ describe("session-ledger --files", () => {
     expect(files()).toEqual(["mine.md", "notes.md"]);
   });
 
+  it("lists another session's ledger record it rewrote with Write, but never as edited work", () => {
+    const ledger = join(repo, ".claude", "ledger");
+    mkdirSync(ledger, { recursive: true });
+    const stale = ".claude/ledger/2026-06-01-bbbbbbbb.md";
+    const untouched = ".claude/ledger/2026-06-02-cccccccc.md";
+    for (const path of [stale, untouched]) writeFileSync(join(repo, path), "---\nid: x\n---\n\n# stale\n");
+    git("add", ".claude");
+    git(...COMMIT, "-m", "records");
+    for (const path of [stale, untouched]) writeFileSync(join(repo, path), "---\nid: x\n---\n\n# rewritten\n");
+    const transcript = join(transcriptDir(), `${ID}.jsonl`);
+    writeJsonl(transcript, [
+      { type: "user", timestamp: later(1), sessionId: ID, message: { content: "Rewrite the stale record and edit mine.md" } },
+      edit("mine.md", later(2)),
+      {
+        type: "assistant",
+        timestamp: later(3),
+        sessionId: ID,
+        message: { content: [{ type: "tool_use", id: "write-stale", name: "Write", input: { file_path: join(repo, stale) } }] },
+      },
+    ]);
+    expect(files()).toEqual([stale, "mine.md"]);
+    const own = recordFor(transcript).find((text) => text.includes("aaaaaaaa"));
+    expect(own).toContain("- mine.md");
+    expect(own).not.toContain("bbbbbbbb");
+  });
+
   it("leaves the history a side chat copied from its parent to the parent", () => {
     // A side chat starts as a copy of the parent's transcript under a new id; the copied lines
     // keep the parent's sessionId, so the parent's edits must not become the fork's claims.

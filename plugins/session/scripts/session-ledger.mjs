@@ -398,7 +398,13 @@ function noteToolEdit(state, block, input, entry) {
   if (!EDIT_TOOL_NAMES.has(block.name) || !input.file_path) return;
   const path = relPath(input.file_path, state.root);
   if (/[\\/]memory[\\/]/.test(String(input.file_path))) state.record.memoryFiles.add(basename(path));
+  else if (inLedger(path, KIT)) noteLedgerEdit(state.record.ledgerEditedAt, path, entry.timestamp);
   else if (!isNoisePath(path)) countToolEdit(state.edited, path, entry.timestamp);
+}
+
+/** A ledger file the session wrote itself: kept out of its edited work, but its own to commit. */
+function noteLedgerEdit(ledgerEditedAt, path, timestamp) {
+  if (timestamp && timestamp > (ledgerEditedAt.get(path) ?? "")) ledgerEditedAt.set(path, timestamp);
 }
 
 function countToolEdit(edited, path, timestamp) {
@@ -456,6 +462,8 @@ function emptyRecord(id) {
     editedVia: new Map(),
     /** @type {Map<string, string>} last edit time of every edited path; stored with `## Files` */
     editedAt: new Map(),
+    /** @type {Map<string, string>} ledger files written with Edit/Write and when; for `--files` only, never rendered */
+    ledgerEditedAt: new Map(),
     /** Matched against the closing message, so they change every turn; rendered only without a Next. */
     phraseFlags: [],
     memoryFiles: new Set(),
@@ -640,7 +648,9 @@ function renderIndex() {
  * Files a session edited that no commit took since and that are still dirty in git, one per line — the
  * list to commit through `git-commit-session.mjs` when other sessions share the working tree. Prefixes are the session ids
  * (a resumed session has a new id, so pass both). The session's own ledger record is included so
- * it lands in the same commit. Edits made through shell commands count (see the header note);
+ * it lands in the same commit, and so is any other ledger file it wrote with Edit or Write (a
+ * stale record it rewrote for its author), though records never list ledger files as edited work.
+ * Edits made through shell commands count (see the header note);
  * a file another session dirtied is not listed unless this session also wrote it.
  *
  * Reads the live transcript, not the record: the record is written at Stop, so edits made in the
@@ -665,7 +675,7 @@ function addTranscriptFiles(edited, transcriptPath) {
   const record = parseQuietly(transcriptPath);
   if (!record) return;
   edited.add(recordRel(recordPath(record)));
-  for (const [path, at] of record.editedAt) {
+  for (const [path, at] of [...record.editedAt, ...record.ledgerEditedAt]) {
     if (claimStillOpen(Date.parse(at), lastCommitSec(path))) edited.add(path);
   }
 }

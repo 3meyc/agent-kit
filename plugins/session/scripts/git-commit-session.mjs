@@ -477,7 +477,8 @@ function isLinkedWorktree() {
 
 /**
  * What this session may commit from its worktree: the paths it wrote (`--files`). Its own record
- * is in `--files` already, and a refreshed one is added after the check.
+ * is in `--files` already, as is another session's record it wrote with Edit or Write, and a
+ * refreshed one is added after the check.
  */
 function sessionFiles(sessions) {
   const listed = spawnSync(process.execPath, [LEDGER, "--files", ...sessions], { cwd: top, encoding: "utf8" });
