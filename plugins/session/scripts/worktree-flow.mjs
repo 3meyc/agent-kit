@@ -23,6 +23,8 @@ import { BASE_KEY, ROLE_KEY, sessionRole } from "./session-role.mjs";
  *   worktree-flow remove <path>      remove a clean worktree whose commits are all in its base
  *   worktree-flow stale-remote [--base <b>] [--landing] [<branch>...]
  *                                    which branches on origin the base already holds; deletes nothing
+ *   worktree-flow issues [--base <b>] [--json]
+ *                                    the issues the landing's commits close or mention; closes nothing
  *
  * A base comes from, in order: what `base <ref>` recorded (git config `branch.<name>.kitBase`), the
  * `base:` of the SDLC item whose `branch:` is this branch (`kit.json` `paths.sdlc`), else a
@@ -742,6 +744,123 @@ function cmdStaleRemote({ args, flags, values, cwd }) {
   return undefined;
 }
 
+/** GitHub's closing keywords: close, fix and resolve in any tense, an optional colon after. */
+const CLOSING = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\s+$/i;
+/** An issue reference: an issue URL, `owner/repo#n`, or `#n` not glued to a word before it. */
+const ISSUE_REF = /https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/issues\/(\d+)|(?<![\w/#])(?:([\w.-]+\/[\w.-]+))?#(\d+)\b/g;
+
+/**
+ * The issues one commit message names, `closes` when a closing keyword stands right before the
+ * reference (GitHub closes those once the commit reaches the default branch), else a mention.
+ * A `Merge pull request #n` line and trailer lines (`Co-Authored-By: …`) name no issue. Pure.
+ * @param {string} message @param {string | null} [repo] origin's `owner/repo`, which a bare `#n` means
+ * @returns {{ ref: string, repo: string | null, number: number, closes: boolean }[]}
+ */
+export function issueRefs(message, repo = null) {
+  const found = new Map();
+  for (const line of message.split("\n")) {
+    if (/^\s*Merge pull request #\d+/i.test(line) || /^[\w-]+-By:/i.test(line)) continue;
+    for (const match of line.matchAll(ISSUE_REF)) {
+      const owner = match[1] ?? match[3] ?? repo;
+      const number = Number(match[2] ?? match[4]);
+      const ref = `${owner ?? ""}#${number}`;
+      const closes = CLOSING.test(line.slice(0, match.index));
+      const seen = found.get(ref);
+      found.set(ref, { ref, repo: owner, number, closes: closes || Boolean(seen?.closes) });
+    }
+  }
+  return [...found.values()];
+}
+
+/** `owner/repo` of a GitHub remote URL (https or ssh), else null. Pure. @param {string | null} url */
+export function githubRepo(url) {
+  return url?.match(/github\.com[:/]([\w.-]+\/[\w.-]+?)(?:\.git)?\/?$/)?.[1] ?? null;
+}
+
+/**
+ * One line per issue the landing names, and what is left to do for it: an open issue a commit
+ * closes stays open after the push unless the base is the default branch. Pure.
+ * @param {{ ref: string, closes: boolean, subjects: string[], state?: string | null, title?: string | null, pull?: boolean, error?: string | null }[]} rows
+ * @param {{ base: string, defaultBranch: string | null }} where
+ */
+export function issueLines(rows, { base, defaultBranch }) {
+  const onDefault = defaultBranch !== null && base === defaultBranch;
+  return rows
+    .filter((row) => !row.pull)
+    .map((row) => {
+      const state = row.state ?? `state unknown${row.error ? ` (${row.error})` : ""}`;
+      const how = row.closes ? "closes" : "mentions";
+      const title = row.title ? ` "${row.title}"` : "";
+      const by = row.subjects.map((s) => `"${s}"`).join(", ");
+      let todo = "";
+      if (row.state === "closed") todo = "already closed";
+      else if (!row.closes) todo = "close by hand only if this work finishes it";
+      else if (onDefault) todo = "the push closes it; confirm after";
+      else todo = `stays open after the push (default branch: ${defaultBranch ?? "unknown"}); close by hand`;
+      return `${row.closes && row.state !== "closed" ? "✓" : "·"} ${row.ref} ${state}${title} — ${how}: ${by} — ${todo}`;
+    });
+}
+
+/**
+ * The `gh issue close` line for an issue a landing fixed on a base that is not the default branch.
+ * The comment names the base and the commit subjects, stripped of characters a shell would read
+ * inside double quotes (bash, zsh and PowerShell alike). Pure.
+ * @param {{ number: number, repo: string | null, subjects: string[] }} row @param {string} base
+ */
+export function closeCommand(row, base) {
+  const branch = base.replace(/^origin\//, "");
+  const subjects = row.subjects.join("; ").replace(/["`$\\]/g, "");
+  return `gh issue close ${row.number} --repo ${row.repo} --comment "Fixed on ${branch} by: ${subjects}"`;
+}
+
+/** State, title and kind of one issue through `gh api` (`WORKTREE_FLOW_GH` in tests). */
+function issueFacts(repo, number, cwd) {
+  const gh = process.env.WORKTREE_FLOW_GH || "gh";
+  const args = ["api", `repos/${repo}/issues/${number}`, "--jq", "{state, title, pull: (.pull_request != null)}"];
+  const result = spawnSync(gh, args, { cwd, encoding: "utf8", timeout: 10000 });
+  if (result.error) return { state: null, error: "gh not found" };
+  if (result.status !== 0) return { state: null, error: (result.stderr ?? "").trim().split("\n")[0] || `gh exit ${result.status}` };
+  try {
+    const { state, title, pull } = JSON.parse(result.stdout);
+    return { state, title, pull, error: null };
+  } catch {
+    return { state: null, error: "gh answered something other than JSON" };
+  }
+}
+
+/**
+ * The issues the commits `<base>..HEAD` name, which is what landing brings to the base, merged
+ * branches' commits included, each with its state on GitHub when `gh` can tell. Read-only.
+ */
+function cmdIssues({ flags, values, cwd }) {
+  const base = values["--base"] ?? current(cwd).me.base;
+  if (!base) fail("no base found; pass --base <branch>");
+  const repo = githubRepo(gitOut(["remote", "get-url", "origin"], cwd));
+  const log = gitOut(["log", "--format=%s%x1f%B%x1e", `${base}..HEAD`], cwd);
+  if (log === null) fail(`cannot read ${base}..HEAD`);
+  const byRef = new Map();
+  for (const entry of log.split("\x1e").map((e) => e.trim()).filter(Boolean)) {
+    const [subject, body = ""] = entry.split("\x1f");
+    for (const ref of issueRefs(body, repo)) {
+      const row = byRef.get(ref.ref) ?? { ...ref, closes: false, subjects: [] };
+      row.closes ||= ref.closes;
+      row.subjects.push(subject);
+      byRef.set(ref.ref, row);
+    }
+  }
+  const rows = [...byRef.values()].map((row) => (row.repo ? { ...row, ...issueFacts(row.repo, row.number, cwd) } : { ...row, state: null, error: "no GitHub repo" }));
+  const defaultBranch =
+    gitOut(["symbolic-ref", "--short", "-q", "refs/remotes/origin/HEAD"], cwd)?.replace(/^origin\//, "") ?? null;
+  if (flags.has("--json")) return console.log(JSON.stringify({ base, repo, defaultBranch, issues: rows }, null, 2));
+  const branch = base.replace(/^origin\//, "");
+  const lines = issueLines(rows, { base: branch, defaultBranch });
+  console.log(`${base}..HEAD names ${lines.length} issue(s)${repo ? ` (${repo})` : ""}`);
+  for (const line of lines) console.log(line);
+  const toClose = rows.filter((r) => r.closes && r.state === "open" && !r.pull && branch !== defaultBranch);
+  for (const row of toClose) console.log(`after the push, on the user's word: ${closeCommand(row, base)}`);
+  return undefined;
+}
+
 function cmdRole({ args, cwd }) {
   const me = thisWorktree(cwd);
   if (args[0]) {
@@ -804,6 +923,7 @@ const COMMANDS = {
   regenerate: cmdRegenerate,
   remove: cmdRemove,
   "stale-remote": cmdStaleRemote,
+  issues: cmdIssues,
 };
 
 /** The flags each command reads; any other is refused, so a typo such as `land --dryrun` never lands. */
@@ -814,11 +934,13 @@ const COMMAND_FLAGS = {
   regenerate: ["--dry-run"],
   remove: ["--drop-ledger"],
   "stale-remote": ["--json", "--landing"],
+  issues: ["--json"],
 };
 
 /** The flags that take a value, the next argument. */
 const COMMAND_VALUES = {
   "stale-remote": ["--base"],
+  issues: ["--base"],
 };
 
 const USAGE = `The branch-and-worktree side of a session, from start to close-out.
@@ -843,6 +965,10 @@ const USAGE = `The branch-and-worktree side of a session, from start to close-ou
                                           list the named branches on origin (every claude/* when none)
                                           as stale (in origin/<base>, or a PR merged into <base>) or
                                           kept with the reason; read-only, it deletes nothing
+  worktree-flow issues [--base <b>] [--json]
+                                          the issues the commits <base>..HEAD close or mention, each
+                                          with its GitHub state and what is left to do after the
+                                          push; read-only, it closes nothing
 
 With no command it runs status. The base is the recorded one (base <ref>), else the SDLC item's
 base:, else a guess: the branch holding most of this one, kit.json baseBranch (default dev) first
@@ -855,6 +981,11 @@ stale-remote fetches origin (with --prune) first. It keeps main, master, dev, de
 development, the base, kit.json baseBranch and origin's default branch, a branch checked out in
 another worktree, and one with commits the base lacks. --landing also counts what HEAD holds, as
 landing and pushing will bring it to origin/<base>.
+
+issues reads closing keywords (close, fix, resolve in any tense) before #n, owner/repo#n or an
+issue URL; any other #n is a mention. GitHub closes an issue from a commit only when the commit
+reaches the default branch, so a landing on another base leaves it open: issues prints the
+gh issue close command for each such one, to run after the push on the user's word.
 
 Flags:
   --help, -h   print this and exit 0 (any command)

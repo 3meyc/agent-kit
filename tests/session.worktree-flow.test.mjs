@@ -7,9 +7,13 @@ import { afterAll, beforeAll, describe, expect, it } from "./session/vitest-comp
 import {
   adoptInstallPlan,
   adoptPlan,
+  closeCommand,
   commandArgv,
+  githubRepo,
   guessBase,
   integrationHolders,
+  issueLines,
+  issueRefs,
   matchBranch,
   mergedCleanWorktrees,
   parseMergeTree,
@@ -119,6 +123,75 @@ describe("guessBase", () => {
 
   it("returns null with no candidates", () => {
     expect(guessBase([])).toBeNull();
+  });
+});
+
+describe("issueRefs", () => {
+  it("reads GitHub's closing keywords in any tense, a colon after them, and three reference forms", () => {
+    const message = [
+      "fix(app): one",
+      "",
+      "Closes #53",
+      "fixed: my-org/other#7, resolves https://github.com/my-org/my-app/issues/9",
+      "Refs #12; see (#13)",
+    ].join("\n");
+    expect(issueRefs(message, "my-org/my-app")).toEqual([
+      { ref: "my-org/my-app#53", repo: "my-org/my-app", number: 53, closes: true },
+      { ref: "my-org/other#7", repo: "my-org/other", number: 7, closes: true },
+      { ref: "my-org/my-app#9", repo: "my-org/my-app", number: 9, closes: true },
+      { ref: "my-org/my-app#12", repo: "my-org/my-app", number: 12, closes: false },
+      { ref: "my-org/my-app#13", repo: "my-org/my-app", number: 13, closes: false },
+    ]);
+  });
+
+  it("skips merge-PR lines, trailers and #n glued to a word, and keeps closes once seen", () => {
+    const message = "Merge pull request #4 from x/y\nsee #5, then fixes #5\nabc#6 and C#7\nCo-Authored-By: A <a@example.com> #8";
+    expect(issueRefs(message, "o/r")).toEqual([{ ref: "o/r#5", repo: "o/r", number: 5, closes: true }]);
+  });
+
+  it("leaves a bare #n without a repo when origin is not on GitHub", () => {
+    expect(issueRefs("Closes #3")).toEqual([{ ref: "#3", repo: null, number: 3, closes: true }]);
+  });
+});
+
+describe("githubRepo", () => {
+  it("reads https and ssh remotes, with or without .git", () => {
+    expect(githubRepo("https://github.com/my-org/my-app.git")).toBe("my-org/my-app");
+    expect(githubRepo("git@github.com:my-org/my-app")).toBe("my-org/my-app");
+    expect(githubRepo("https://gitlab.com/my-org/my-app.git")).toBeNull();
+    expect(githubRepo(null)).toBeNull();
+  });
+});
+
+describe("issueLines", () => {
+  const row = { ref: "o/r#1", closes: true, subjects: ["fix: a"], state: "open", title: "A bug" };
+  it("says an issue closed on a non-default base stays open after the push", () => {
+    expect(issueLines([row], { base: "dev", defaultBranch: "main" })).toEqual([
+      '✓ o/r#1 open "A bug" — closes: "fix: a" — stays open after the push (default branch: main); close by hand',
+    ]);
+  });
+
+  it("lets the push close it on the default branch, and names mentions and closed ones", () => {
+    expect(issueLines([row], { base: "main", defaultBranch: "main" })[0]).toMatch(/the push closes it; confirm after$/);
+    expect(issueLines([{ ...row, closes: false }], { base: "dev", defaultBranch: "main" })[0]).toMatch(
+      /^· o\/r#1 open .* — mentions: .* — close by hand only if this work finishes it$/,
+    );
+    expect(issueLines([{ ...row, state: "closed" }], { base: "dev", defaultBranch: "main" })[0]).toMatch(/already closed$/);
+  });
+
+  it("drops pull requests and says when the state is unknown", () => {
+    expect(issueLines([{ ...row, pull: true }], { base: "dev", defaultBranch: "main" })).toEqual([]);
+    expect(issueLines([{ ...row, state: null, title: null, error: "gh not found" }], { base: "dev", defaultBranch: null })[0]).toBe(
+      '✓ o/r#1 state unknown (gh not found) — closes: "fix: a" — stays open after the push (default branch: unknown); close by hand',
+    );
+  });
+});
+
+describe("closeCommand", () => {
+  it("names the base and the subjects, without characters a shell reads inside double quotes", () => {
+    expect(closeCommand({ number: 5, repo: "o/r", subjects: ['fix: say "$HOME" `x`', "docs: b"] }, "origin/dev")).toBe(
+      'gh issue close 5 --repo o/r --comment "Fixed on dev by: fix: say HOME x; docs: b"',
+    );
   });
 });
 

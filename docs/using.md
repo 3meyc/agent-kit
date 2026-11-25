@@ -212,6 +212,13 @@ evolution init
    sub-sessions' stale branches, and `/close-out` this session's own, in the same question as
    the landing; the deletion is one `git push origin --delete …` on the user's word.
 
+   A commit's `Closes #n` closes the issue only when the commit reaches the forge's default
+   branch, so an issue fixed on `dev` stays open after the push. `worktree-flow issues [--base <b>]`
+   lists the issues the landing's commits close or mention, with their state, and prints the
+   `gh issue close` line for each one the push will leave open; it closes nothing. `/close-out`
+   and `/close-siblings` name those issues in the resume and close them after the push, in the
+   same question as the landing.
+
 ## 3. Take updates
 
 Update explicitly, at user scope. A new `stable` takes two commands, then a new session:

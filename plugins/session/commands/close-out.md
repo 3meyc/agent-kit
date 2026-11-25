@@ -18,6 +18,10 @@ What landing would do now:
 
 !`node ${CLAUDE_PLUGIN_ROOT}/scripts/worktree-flow.mjs land --dry-run --report`
 
+Issues the landing's commits close or mention:
+
+!`node ${CLAUDE_PLUGIN_ROOT}/scripts/worktree-flow.mjs issues`
+
 Files this session edited and still dirty, and its record:
 
 !`node ${CLAUDE_PLUGIN_ROOT}/scripts/session-ledger.mjs --files`
@@ -85,6 +89,25 @@ For each:
    fails, or the user leaves them out, the gap goes to the record's `## Next` as
    ``kit gap, not opened (<reason>): <title>``, so a later session opens it. Such an item from an
    earlier record is retried here the same way and marked done once opened.
+
+**Issues.** The issues list above (`worktree-flow issues`) names every issue the landing's commits
+close (`Closes #n`, `fixes owner/repo#n` …) or only mention, with its state on GitHub. GitHub closes
+an issue from a commit only when the commit reaches the default branch, so an issue fixed on any
+other base stays open unless this step closes it. None is left out:
+
+1. An issue a commit closes is named on its Done line as `owner/repo#n`. So is a charter item that
+   is an issue (the user said `#n`) and is done although no commit names it; it joins the close
+   list by hand.
+2. A mention-only issue joins the close list when this work finishes it; otherwise the recap names
+   it as left open, with why.
+3. The **close list** is the open issues the list marks `✓` when the base is not the default
+   branch, plus the ones steps 1 and 2 added. They close after the push (§ 2 step 5), on the § 5
+   answer; with no push the resume names them as closing on the next one. On the default branch
+   the push closes them itself: § 2 step 5 confirms each.
+4. A child session (§ 2 step 6) closes nothing: its commits reach the parent's landing, whose own
+   list names them (`/close-siblings` § 2 step 5).
+5. When the list says the state is unknown (`gh` missing or signed out, no GitHub remote), the
+   resume names the issues as not checked; nothing is closed.
 
 **Project steps.** Each `session-ext-close-out` skill listed in this session (the project's own, or
 an overlay plugin's) runs here, in name order, before anything lands: load it and do what it says.
@@ -154,6 +177,11 @@ a file a neighbour touched there is flagged here too.
 5. Push the base (`/git push` from the checkout holding it, or `git push origin <base>`) only when
    the user's answer said push. Never push the session branch for a landed change: the base
    carries it now. When it was pushed earlier, § 4 deletes it on origin, on that answer's word.
+   After that push, a top-level session closes the close list (§ 1, Issues): each with the
+   `gh issue close … --comment "Fixed on <base> by: <commit subjects>"` line `worktree-flow issues`
+   printed, one visible command per issue, the same shape for one added by hand. On the default
+   branch it closes none and confirms each closed instead
+   (`gh api repos/<owner/repo>/issues/<n> --jq .state`); one still open is closed the same way.
 6. After a push from a **top-level session**, wait for the CI run on the pushed commit, when the
    repository has CI. A **child session** skips this step: `mcp__ccd_session_mgmt__get_session`
    with `"self"` shows a `parentSessionId` and `detached` not `true` (a proposal card,
@@ -258,8 +286,10 @@ Uncommitted session files (§ 2 step 1) ride on every landing button the same wa
 starts with committing them through `/git commit`, so the click accepts and commits in one
 answer. This branch on origin (§ 4) rides on the button that pushes: when the listing says it will
 be stale, the recap names it and that button's message adds "then delete origin/<branch>". The
-user's click is the authorization for exactly what its message says, nothing more; the
-`git push --delete` still goes through the normal permission ask.
+close list (§ 1, Issues) rides on the button that pushes too: its message adds "then close
+<owner/repo#n …>", and the recap names the issues that stay open. The user's click is the
+authorization for exactly what its message says, nothing more; the `git push --delete` and
+`gh issue close` still go through the normal permission ask.
 
 ## 6. Session resume, the last message before the archive
 
@@ -277,8 +307,8 @@ product or the way of working, not of git.
    recipe index (`kit.json` `paths.recipes`) when one covers it, so resumes read alike across
    sessions; otherwise the command, hook, rule, skill, agent, page, store or feature name — not a
    file path unless the file is the area. The _why_ is the reason the change was made, in a few
-   words. Example:
-   `report-export: failed rows listed after the run — users could not tell which rows were skipped.`
+   words. A line whose change closed an issue ends with it, `(owner/repo#n)`. Example:
+   `report-export: failed rows listed after the run — users could not tell which rows were skipped (my-org/my-app#41).`
 3. **Four lists, in this order, each numbered, empty ones left out:**
    1. **Major changes** — at most seven lines, one per outcome the user would notice.
    2. **Process changes** — every file changed since the base under the ledger's process paths

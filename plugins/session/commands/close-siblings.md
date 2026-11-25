@@ -64,6 +64,11 @@ below exist in the desktop app; elsewhere, ask the user which branches are the s
    this session is itself a sub-session). A changelog line comes
    from the merged branches' commit subjects when a child left none. Commit them through
    `/git commit` before § 3.
+5. Then `worktree-flow issues --base <base>`: the issues the merged tree's commits close or
+   mention, the sub-sessions' included, since a sub-session closes none itself. Build the close
+   list from it exactly as `/close-out` § 1 Issues says (an issue a sub-session's report or
+   record says it fixed without naming it in a commit joins by hand), and show it after the
+   review table.
 
 ## 3. Check
 
@@ -94,7 +99,10 @@ stops § 4: report it with its output.
 2. `worktree-flow land`: a fast-forward of the base, nothing else. If it refuses (an uncommitted
    edit in the base's checkout), report the file; the user settles it.
 3. Push the base (`/git push` from its checkout, or `git push origin <base>`) only when the user's
-   answer said push. Never push the sub-session branches: the base carries them now.
+   answer said push. Never push the sub-session branches: the base carries them now. After that
+   push, close the close list (§ 2 step 5) as `/close-out` § 2 step 5 does: the `gh issue close`
+   lines `worktree-flow issues` printed when the base is not the default branch, a confirmation of
+   each when it is. A child session closes nothing; its parent does.
 4. After that push, wait for the CI run on the pushed commit exactly as `/close-out` § 2
    step 6 does (one background `gh run watch`; red is reported and holds this session's archive;
    a run cancelled by a newer push hands over to the newest run that contains the commit).
@@ -142,12 +150,15 @@ archive" (no push); a child session offers only the second. When § 5's listing 
 remote branches, the recap names them and each button's message ends with "delete the stale
 remote branches <b1> <b2> …", so the same click covers them. The triage table (§ 1 step 5) rides
 on the buttons the same way: each message says "with the proposed verdicts", and the user answers
-by F-ids instead, lists and ranges alike (`F1 keep, F5–F7 drop`). The user's click authorizes exactly
-what its message says; the `git push --delete` still goes through the normal permission ask.
+by F-ids instead, lists and ranges alike (`F1 keep, F5–F7 drop`). The close list (§ 2 step 5)
+rides on the pushing button: its message adds "close <owner/repo#n …>", and the recap names the
+issues that stay open. The user's click authorizes exactly what its message says; the
+`git push --delete` and `gh issue close` still go through the normal permission ask.
 
 After it is carried out, report as numbered lists: merged (branch → commit), the base and its new
 tip, the main-session edits made for the sub-sessions (§ 2 step 4), check, preflight and extension
-results (§ 3), pushed or not and the CI run's result, archived sessions (linked), the ones
+results (§ 3), pushed or not and the CI run's result, the issues closed and the ones left open
+(with why, or "closing on the next push"), archived sessions (linked), the ones
 left alone with the reason, the remote branches deleted and kept (with the reason), and the
 sub-sessions' follow-ups by verdict (kept: done here or proposed as a session; deferred: the
 backlog rows added; dropped, with the reason).
