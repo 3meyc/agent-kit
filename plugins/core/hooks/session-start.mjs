@@ -5,8 +5,8 @@
  *
  * 1. `rules` — print `rules/always-on.md`.
  * 2. `update-check` — one short line per kit plugin whose installed commit differs from its
- *    channel (the project's declared marketplace ref, else the registered one) now, with the
- *    update commands (S8). Only the copy this session loads and the user-scope copy are named
+ *    channel (the project's declared marketplace ref, else the registered one) now, up to
+ *    `UPDATE_ROWS` and then a count, with the update commands (S8). Only the copy this session loads and the user-scope copy are named
  *    (S11); the update names `--scope user`, and a project-scope copy is cleared with
  *    `kit installs --clean`. Remote SHAs are cached for six hours in the plugin's data folder;
  *    offline or slow remotes print nothing.
@@ -29,6 +29,12 @@ export function rulesText() {
   return readFileSync(join(pluginRoot, "rules", "always-on.md"), "utf8").trim();
 }
 
+/**
+ * Rows the update notice lists one by one; the rest fold into a count, since the combined command
+ * after them names every plugin again. Keeps the worst-case SessionStart output in its budget.
+ */
+export const UPDATE_ROWS = 3;
+
 /** @param {ReturnType<typeof checkUpdates>["lagging"]} lagging */
 export function updateText(lagging) {
   if (lagging.length === 0) return "";
@@ -37,11 +43,12 @@ export function updateText(lagging) {
     "Kit plugins differ from their channel. Tell the user once; updating is theirs (new session after), as one block:",
   );
   const commands = new Set();
-  for (const item of lagging) {
+  for (const item of lagging) for (const command of updateCommands(item)) commands.add(command);
+  for (const item of lagging.slice(0, UPDATE_ROWS)) {
     const copy = item.scope === "user" || item.scope === "managed" || !item.scope ? "" : ` (${item.scope} copy${item.loaded ? ", loaded instead of the user copy" : ""})`;
     lines.push(`- ${item.plugin}@${item.marketplace}${copy}: ${item.installed.slice(0, 12)} installed, ${item.ref} is ${item.latest.slice(0, 12)}`);
-    for (const command of updateCommands(item)) commands.add(command);
   }
+  if (lagging.length > UPDATE_ROWS) lines.push(`- and ${lagging.length - UPDATE_ROWS} more, each named in the command below`);
   lines.push("", `    ${combinedUpdateCommand(lagging)}`);
   if (commands.has("kit installs --clean")) {
     lines.push("", "`kit installs --clean` clears stale project-scope copies; each folder's settings files stay as they were.");

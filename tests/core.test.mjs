@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import Ajv2020 from "ajv/dist/2020.js";
 import { codegraphQueryDir, syncWorktree } from "../plugins/core/hooks/codegraph-sync.mjs";
 import { lintCommandsFor, lintRootFor } from "../plugins/core/hooks/lint-edited-file.mjs";
-import { updateText } from "../plugins/core/hooks/session-start.mjs";
+import { UPDATE_ROWS, updateText } from "../plugins/core/hooks/session-start.mjs";
 import { dispatch } from "../plugins/core/hooks/shell-pre.mjs";
 import { OWN_HOOK as RTK_OWN_HOOK, run as runRtk } from "../plugins/core/hooks/rtk-rewrite.mjs";
 import { OWN_HOOK as CODEGRAPH_OWN_HOOK, indexedRoot, run as runCodegraphPrompt } from "../plugins/core/hooks/codegraph-prompt.mjs";
@@ -501,6 +501,15 @@ describe("session-start", () => {
     const noUser = updateText([{ plugin: "core", marketplace: "agent-kit", scope: "project", installed: "a".repeat(40), latest: "b".repeat(40), ref: "stable", loaded: true, userInstalled: null }]);
     assert.match(noUser, /claude plugin install core@agent-kit --scope user/);
     assert.equal(updateText([]), "");
+  });
+
+  it("lists the first lagging plugins and folds the rest into a count the command still covers", () => {
+    const lagging = Array.from({ length: UPDATE_ROWS + 2 }, (_, i) => ({ plugin: `p${i}`, marketplace: "agent-kit", scope: "user", installed: "a".repeat(40), latest: "b".repeat(40), ref: "stable", loaded: true }));
+    const text = updateText(lagging);
+    assert.equal(text.match(/^- p\d+@/gm)?.length, UPDATE_ROWS);
+    assert.match(text, /^- and 2 more, each named in the command below$/m);
+    for (const { plugin } of lagging) assert.match(text, new RegExp(`claude plugin update ${plugin}@agent-kit --scope user`));
+    assert.doesNotMatch(updateText(lagging.slice(0, UPDATE_ROWS)), /more, each named/);
   });
 
   it("joins several plugins' update commands into one line, catalogs first", () => {

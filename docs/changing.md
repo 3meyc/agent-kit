@@ -174,7 +174,7 @@ move.
 | 3 | A project needs an extra step the others don't | A local skill in the project; propose a `kit.json` option if a second project needs it |
 | 4 | Urgent fix during a release | Flow above, then release at once; roll back if it misbehaves |
 | 5 | Change found while working on private code | Write the generic part here; names, links and domain detail stay in the private overlay |
-| 6 | A new always-on rule | The rules print at SessionStart within an 8,000-character budget (`tests/session-start-size.test.mjs`); at the nineteenth `stable` the worst case was 7,992. Make room first (shorter lines with the same meaning), and keep the rule to one line that names a skill for the detail, as chat rule 10 names `core:diagrams` |
+| 6 | A new always-on rule | The rules print at SessionStart within an 8,000-character budget (`tests/session-start-size.test.mjs`); the worst case was 7,992 at the nineteenth `stable` and 6,948 once the update notice listed at most three plugins (the test prints it). Past the budget, make room first (shorter lines with the same meaning); either way, keep the rule to one line that names a skill for the detail, as chat rule 10 names `core:diagrams` |
 
 ## Recipes and glossary: rules for agents
 

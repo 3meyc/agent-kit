@@ -5,6 +5,7 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 ## Unreleased
 
 - session: `worktree-flow base` no longer guesses a backup branch (`backup/…`, `backups/…`) as a worktree's base, and `kit.json` `baseBranch` now wins among the branches holding the most of the worktree's branch, not only a full tie. A worktree cut from `main` before the project moved its integration to `dev` is guessed onto `dev`, as the SessionStart note already measures it (#53).
+- core: the SessionStart update notice lists at most three lagging plugins and folds the rest into "and N more, each named in the command below", since the combined update command names every plugin anyway. The worst-case core SessionStart output (rules, 12 lagging plugins, every tool off its pin) drops from 7,992 to 6,948 of its 8,000 characters, so the next always-on rule fits without rewording agreed ones (#52).
 
 ## 2026-11-23 — twenty-first `stable`
 
