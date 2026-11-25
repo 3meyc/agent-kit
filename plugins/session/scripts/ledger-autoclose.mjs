@@ -238,7 +238,8 @@ function readCache(path) {
  * missing fact.
  * @param {string} root @param {string} base `kit.json` `baseBranch`
  * @param {{ network?: boolean, gh?: string, sessionsByBranch?: Map<string, string[]> }} [options]
- *   `network`: may call `gh` (not in the brief). `sessionsByBranch`: the ledger's records, branch →
+ *   `network`: may call `gh` (not in the brief). `gh`: the command, or a `.mjs` stand-in that runs
+ *   under node (tests; `LEDGER_GH`). `sessionsByBranch`: the ledger's records, branch →
  *   their session ids (`branchSessions`), which prove a deleted branch landed.
  * @returns {CloseFacts & { save: () => void }}
  */
@@ -457,7 +458,9 @@ export function gitCloseFacts(
     if (!network || ghMissing || ghCalls >= MAX_GH_CALLS) return null;
     ghCalls += 1;
     const args = ["pr", "view", String(ref.n), "--json", "state,mergedAt", ...(ref.repo ? ["--repo", ref.repo] : [])];
-    const result = spawnSync(gh, args, { cwd: root, encoding: "utf8", timeout: GH_TIMEOUT_MS });
+    // A `.mjs` stand-in (tests) runs under node: Windows cannot spawn a shebang script.
+    const [command, argv] = /\.m?js$/.test(gh) ? [process.execPath, [gh, ...args]] : [gh, args];
+    const result = spawnSync(command, argv, { cwd: root, encoding: "utf8", timeout: GH_TIMEOUT_MS });
     if (result.error && /** @type {NodeJS.ErrnoException} */ (result.error).code === "ENOENT") {
       ghMissing = true;
       return null;

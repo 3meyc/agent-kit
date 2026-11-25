@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, realpathSync, unlinkSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { isDirectRun, parseWorktrees } from "../lib/hook-utils.mjs";
 import { matchesAny } from "../lib/globs.mjs";
@@ -611,9 +611,20 @@ function cmdLand({ flags, cwd }) {
   return console.log(`landed ${ahead} commit(s) on ${me.base}${push}`);
 }
 
+/**
+ * One folder however it is spelled: git prints real, long paths, while a caller may name a worktree
+ * through a symlink, a Windows 8.3 short name (`C:\Users\RUNNER~1`) or another letter case.
+ * @param {string} path
+ */
+function pathKey(path) {
+  const full = existsSync(path) ? realpathSync.native(path) : resolve(path);
+  return process.platform === "win32" ? full.toLowerCase() : full;
+}
+
 function cmdRemove({ args, flags, cwd }) {
   usage(args, "remove <worktree path | branch>");
-  const target = collect(cwd).find((tree) => tree.branch === args[0] || resolve(tree.path) === resolve(cwd, args[0]));
+  const wanted = pathKey(resolve(cwd, args[0]));
+  const target = collect(cwd).find((tree) => tree.branch === args[0] || pathKey(tree.path) === wanted);
   if (!target) fail(`no worktree at or on "${args[0]}"`);
   if (!target.removable) fail(`refusing to remove ${target.path}: ${target.verdict}`);
   const dropLedger = target.dirtyLedger > 0;
@@ -658,14 +669,23 @@ export function staleVerdict(f) {
 }
 
 /**
+ * `gh` with `args`: `WORKTREE_FLOW_GH` (tests), else the PATH's. A `.mjs` stand-in runs under node,
+ * since Windows cannot spawn a shebang script.
+ * @param {string[]} args @param {import("node:child_process").SpawnSyncOptionsWithStringEncoding} options
+ */
+function runGh(args, options) {
+  const gh = process.env.WORKTREE_FLOW_GH || "gh";
+  return /\.m?js$/.test(gh) ? spawnSync(process.execPath, [gh, ...args], options) : spawnSync(gh, args, options);
+}
+
+/**
  * The merged PR of `branch`, by `gh pr list --head`: one into `base` first, the one whose head is
- * origin's tip first among those. `gh` comes from `WORKTREE_FLOW_GH` (tests), else the PATH.
+ * origin's tip first among those.
  * @returns {{ pr: { number: number, baseRefName: string, headMatches: boolean } | null, ghError: string | null }}
  */
 function mergedPr(branch, base, tip, cwd) {
-  const gh = process.env.WORKTREE_FLOW_GH || "gh";
   const args = ["pr", "list", "--head", branch, "--state", "merged", "--json", "number,baseRefName,headRefOid", "--limit", "20"];
-  const result = spawnSync(gh, args, { cwd, encoding: "utf8", timeout: 15000 });
+  const result = runGh(args, { cwd, encoding: "utf8", timeout: 15000 });
   if (result.error) return { pr: null, ghError: "gh not found, so a squash merge was not checked" };
   if (result.status !== 0)
     return { pr: null, ghError: `gh failed (${(result.stderr ?? "").trim().split("\n")[0] || `exit ${result.status}`})` };
@@ -719,7 +739,8 @@ function staleRemote({ branches, base, landing }, cwd) {
       baseRef,
       protectedBy: guarded.get(branch) ?? null,
       onRemote: Boolean(tip),
-      checkedOutAt: holder?.path ?? null,
+      // In the OS's own form, as the other paths it prints: git writes `C:/…` on Windows.
+      checkedOutAt: holder ? resolve(holder.path) : null,
       inRef,
       ahead: tip ? countRange(`${baseRef}..${tip}`, cwd) : null,
     };
@@ -813,11 +834,10 @@ export function closeCommand(row, base) {
   return `gh issue close ${row.number} --repo ${row.repo} --comment "Fixed on ${branch} by: ${subjects}"`;
 }
 
-/** State, title and kind of one issue through `gh api` (`WORKTREE_FLOW_GH` in tests). */
+/** State, title and kind of one issue through `gh api`. */
 function issueFacts(repo, number, cwd) {
-  const gh = process.env.WORKTREE_FLOW_GH || "gh";
   const args = ["api", `repos/${repo}/issues/${number}`, "--jq", "{state, title, pull: (.pull_request != null)}"];
-  const result = spawnSync(gh, args, { cwd, encoding: "utf8", timeout: 10000 });
+  const result = runGh(args, { cwd, encoding: "utf8", timeout: 10000 });
   if (result.error) return { state: null, error: "gh not found" };
   if (result.status !== 0) return { state: null, error: (result.stderr ?? "").trim().split("\n")[0] || `gh exit ${result.status}` };
   try {

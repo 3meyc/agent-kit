@@ -4,9 +4,9 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { after, describe, it } from "node:test";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import Ajv2020 from "ajv/dist/2020.js";
 import { codegraphQueryDir, syncWorktree } from "../plugins/core/hooks/codegraph-sync.mjs";
 import { lintCommandsFor, lintRootFor } from "../plugins/core/hooks/lint-edited-file.mjs";
@@ -73,11 +73,14 @@ describe("kit-config", () => {
     assert.equal(matchesAny("README.md", ["*.ts"]), false);
   });
 
-  it("puts the file into the lint command, quoted", () => {
-    if (process.platform === "win32") return;
-    assert.equal(withFile("eslint {file} --max-warnings 0", "src/a.ts"), "eslint src/a.ts --max-warnings 0");
-    assert.equal(withFile("ruff check", "a b.py"), "ruff check 'a b.py'");
-    assert.equal(withFile("x", "it's.py"), `x 'it'\\''s.py'`);
+  it("puts the file into the lint command, quoted for the platform's shell", () => {
+    assert.equal(withFile("eslint {file} --max-warnings 0", "src/a.ts", "linux"), "eslint src/a.ts --max-warnings 0");
+    assert.equal(withFile("ruff check", "a b.py", "linux"), "ruff check 'a b.py'");
+    assert.equal(withFile("x", "it's.py", "darwin"), `x 'it'\\''s.py'`);
+    assert.equal(withFile("eslint {file} --max-warnings 0", "src/a.ts", "win32"), "eslint src/a.ts --max-warnings 0");
+    assert.equal(withFile("ruff check", "a b.py", "win32"), 'ruff check "a b.py"');
+    assert.equal(withFile("x", "it's.py", "win32"), `x "it's.py"`);
+    assert.equal(withFile("x", "100%.py", "win32"), `x "100%.py"`);
   });
 
   it("reads lintOnEdit only when it has a command", () => {
@@ -126,7 +129,8 @@ describe("lint-edited-file", () => {
     for (const dir of [outer, inner]) spawnSync("git", ["init", "-q", dir]);
     const payload = { tool_name: "Edit", tool_input: { file_path: join(inner, "src", "b.ts") }, cwd: inner };
     const root = lintRootFor(payload);
-    assert.equal(realpathSync(root), realpathSync(inner));
+    // Native: it expands a Windows 8.3 temp path (RUNNER~1) the way git's top level is printed.
+    assert.equal(realpathSync.native(root), realpathSync.native(inner));
     assert.deepEqual(lintCommandsFor(payload, config, root).map((target) => target.command), ["eslint src/b.ts"]);
     // The outer checkout as root sees `.claude/worktrees/w1/src/b.ts`, which a `src/**` glob misses.
     const scoped = { lintOnEdit: { command: "eslint {file}", match: ["src/**"] } };
@@ -193,8 +197,9 @@ describe("codegraphQueryDir", () => {
   });
 
   it("follows a leading cd", () => {
-    assert.equal(codegraphQueryDir(bash("cd /repo/.claude/worktrees/y && codegraph query foo")), "/repo/.claude/worktrees/y");
-    assert.equal(codegraphQueryDir(bash("cd '../y'; codegraph files")), "/repo/.claude/worktrees/y");
+    // resolve(): on Windows a rooted POSIX path lands on the current drive (`D:\repo\…`).
+    assert.equal(codegraphQueryDir(bash("cd /repo/.claude/worktrees/y && codegraph query foo")), resolve("/repo/.claude/worktrees/y"));
+    assert.equal(codegraphQueryDir(bash("cd '../y'; codegraph files")), resolve("/repo/.claude/worktrees/y"));
     // A leading `~` is the home folder, as the shell expands it, not a folder named `~` under cwd.
     assert.equal(codegraphQueryDir(bash("cd ~/code/app/.claude/worktrees/x && codegraph explore Foo")), join(homedir(), "code/app/.claude/worktrees/x"));
     assert.equal(codegraphQueryDir(bash("cd ~ && codegraph files")), homedir());
@@ -208,7 +213,7 @@ describe("codegraphQueryDir", () => {
   });
 
   it("reads an MCP query's projectPath and ignores other tools", () => {
-    assert.equal(codegraphQueryDir({ tool_name: "mcp__codegraph__codegraph_explore", tool_input: { projectPath: wt }, cwd: "/" }), wt);
+    assert.equal(codegraphQueryDir({ tool_name: "mcp__codegraph__codegraph_explore", tool_input: { projectPath: wt }, cwd: "/" }), resolve(wt));
     assert.equal(codegraphQueryDir({ tool_name: "mcp__codegraph__codegraph_explore", tool_input: {}, cwd: wt }), null);
     assert.equal(codegraphQueryDir({ tool_name: "Read", tool_input: {}, cwd: wt }), null);
   });
@@ -681,10 +686,10 @@ describe("update-check", () => {
     const configDir = tempProject("claude-config", { "plugins/data/.keep": "" });
     const run = spawnSync(
       process.execPath,
-      ["--input-type=module", "-e", `import { defaultCacheFile } from ${JSON.stringify(join(core, "src", "update-check.mjs"))}; console.log(defaultCacheFile());`],
+      ["--input-type=module", "-e", `import { defaultCacheFile } from ${JSON.stringify(pathToFileURL(join(core, "src", "update-check.mjs")).href)}; console.log(defaultCacheFile());`],
       { encoding: "utf8", env: { ...process.env, CLAUDE_CONFIG_DIR: configDir, CLAUDE_PLUGIN_DATA: "" } },
     );
-    assert.equal(run.stdout.trim(), join(configDir, "plugins", "data", "core-agent-kit", "update-check.json"));
+    assert.equal(run.stdout.trim(), join(configDir, "plugins", "data", "core-agent-kit", "update-check.json"), run.stderr);
   });
 });
 
@@ -1153,8 +1158,9 @@ describe("docs parity", () => {
     });
     const failed = parity(dir);
     assert.equal(failed.status, 1);
-    assert.match(failed.stderr, /FAIL docs\/other\/intro\.uk\.md: no intro\.md beside it/);
-    assert.doesNotMatch(failed.stderr, /docs\/guide/);
+    // The report names the file relative to the working folder, with the platform's separator.
+    assert.ok(failed.stderr.includes(`FAIL ${join("docs", "other", "intro.uk.md")}: no intro.md beside it`), failed.stderr);
+    assert.doesNotMatch(failed.stderr, /docs[\\/]guide/);
   });
 
   it("takes repeatable --ignore globs, a folder name alone included, and rejects an unknown option", () => {

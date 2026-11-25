@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "./session/vitest-compat.mjs";
@@ -308,12 +308,17 @@ describe("gitCloseFacts", () => {
 
   it("asks gh only with network on, caches a merged answer, and survives a missing gh", () => {
     const calls = join(repo, "..", "gh-calls");
-    const gh = join(repo, "..", "gh");
+    // A node script, not a shebang one: Windows cannot spawn the latter.
+    const gh = join(repo, "..", "gh.mjs");
     writeFileSync(
       gh,
-      `#!/bin/sh\necho "$@" >> "${calls}"\necho '{"state":"MERGED","mergedAt":"2026-11-07T09:00:00Z"}'\n`,
+      [
+        'import { appendFileSync } from "node:fs";',
+        `appendFileSync(${JSON.stringify(calls)}, process.argv.slice(2).join(" ") + "\\n");`,
+        'console.log(\'{"state":"MERGED","mergedAt":"2026-11-07T09:00:00Z"}\');',
+        "",
+      ].join("\n"),
     );
-    chmodSync(gh, 0o755);
     const ref = { repo: "acme/app", n: 5 };
     expect(gitCloseFacts(repo, "main", { network: false, gh }).prMerged(ref, "2026-11-05")).toBe(false);
     expect(existsSync(calls)).toBe(false);

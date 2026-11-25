@@ -103,6 +103,17 @@ describe("release notes", () => {
     assert.ok(cut.content.endsWith("- core: the start.\n"));
   });
 
+  it("reads and keeps CRLF line endings, as a Windows checkout with core.autocrlf holds them", () => {
+    const crlf = (text) => text.replaceAll("\n", "\r\n");
+    const cut = cutChangelog(crlf(CHANGELOG.replace("## Unreleased\n", "## Unreleased\n\n- core: a fix.\n")), { date: TODAY, tag: "stable", summary: null });
+    assert.equal(cut.next, 2);
+    assert.equal(cut.moved, 1);
+    assert.equal(cut.content.replaceAll("\r\n", "").includes("\n"), false, "no bare LF");
+    assert.match(cut.content, /## Unreleased\r\n\r\n## 2026-01-02 — second `stable`\r\n/);
+    const table = crlf("| ID | Date | Summary |\n| --- | --- | --- |\n| 1 | 2025-12-01 | Start |\n");
+    assert.equal(cutTable(table, { date: TODAY, summary: "Next" }).content, crlf("| ID | Date | Summary |\n| --- | --- | --- |\n| 1 | 2025-12-01 | Start |\n| 2 | 2026-01-02 | Next |\n"));
+  });
+
   it("finds the Keep a Changelog heading `## [Unreleased]` and keeps it as written", () => {
     const keep = CHANGELOG.replace("## Unreleased\n", "## [Unreleased] - 2026-01-02\n\n- session: a fix.\n");
     const cut = cutChangelog(keep, { date: TODAY, tag: "stable", summary: null });
@@ -271,7 +282,8 @@ describe("kit release", () => {
     git(scratch, "clone", "-q", "-b", "main", remote, other);
     configure(other);
     land(other, { "hotfix.txt": "x" }, "fix: straight on main");
-    write(dir, { "CHANGELOG.md": readFileSync(join(dir, "CHANGELOG.md"), "utf8").replace("## Unreleased\n", "## Unreleased\n\n- core: more.\n") });
+    // A Windows checkout (core.autocrlf) holds the file with CRLF after the branch switches above.
+    write(dir, { "CHANGELOG.md": readFileSync(join(dir, "CHANGELOG.md"), "utf8").replace(/## Unreleased(\r?\n)/, "## Unreleased$1$1- core: more.$1") });
     git(dir, "commit", "-q", "-am", "fix: more on dev");
     git(dir, "push", "-q", "origin", "dev");
     const blocked = release(dir, ["--yes"]);

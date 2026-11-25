@@ -111,10 +111,11 @@ function recordFor(transcript) {
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "session-ledger-"));
-  // The real path: on macOS the temp folder is a symlink, and the writer resolves its root through it.
-  repo = join(realpathSync(root), "repo");
+  // The real path, as git prints the root the writer works on: on macOS the temp folder is a
+  // symlink, and on Windows it is an 8.3 short name (`RUNNER~1`) that only the native call expands.
+  repo = join(realpathSync.native(root), "repo");
   home = join(root, "home");
-  plugin = join(realpathSync(root), "plugin");
+  plugin = join(realpathSync.native(root), "plugin");
   for (const dir of ["scripts", "lib"]) cpSync(join(PLUGIN, dir), join(plugin, dir), { recursive: true });
   mkdirSync(repo, { recursive: true });
   git("init", "-q");
@@ -650,7 +651,7 @@ describe("session-ledger hook mode for a worktree session", () => {
     const log = readFileSync(join(repo, ".git", "session-ledger-hook.log"), "utf8")
       .trim()
       .split("\n");
-    expect(log.at(-1).endsWith(`\troot:${realpathSync(worktree())}`)).toBe(true);
+    expect(log.at(-1).endsWith(`\troot:${realpathSync.native(worktree())}`)).toBe(true);
   });
 
   it("records nothing when the worktree's own kit.json keeps no ledger", () => {

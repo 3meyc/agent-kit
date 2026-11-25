@@ -46,10 +46,10 @@ function editedAbsolutePath(input) {
   return isAbsolute(filePath) ? filePath : resolve(input?.cwd ?? process.cwd(), filePath);
 }
 
-/** @param {string} path */
+/** The real path (symlinks resolved, Windows 8.3 short names expanded as git does), else `path`. @param {string} path */
 function realOrSame(path) {
   try {
-    return realpathSync(path);
+    return realpathSync.native(path);
   } catch {
     return path;
   }

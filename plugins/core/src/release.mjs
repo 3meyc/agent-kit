@@ -92,7 +92,7 @@ const RELEASE_HEADING = /^## (\d{4}-\d{2}-\d{2})\b(.*)$/;
  * @returns {{ error: string } | { count: number, next: number, content: string, moved: number }}
  */
 export function cutChangelog(content, { date, tag, summary, number }) {
-  const lines = content.split("\n");
+  const { lines, eol } = splitLines(content);
   const start = lines.findIndex(isUnreleasedHeading);
   if (start < 0) return { error: "has no `## Unreleased` (or `## [Unreleased]`) heading" };
   let end = lines.findIndex((line, index) => index > start && /^## /.test(line));
@@ -111,7 +111,17 @@ export function cutChangelog(content, { date, tag, summary, number }) {
   const lead = `\`${tag}\` points at the commit that adds this entry.${summary ? ` ${summary}` : ""}`;
   const rest = lines.slice(end);
   const out = [...lines.slice(0, start + 1), "", `## ${date} — ${ordinalWord(next)} \`${tag}\``, "", lead, "", ...body, ...(rest.length > 0 ? ["", ...rest] : [""])];
-  return { count, next, content: out.join("\n"), moved: body.length };
+  return { count, next, content: out.join(eol), moved: body.length };
+}
+
+/**
+ * The lines of a notes file and the line ending it uses. A Windows checkout with `core.autocrlf`
+ * holds CRLF; a heading regex anchored with `$` would miss every `\r`-ended line, and the release
+ * would count none. The cut file keeps the ending it had.
+ * @param {string} content
+ */
+function splitLines(content) {
+  return { lines: content.split(/\r?\n/), eol: content.includes("\r\n") ? "\r\n" : "\n" };
 }
 
 /** The cells of a markdown table row, split on unescaped pipes. @param {string} line */
@@ -126,7 +136,7 @@ function cells(line) {
  * @returns {{ error: string } | { count: number, next: number, content: string, row: string }}
  */
 export function cutTable(content, { date, summary }) {
-  const lines = content.split("\n");
+  const { lines, eol } = splitLines(content);
   let last = -1;
   for (let i = lines.length - 1; i >= 0; i -= 1) {
     if (lines[i].trim().startsWith("|")) {
@@ -148,7 +158,7 @@ export function cutTable(content, { date, summary }) {
     return /^\d{4}-\d{2}-\d{2}$/.test(cell) ? date : cell;
   });
   const line = `| ${row.join(" | ")} |`;
-  return { count: id, next: id + 1, content: [...lines.slice(0, last + 1), line, ...lines.slice(last + 1)].join("\n"), row: line };
+  return { count: id, next: id + 1, content: [...lines.slice(0, last + 1), line, ...lines.slice(last + 1)].join(eol), row: line };
 }
 
 /** @param {string} cwd @param {string[]} args */
