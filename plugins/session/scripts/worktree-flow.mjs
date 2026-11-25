@@ -26,8 +26,9 @@ import { BASE_KEY, ROLE_KEY, sessionRole } from "./session-role.mjs";
  *
  * A base comes from, in order: what `base <ref>` recorded (git config `branch.<name>.kitBase`), the
  * `base:` of the SDLC item whose `branch:` is this branch (`kit.json` `paths.sdlc`), else a
- * guess among the local branches, with `kit.json` `baseBranch` (default `dev`) winning a tie and
- * `dev`, `develop` or `development` next.
+ * guess among the local branches (`guessBase`), with `kit.json` `baseBranch` (default `dev`) first
+ * among those holding the most of this branch, `dev`, `develop` or `development` next, and never a
+ * `backup/` branch.
  *
  * The desktop app cuts a worktree from the branch picked on its New session screen but knows
  * nothing about where the work lands afterwards; this fills that gap. `land` is fast-forward only
@@ -79,25 +80,37 @@ export function matchBranch(input, branches) {
 
 /**
  * The integration branch most likely meant when nothing recorded one: the candidate holding the
- * most of this branch, then the one this branch is least behind, then the project's `baseBranch`,
- * then an integration branch (`dev`, `develop`, `development`) over any other. A fresh worktree cut
- * from `main` is zero ahead of both `main` and an item branch that contains `main`; the second key
- * picks `main`. A worktree cut from `dev` while `main` sits at the same commit picks `dev`.
+ * most of this branch, then the project's `baseBranch`, then the one this branch is least behind,
+ * then an integration branch (`dev`, `develop`, `development`) over any other. Backup branches
+ * (`backup/…`, `backups/…`) are never a base. A fresh worktree cut from `main` is zero ahead of both
+ * `main` and an item branch that contains `main`; the third key picks `main`. A worktree cut from
+ * `main` before the project moved its integration to `baseBranch` holds as much of `baseBranch`
+ * (which contains that `main` commit) as of `main`, so `baseBranch` wins although it is further ahead.
  * @param {{ name: string, ahead: number, behind: number }[]} candidates ahead/behind of the worktree branch versus each
- * @param {string | null} [preferred] `kit.json` `baseBranch`, which wins a tie
+ * @param {string | null} [preferred] `kit.json` `baseBranch`, which wins among the branches holding the most
  */
 export function guessBase(candidates, preferred = null) {
   const rank = (name) => {
-    if (name === preferred) return 0;
     const integration = INTEGRATION_BRANCHES.indexOf(name);
-    return integration < 0 ? INTEGRATION_BRANCHES.length + 1 : integration + 1;
+    return integration < 0 ? INTEGRATION_BRANCHES.length : integration;
   };
-  const sorted = [...candidates].sort((a, b) => a.ahead - b.ahead || a.behind - b.behind || rank(a.name) - rank(b.name));
+  const sorted = candidates
+    .filter((c) => !BACKUP_BRANCH.test(c.name))
+    .sort(
+      (a, b) =>
+        a.ahead - b.ahead ||
+        Number(b.name === preferred) - Number(a.name === preferred) ||
+        a.behind - b.behind ||
+        rank(a.name) - rank(b.name),
+    );
   return sorted[0]?.name ?? null;
 }
 
 /** Integration branch names, in the order a tie prefers them after `kit.json` `baseBranch`. */
 const INTEGRATION_BRANCHES = ["dev", "develop", "development"];
+
+/** Branches kept as a copy of history (left behind by a rewrite, say), never a base to land on. */
+const BACKUP_BRANCH = /^backups?\//;
 
 /**
  * What can happen to a worktree, from its facts. Pure, so the wording and the safety rule are tested.
@@ -832,8 +845,8 @@ const USAGE = `The branch-and-worktree side of a session, from start to close-ou
                                           kept with the reason; read-only, it deletes nothing
 
 With no command it runs status. The base is the recorded one (base <ref>), else the SDLC item's
-base:, else a guess, with kit.json baseBranch (default dev) winning a tie and dev, develop or
-development next.
+base:, else a guess: the branch holding most of this one, kit.json baseBranch (default dev) first
+among those, dev, develop or development next; backup/ branches are never guessed.
 
 role is child when recorded so (role child), else when the recorded base is another session's
 claude/* branch; else main. The desktop app's get_session is the agent's own check.

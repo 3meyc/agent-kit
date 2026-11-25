@@ -16,7 +16,8 @@ Predicted conflicts with the base and with the other active worktrees (committed
 
 Change no code except to resolve a merge. Never force, reset, rebase or stash. Push only when the
 user's answer says push. The base is the argument, else the SDLC item's `base:`, else what
-`worktree-flow base` recorded or guessed (`kit.json` `baseBranch` wins a tie). The session tools
+`worktree-flow base` recorded or guessed (`kit.json` `baseBranch` first among the branches
+holding the most of this one; never a `backup/` branch). The session tools
 below exist in the desktop app; elsewhere, ask the user which branches are the sub-sessions'.
 
 ## 1. Review the sub-sessions

@@ -4,6 +4,8 @@ Each `stable` release gets one entry: date, the commit it points at, and what ch
 
 ## Unreleased
 
+- session: `worktree-flow base` no longer guesses a backup branch (`backup/…`, `backups/…`) as a worktree's base, and `kit.json` `baseBranch` now wins among the branches holding the most of the worktree's branch, not only a full tie. A worktree cut from `main` before the project moved its integration to `dev` is guessed onto `dev`, as the SessionStart note already measures it (#53).
+
 ## 2026-11-23 — twenty-first `stable`
 
 `stable` points at the commit that adds this entry. docs parity can leave paths out, so a folder of Ukrainian-only pages passes the check

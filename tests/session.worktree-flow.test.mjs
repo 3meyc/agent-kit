@@ -73,7 +73,7 @@ describe("guessBase", () => {
     ).toBe("main");
   });
 
-  it("lets kit.json baseBranch win a tie, and only a tie", () => {
+  it("lets kit.json baseBranch win among the branches holding the most, and only there", () => {
     const tied = [
       { name: "main", ahead: 0, behind: 0 },
       { name: "develop", ahead: 0, behind: 0 },
@@ -83,6 +83,26 @@ describe("guessBase", () => {
     expect(guessBase([{ name: "develop", ahead: 3, behind: 0 }, { name: "main", ahead: 1, behind: 0 }], "develop")).toBe(
       "main",
     );
+  });
+
+  it("picks baseBranch for a worktree cut from main before the project moved to dev", () => {
+    const moved = [
+      { name: "main", ahead: 4, behind: 0 },
+      { name: "dev", ahead: 4, behind: 76 },
+      { name: "backup/main-before-rewrite", ahead: 4, behind: 0 },
+    ];
+    expect(guessBase(moved, "dev")).toBe("dev");
+    expect(guessBase(moved)).toBe("main");
+  });
+
+  it("never picks a backup branch", () => {
+    const candidates = [
+      { name: "backup/dev", ahead: 0, behind: 0 },
+      { name: "backups/main", ahead: 0, behind: 0 },
+      { name: "main", ahead: 2, behind: 0 },
+    ];
+    expect(guessBase(candidates, "dev")).toBe("main");
+    expect(guessBase([{ name: "backup/dev", ahead: 0, behind: 0 }])).toBeNull();
   });
 
   it("prefers dev over main on a tie when kit.json names neither", () => {
