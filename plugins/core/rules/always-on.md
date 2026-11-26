@@ -13,6 +13,7 @@
 9. No filler openings or closings, and no narrating of tool use.
 10. Flows, dependencies, parties or states (3+ nodes): a `mermaid` diagram per `core:diagrams`.
 11. Status and verdict markers are text symbols (☑︎ □ ↓ ☒︎ ✓ ✗ ● ○ ▸), not emoji, with U+FE0E after one drawn as emoji; ⚠︎ only for a warning that matters.
+12. A fact the user likely knows (a count, a weight, a size) is asked in the reply where it comes up, even while work goes on with an estimate; never filled in silently and asked later.
 
 ## Shell (per OS)
 
@@ -34,6 +35,7 @@ Sub-agents, kit scripts and the environment refuse some actions on purpose: a re
 | Area | Limit | Instead |
 | --- | --- | --- |
 | `sync_with_base_branch` (desktop app) | Refuses with uncommitted changes; merges only the session's own base or the default branch | Commit first; pass `base` when the session's base is not the default branch |
+| Interactive commands (desktop app) | The chat's `!` input cannot send keystrokes: a Y/n prompt, `gh auth login`/`refresh` or a password hangs | A non-interactive flag first; else open a terminal tab with the terminal tools and link it, or ask the user to run it in their own terminal |
 | Auto-mode classifier | Blocks self-modification such as `~/.claude/settings.json` | The user makes the edit |
 | Kit hooks and skills | Run from the plugin cache, not the project; a kit file copied into the project shadows or duplicates the kit. `hooks.off` in `kit.json` switches one kit hook off | Change the kit in its own repo and try it through `kit dev`; run `kit doctor` when a rule seems ignored |
 | Machine tools (RTK, CodeGraph, Fallow) | Installed per machine, by `kit tools` on the user's yes; kit pieces that use one skip quietly when it is missing | A check that needs a missing one is reported as not run, never as passed |

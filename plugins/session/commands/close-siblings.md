@@ -1,7 +1,7 @@
 ---
 description: Land the work of this session's side sessions — review each sub-session and its branch, merge the finished ones into this branch, run the checks on the merged tree, land this branch on its base, push on the user's word, archive the merged sub-sessions and delete their merged branches, locally and on origin
 argument-hint: [base] [land | land and push]
-allowed-tools: Bash(worktree-flow:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/worktree-flow.mjs:*), Bash(preflight:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/preflight.mjs:*), Bash(session-ledger:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/session-ledger.mjs:*), Bash(git status:*), Bash(git log:*), Bash(git merge-base:*), Bash(git rev-parse:*), Bash(git branch -d:*), Bash(gh run list:*), Bash(gh run view:*), Bash(gh run watch:*), Bash(gh api repos/:*)
+allowed-tools: Bash(worktree-flow:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/worktree-flow.mjs:*), Bash(preflight:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/preflight.mjs:*), Bash(session-ledger:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/session-ledger.mjs:*), Bash(git status:*), Bash(git log:*), Bash(git reflog:*), Bash(git merge-base:*), Bash(git rev-parse:*), Bash(git branch -d:*), Bash(gh run list:*), Bash(gh run view:*), Bash(gh run watch:*), Bash(gh api repos/:*)
 ---
 
 Arguments: $ARGUMENTS
@@ -27,7 +27,11 @@ below exist in the desktop app; elsewhere, ask the user which branches are the s
    leave the sessions of this session's parent and siblings alone.
 2. Per sub-session: `isRunning`, its branch, `git -C <cwd> status --porcelain`, and its last report
    (`mcp__ccd_session_mgmt__list_events` when the note was cut). **Finished** means idle, nothing
-   uncommitted, and a last report that names no running or pending work.
+   uncommitted, and a last report that names no running or pending work. Whether its branch
+   already landed is read from git, never from its note or an archive notice (a session archived
+   while it asked about landing may have landed seconds before): `git log <base>`,
+   `git reflog <base>`, whether `refs/heads/<branch>` still exists, and
+   `git merge-base --is-ancestor <branch> <base>`.
 3. Per branch: `git log --oneline HEAD..refs/heads/<branch>`, and which branches already contain
    HEAD or each other (`git merge-base --is-ancestor`). Merge only the outermost branch; the ones it
    contains come along.

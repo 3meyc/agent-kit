@@ -12,11 +12,12 @@ A `SessionStart` hook prints [rules/always-on.md](rules/always-on.md), which Cla
 into the session as context (no copy in the project). It holds:
 
 1. **Chat output**: length, formatting, runnable command blocks, reporting what was not verified,
-   when to draw a Mermaid diagram (how: the `diagrams` skill).
+   when to draw a Mermaid diagram (how: the `diagrams` skill), asking a fact the user knows at
+   once instead of guessing it.
 2. **Shell per OS**: detect the shell first, PowerShell pitfalls, the kit's portable `count-lines`
    and `git-branch-context`.
 3. **Tooling limits**: what to do when a tool refuses, plus the generic limits (desktop-app base
-   sync, auto-mode classifier, kit hooks, machine tools, CI). A project keeps its own limits in a
+   sync, interactive commands, auto-mode classifier, kit hooks, machine tools, CI). A project keeps its own limits in a
    rule of its own.
 
 ## Hooks

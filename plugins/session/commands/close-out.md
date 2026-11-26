@@ -237,8 +237,9 @@ below; `adopt` steps past the files the SessionStart hooks already wrote (`.code
 ledger's `INDEX.md`). Its `prompt` names the files, what done looks like, and the entry point
 (`/sdlc:intent <new-slug>` for anything that needs an agreed outcome first), opening with
 `First run: worktree-flow adopt <base> — this worktree's base is <base>.`
-and closing with `When the work is done (after /sdlc:finish for an SDLC item), run /close-out.`
-Three proposals per turn at most; any further ones go to the record's `## Next`.
+and closing with `When the work is done (after /sdlc:finish for an SDLC item), run /close-out; it lands your branch on <base>.`
+Every sub-session brief says who lands its branch, this one or its parent when notified, so a
+finished branch never waits on a question the user may archive away. Three proposals per turn at most; any further ones go to the record's `## Next`.
 
 A **child with an open parent** (§ 2 step 6) proposes no cards and runs no triage: each follow-up
 goes to its record's `## Next` with its What and `— why:` (`/handoff`), and its § 5 recap names

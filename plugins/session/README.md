@@ -39,6 +39,7 @@ sub-session, where they repeat on overlapping diffs and conflict at the merge.
 | 5 | `kit.json` `parentFiles` and top-level `<paths.sdlc>/*.md` (changelog lines, roadmap and backlog ticks, release notes) | Its record's `## Next` says `for the parent: <file>: <edit>`; a commit of one prints `parent-files:` | `/close-siblings` § 2 step 4 writes them after the merges |
 | 6 | A conflict in a generated file | `worktree-flow regenerate` rebuilds the files a `kit.json` `regenerate` rule names | The same, when merging the sub-sessions |
 | 7 | A follow-up found along the way | No session card and no triage: its record's `## Next` gets the item with its What and `— why:` | `/close-siblings` § 1 triages it against the main session's charter (`/backlog` § triage): Keep, Defer to `<paths.sdlc>/backlog.md`, or Drop |
+| 8 | Landing its branch | Its brief says who lands it: the sub-session at its `/close-out`, or the parent when notified | Whether a branch landed is read from git (`git log <base>`, `git reflog <base>`, the branch's existence, `git merge-base --is-ancestor`), never from a session's note or an archive notice |
 
 Whether this is a sub-session is the desktop app's answer (`/close-out` § 2 step 6). The scripts
 cannot ask the app, so they read git: `worktree-flow role child` records it, and a recorded base on
