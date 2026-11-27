@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 import { isDirectRun, parseWorktrees } from "../lib/hook-utils.mjs";
 import { matchesAny } from "../lib/globs.mjs";
 import { escapeRegExp, inLedger, readKit } from "../lib/kit-config.mjs";
+import { mergeBacklog } from "./backlog-merge.mjs";
 import { BASE_KEY, ROLE_KEY, sessionRole } from "./session-role.mjs";
 
 /**
@@ -19,7 +20,7 @@ import { BASE_KEY, ROLE_KEY, sessionRole } from "./session-role.mjs";
  *   worktree-flow conflicts [--json] predicted merge conflicts with the base and every active worktree
  *   worktree-flow land [--dry-run]   fast-forward the base to this branch; never merges, never pushes
  *   worktree-flow land --dry-run --report   the same dry run, exiting 0 on a refusal too (close-out's preload)
- *   worktree-flow regenerate [--dry-run]    rebuild conflicted generated files by `kit.json` `regenerate`
+ *   worktree-flow regenerate [--dry-run]    merge a conflicted backlog by its rows; rebuild conflicted generated files by `kit.json` `regenerate`
  *   worktree-flow remove <path>      remove a clean worktree whose commits are all in its base
  *   worktree-flow stale-remote [--base <b>] [--landing] [<branch>...]
  *                                    which branches on origin the base already holds; deletes nothing
@@ -889,10 +890,41 @@ export function regeneratePlan(unmerged, rules) {
   return { steps, left: unmerged.filter((path) => !taken.has(path)) };
 }
 
+/**
+ * Merge a conflicted `<paths.sdlc>/backlog.md` by its rows from git's three stages, write and
+ * stage it; a refusal leaves it conflicted. Whether it was settled.
+ * @param {string} top @param {string} path @param {boolean} dryRun
+ */
+function regenerateBacklog(top, path, dryRun) {
+  if (dryRun) {
+    console.log(`would merge ${path} by its rows`);
+    return true;
+  }
+  // Untrimmed, and empty for a stage git lacks (no base in an add/add conflict).
+  const stage = (n) => {
+    const shown = spawnSync("git", ["show", `:${n}:${path}`], { cwd: top, encoding: "utf8" });
+    return shown.status === 0 ? shown.stdout : "";
+  };
+  const merged = mergeBacklog({ base: stage(1), ours: stage(2), theirs: stage(3) });
+  if ("refused" in merged) {
+    console.log(`${path} left conflicted: ${merged.refused}`);
+    return false;
+  }
+  writeFileSync(join(top, ...path.split("/")), merged.text);
+  const added = git(["add", "--", path], top);
+  if (!added.ok) fail(added.err);
+  console.log(`merged ${path} by its rows; staged`);
+  return true;
+}
+
 function cmdRegenerate({ flags, cwd }) {
   const top = thisWorktree(cwd).path;
-  const unmerged = (gitOut(["diff", "--name-only", "--diff-filter=U"], top) ?? "").split("\n").filter(Boolean);
-  if (unmerged.length === 0) return console.log("no conflicted files");
+  const conflicted = (gitOut(["diff", "--name-only", "--diff-filter=U"], top) ?? "").split("\n").filter(Boolean);
+  if (conflicted.length === 0) return console.log("no conflicted files");
+  const backlog = `${kitOf(top).paths.sdlc}/backlog.md`;
+  const unmerged = conflicted.filter((path) => path !== backlog);
+  if (unmerged.length < conflicted.length && !regenerateBacklog(top, backlog, flags.has("--dry-run"))) unmerged.push(backlog);
+  if (unmerged.length === 0) return undefined;
   const { steps, left } = regeneratePlan(unmerged, kitOf(top).regenerate);
   if (steps.length === 0) return console.log(`no kit.json regenerate rule matches the conflicted files: ${unmerged.join(", ")}`);
   for (const step of steps) {
@@ -956,9 +988,11 @@ const USAGE = `The branch-and-worktree side of a session, from start to close-ou
   worktree-flow conflicts [--json]        predicted merge conflicts with the base and every active worktree
   worktree-flow land [--dry-run]          fast-forward the base to this branch; never merges, never pushes
   worktree-flow land --dry-run --report   the same dry run, but a refusal is printed and exits 0
-  worktree-flow regenerate [--dry-run]    during a merge, rebuild each conflicted file a kit.json
-                                          regenerate rule matches (this branch's side, then the
-                                          rule's command) and stage it; other conflicts stay
+  worktree-flow regenerate [--dry-run]    during a merge, merge a conflicted <paths.sdlc>/backlog.md
+                                          by its rows (a removed row stays removed), and rebuild
+                                          each conflicted file a kit.json regenerate rule matches
+                                          (this branch's side, then the rule's command); stage
+                                          each; other conflicts stay
   worktree-flow remove <path | branch> [--drop-ledger]
                                           remove a clean worktree whose commits are all in its base
   worktree-flow stale-remote [--base <b>] [--landing] [--json] [<branch>...]

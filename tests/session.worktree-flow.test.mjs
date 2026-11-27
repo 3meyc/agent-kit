@@ -949,4 +949,36 @@ describe("worktree-flow role and regenerate", () => {
     expect(git(dir, "diff", "--name-only", "--diff-filter=U").stdout.trim()).toBe("notes.txt");
     git(dir, "merge", "--abort");
   });
+
+  it("merges a conflicted backlog by its rows: picked rows stay gone, appended ones land (#56)", () => {
+    const table = (...rows) => `# Backlog\n\n| Source | What | Why | Added | Until |\n| --- | --- | --- | --- | --- |\n${rows.map((s) => `| ${s} | w | y | 2026-11-17 | 2026-12-01 |\n`).join("")}`;
+    mkdirSync(join(dir, "docs", "sdlc"), { recursive: true });
+    commit("docs/sdlc/backlog.md", table("a 1", "a 2", "a 3"));
+    git(dir, "checkout", "-q", "-b", "appends");
+    commit("docs/sdlc/backlog.md", table("a 1", "a 2", "a 3", "b 1"));
+    git(dir, "checkout", "-q", "dev");
+    commit("docs/sdlc/backlog.md", table());
+    expect(git(dir, "merge", "--no-edit", "appends").status).not.toBe(0);
+    expect(flow(dir, "regenerate", "--dry-run").stdout).toMatch(/would merge docs\/sdlc\/backlog\.md by its rows/);
+    const run = flow(dir, "regenerate");
+    expect(run.status).toBe(0);
+    expect(run.stdout).toMatch(/merged docs\/sdlc\/backlog\.md by its rows; staged/);
+    expect(readFileSync(join(dir, "docs/sdlc/backlog.md"), "utf8")).toBe(table("b 1"));
+    expect(git(dir, "diff", "--name-only", "--diff-filter=U").stdout.trim()).toBe("");
+    git(dir, "merge", "--abort");
+  });
+
+  it("leaves a backlog conflicted when both sides changed the text around the table (C4)", () => {
+    const text = (intro) => `# Backlog\n\n${intro}\n\n| Source | What |\n| --- | --- |\n| a 1 | w |\n`;
+    commit("docs/sdlc/backlog.md", text("Base."));
+    git(dir, "checkout", "-q", "-b", "retitles");
+    commit("docs/sdlc/backlog.md", text("Theirs."));
+    git(dir, "checkout", "-q", "dev");
+    commit("docs/sdlc/backlog.md", text("Ours."));
+    expect(git(dir, "merge", "--no-edit", "retitles").status).not.toBe(0);
+    const run = flow(dir, "regenerate");
+    expect(run.stdout).toMatch(/docs\/sdlc\/backlog\.md left conflicted: both sides changed the text outside the table/);
+    expect(git(dir, "diff", "--name-only", "--diff-filter=U").stdout.trim()).toBe("docs/sdlc/backlog.md");
+    git(dir, "merge", "--abort");
+  });
 });

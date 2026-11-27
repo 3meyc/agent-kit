@@ -71,10 +71,10 @@ unaffected). `grep -rn "merge=union\|union" plugins docs` lists every text to ch
 
 ## Order of work
 
-- [ ] 1. Row merge, test first (O1, O2, C1–C5). Files: `tests/session.backlog-merge.test.mjs`,
+- [x] 1. Row merge, test first (O1, O2, C1–C5). Files: `tests/session.backlog-merge.test.mjs`,
   `plugins/session/scripts/backlog-merge.mjs`. Check: the test fails before the module exists,
   then `node --test tests/session.backlog-merge.test.mjs` -> all pass.
-- [ ] 2. `regenerate` resolves a conflicted backlog (O1, O3, C4). Files: `worktree-flow.mjs`,
+- [x] 2. `regenerate` resolves a conflicted backlog (O1, O3, C4). Files: `worktree-flow.mjs`,
   `tests/session.worktree-flow.test.mjs`. The test merges a pick against an append without a
   union line, expects a conflict, runs `regenerate`, expects the picked rows gone, the appended
   row present and no unmerged path; a C4 head clash stays conflicted and is named. Check:
