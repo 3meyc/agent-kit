@@ -91,8 +91,12 @@ const pattern = (path) => (/\s/.test(path) ? `"${path}"` : path);
  * `merge=<driver>` word on the same line (not `x-merge=`, never across a newline).
  * @param {string} sdlc @param {string} driver
  */
-const backlogLine = (sdlc, driver) =>
-  new RegExp(`^[ \\t]*("?)/?${escapeRegExp(backlogPath(sdlc))}\\1[ \\t](?:[^\\n]*[ \\t])?merge=${driver}(?=[ \\t\\r]|$)`, "m");
+const backlogLine = (sdlc, driver) => {
+  const path = backlogPath(sdlc);
+  // A path with a space is the backlog's only when quoted; unquoted, git reads its first word.
+  const [open, close] = /\s/.test(path) ? ['"', '"'] : ['("?)', "\\1"];
+  return new RegExp(`^[ \\t]*${open}/?${escapeRegExp(path)}${close}[ \\t](?:[^\\n]*[ \\t])?merge=${driver}(?=[ \\t\\r]|$)`, "m");
+};
 
 /**
  * `info/attributes` text with the backlog's `merge=text` line added, or null when it is there.
@@ -134,7 +138,7 @@ export function ensureBacklogMerge(top) {
         writeFileSync(file, next);
       }
     } catch (caught) {
-      error = `backlog: could not set merge=text for ${backlogPath(sdlc)} in ${file}: ${caught instanceof Error ? caught.message : caught}`;
+      error = `backlog: could not set merge=text for ${JSON.stringify(backlogPath(sdlc))} in ${file}: ${caught instanceof Error ? caught.message : caught}`;
     }
   }
   let union = false;

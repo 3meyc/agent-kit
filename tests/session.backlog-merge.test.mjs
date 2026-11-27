@@ -101,6 +101,8 @@ describe("withTextMerge", () => {
     expect(written).toBe('"my docs/sdlc/backlog.md" merge=text\n');
     expect(withTextMerge(written, "my docs/sdlc")).toBe(null);
     expect(hasUnionLine('"my docs/sdlc/backlog.md" merge=union\n', "my docs/sdlc")).toBe(true);
+    // Unquoted, git reads the pattern as `my`: not the backlog's line.
+    expect(hasUnionLine("my docs/sdlc/backlog.md merge=union\n", "my docs/sdlc")).toBe(false);
   });
 
   it("reads one line at a time, and only a set merge=<driver> (verifier D1)", () => {

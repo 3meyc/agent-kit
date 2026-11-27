@@ -183,7 +183,20 @@ Finish, 2026-11-27, at d58e77d (K2's uncommitted #57 files set aside so the tree
    7. test gaps — tests added for 1–6 and for the hook in a linked worktree.
 4. Verifier pass 1 at 9098115: FAIL — D1 (defect, low) and nits N1–N4, all in step 8;
    everything else passed (`npm run check` 797 tests, real-input reproduction, O1–O6, C1–C7).
-5. Follow-up from the intent's Scope (excluded there): making a sub-session's commit of a
+5. Finish 2, 2026-11-27, at aa41879: preflight `npm run check` exit 0 (799 tests, K2 set
+   aside). Independent review of step 8 found no defect; nits and dispositions:
+   1. a later `-merge` on the same line is not read as an unset — left (git's last-wins on a
+      hand-written line; not a line `/backlog` ever wrote);
+   2. a quoted pattern with no blank before its attributes is missed — left (hand-written only);
+   3. an unquoted path with a space matched — fixed, such a path matches only when quoted, with a
+      test that failed first;
+   4. multiline `^` also matches after a lone `\r` — left (contrived);
+   5. the error for a `paths.sdlc` with a newline was not one line — fixed, the path is printed
+      JSON-quoted;
+   6. a row edited differently on both sides keeps ours silently — documented in `/backlog`
+      § The file item 3 (this branch's edit stands, as git keeps the checked-out side);
+   7. "Never resolve it by hand" read against the refusals' "resolve it by hand" — reworded.
+6. Follow-up from the intent's Scope (excluded there): making a sub-session's commit of a
    top-level `<sdlc>/*.md` a refusal rather than the `parent-files:` line.
 
 ## Deviations
