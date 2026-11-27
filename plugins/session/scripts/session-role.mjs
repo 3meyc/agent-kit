@@ -57,13 +57,15 @@ export function isChildSession(cwd) {
 /**
  * The paths only the main session edits: `kit.json` `parentFiles` (roadmaps, a changelog, release
  * notes), and every top-level `<paths.sdlc>/*.md` (an index or backlog beside the item folders,
- * never a file inside one). Pure.
+ * never a file inside one). An empty `parentFiles` owns nothing: unlike a `match` list, where empty
+ * means every path, `matchesAny` is asked only when there is a glob to match. Pure.
  * @param {string[]} paths @param {{ parentFiles: string[], paths: { sdlc: string } }} kit
  */
 export function parentOwned(paths, kit) {
   const sdlc = `${kit.paths.sdlc}/`;
   const topLevelSdlc = (path) => path.startsWith(sdlc) && path.endsWith(".md") && !path.slice(sdlc.length).includes("/");
-  return paths.filter((path) => topLevelSdlc(path) || matchesAny(path, kit.parentFiles));
+  const listed = (path) => kit.parentFiles.length > 0 && matchesAny(path, kit.parentFiles);
+  return paths.filter((path) => topLevelSdlc(path) || listed(path));
 }
 
 /**

@@ -150,6 +150,13 @@ describe("session-role", () => {
     assert.match(parentFilesLine(["CHANGELOG.md"]), /^parent-files: CHANGELOG\.md belong to the main session/);
   });
 
+  it("owns nothing outside <sdlc> when parentFiles is empty or missing (#57)", () => {
+    for (const kit of [normalizeKit({ project: "t", paths: { sdlc: "work" } }), normalizeKit({ project: "t", parentFiles: [], paths: { sdlc: "work" } })]) {
+      assert.deepEqual(parentOwned(["src/a.ts", "README.md", "work/backlog.md"], kit), ["work/backlog.md"]);
+      assert.equal(parentFilesLine(parentOwned(["src/a.ts", "README.md"], kit)), null);
+    }
+  });
+
   it("lets a sub-session mark only its own ledger items done", () => {
     const dir = project("ledger-guard", { project: "t", ledger: true });
     mkdirSync(join(dir, ".claude", "ledger"), { recursive: true });
