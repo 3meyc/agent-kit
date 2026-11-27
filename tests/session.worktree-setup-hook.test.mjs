@@ -122,6 +122,12 @@ describe("worktree-setup-hook.mjs as a process", () => {
       expect(run().stdout).toContain("this worktree starts 1 commit(s) behind dev; run `worktree-flow adopt dev`");
       rmSync(log);
 
+      // A linked worktree writes the common dir's info/attributes, the main checkout's .git (#56).
+      writeFileSync(join(wt, "kit.json"), JSON.stringify({ project: "t" }));
+      expect(run().status).toBe(0);
+      expect(readFileSync(join(main, ".git", "info", "attributes"), "utf8")).toMatch(/^docs\/sdlc\/backlog\.md merge=text$/m);
+      rmSync(log);
+
       writeFileSync(join(wt, "kit.json"), JSON.stringify({ project: "t", hooks: { off: ["worktree-setup"] } }));
       const off = run();
       expect(off.status).toBe(0);

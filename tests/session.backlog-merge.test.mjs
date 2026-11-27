@@ -1,5 +1,5 @@
 import { describe, expect, it } from "./session/vitest-compat.mjs";
-import { hasUnionLine, mergeBacklog, withTextMerge } from "../plugins/session/scripts/backlog-merge.mjs";
+import { backlogPath, hasUnionLine, mergeBacklog, withTextMerge } from "../plugins/session/scripts/backlog-merge.mjs";
 
 const HEAD = "# Backlog\n\nDeferred follow-ups.\n\n| Source | What | Why | Added | Until |\n| --- | --- | --- | --- | --- |\n";
 const row = (source, what = `do ${source}`, until = "2026-12-01") => `| ${source} | ${what} | why | 2026-11-17 | ${until} |\n`;
@@ -56,6 +56,36 @@ describe("mergeBacklog", () => {
   it("refuses a side with no table", () => {
     expect(mergeBacklog({ base: file(), ours: "# Backlog\n", theirs: file(row("b 1")) }).refused).toMatch(/no table/);
   });
+
+  it("keeps each row on its own line when a side ends without a newline (review 1)", () => {
+    const bare = (text) => text.replace(/\n$/, "");
+    expect(mergeBacklog({ base: bare(file(row("a 1"))), ours: bare(file(row("a 1"), row("o 1"))), theirs: bare(file(row("a 1"), row("t 1"))) })).toEqual({
+      text: file(row("a 1"), row("o 1"), row("t 1")),
+    });
+  });
+
+  it("refuses when one side deleted the file, and reads only a missing base as empty (review 2)", () => {
+    expect(mergeBacklog({ base: file(row("a 1")), ours: null, theirs: file(row("a 1"), row("b 1")) }).refused).toMatch(/deleted/);
+    expect(mergeBacklog({ base: file(row("a 1")), ours: file(row("a 1"), row("b 1")), theirs: null }).refused).toMatch(/deleted/);
+    expect(mergeBacklog({ base: null, ours: file(row("b 1")), theirs: file(row("c 1")) })).toEqual({ text: file(row("b 1"), row("c 1")) });
+  });
+
+  it("takes theirs' edit of a row ours left as in base (review 4)", () => {
+    const base = file(row("a 1"));
+    const edited = file(row("a 1", "do a 1", "2026-12-24"));
+    expect(mergeBacklog({ base, ours: file(row("a 1"), row("b 1")), theirs: edited })).toEqual({
+      text: file(row("a 1", "do a 1", "2026-12-24"), row("b 1")),
+    });
+    // Both edited it: ours stands, as git keeps the checked-out side.
+    expect(mergeBacklog({ base, ours: file(row("a 1", "ours")), theirs: edited })).toEqual({ text: file(row("a 1", "ours")) });
+  });
+});
+
+describe("backlogPath", () => {
+  it("is the repo-relative path git prints, without a leading ./", () => {
+    expect(backlogPath("docs/sdlc")).toBe("docs/sdlc/backlog.md");
+    expect(backlogPath("./work/")).toBe("work/backlog.md");
+  });
 });
 
 describe("withTextMerge", () => {
@@ -64,6 +94,13 @@ describe("withTextMerge", () => {
     expect(withTextMerge("*.bin -diff", "work")).toBe("*.bin -diff\nwork/backlog.md merge=text\n");
     expect(withTextMerge("work/backlog.md merge=text\n", "work")).toBe(null);
     expect(withTextMerge("/work/backlog.md  merge=text\n", "work")).toBe(null);
+  });
+
+  it("quotes a path with a space, as gitattributes needs, and finds the quoted line again (review 5)", () => {
+    const written = withTextMerge("", "my docs/sdlc");
+    expect(written).toBe('"my docs/sdlc/backlog.md" merge=text\n');
+    expect(withTextMerge(written, "my docs/sdlc")).toBe(null);
+    expect(hasUnionLine('"my docs/sdlc/backlog.md" merge=union\n', "my docs/sdlc")).toBe(true);
   });
 });
 

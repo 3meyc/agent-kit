@@ -52,28 +52,43 @@ function threeWay(base, ours, theirs) {
 }
 
 /**
- * Merge three copies of the backlog. A row either side removed stays removed (a removal wins over
- * an edit of the same row); a row either side added is added once, ours first. The text around
- * the table merges as whole blocks and is refused when both sides changed it differently. Pure.
- * @param {{ base: string, ours: string, theirs: string }} sides
+ * Merge three copies of the backlog; null is a copy git does not have. A row either side removed
+ * stays removed (a removal wins over an edit of the same row); a row either side added is added
+ * once, ours first; a row only theirs edited takes theirs' text. The text around the table merges
+ * as whole blocks and is refused when both sides changed it differently. A missing base (add/add)
+ * is an empty file; a missing ours or theirs is a deletion, refused. Pure.
+ * @param {{ base: string | null, ours: string | null, theirs: string | null }} sides
  * @returns {{ text: string } | { refused: string }}
  */
 export function mergeBacklog({ base, ours, theirs }) {
-  const [b, o, t] = [parse(base), parse(ours), parse(theirs)];
+  if (ours === null || theirs === null) return { refused: "one side deleted the file; resolve it by hand" };
+  const [b, o, t] = [parse(base ?? ""), parse(ours), parse(theirs)];
   if (!b || !o || !t) return { refused: "a side has no table; resolve it by hand" };
   const head = threeWay(b.head, o.head, t.head);
   const tail = threeWay(b.tail, o.tail, t.tail);
   if (head === null || tail === null) return { refused: "both sides changed the text outside the table; resolve it by hand" };
-  const inBase = new Set(b.rows.map(sourceOf));
-  const inOurs = new Set(o.rows.map(sourceOf));
-  const inTheirs = new Set(t.rows.map(sourceOf));
-  const kept = o.rows.filter((row) => !(inBase.has(sourceOf(row)) && !inTheirs.has(sourceOf(row))));
+  const bySource = (rows) => new Map(rows.map((row) => [sourceOf(row), row]));
+  const [inBase, inOurs, inTheirs] = [bySource(b.rows), bySource(o.rows), bySource(t.rows)];
+  const kept = o.rows
+    .filter((row) => !(inBase.has(sourceOf(row)) && !inTheirs.has(sourceOf(row))))
+    .map((row) => (inBase.get(sourceOf(row)) === row ? (inTheirs.get(sourceOf(row)) ?? row) : row));
   const added = t.rows.filter((row) => !inBase.has(sourceOf(row)) && !inOurs.has(sourceOf(row)));
-  return { text: head + kept.join("") + added.join("") + tail };
+  // A last row without its newline would run into the next one.
+  const ended = (row) => (row.endsWith("\n") ? row : `${row}\n`);
+  return { text: head + [...kept, ...added].map(ended).join("") + tail };
 }
 
+/** The backlog's path as git prints it, from `paths.sdlc`. Pure. @param {string} sdlc */
+export function backlogPath(sdlc) {
+  return `${sdlc.replace(/^\.\//, "").replace(/\/+$/, "")}/backlog.md`;
+}
+
+/** The path as a gitattributes pattern: C-quoted when it holds a space. @param {string} path */
+const pattern = (path) => (/\s/.test(path) ? `"${path}"` : path);
+
 /** An attributes line for the backlog that sets `merge=<driver>`. @param {string} sdlc @param {string} driver */
-const backlogLine = (sdlc, driver) => new RegExp(`^\\s*/?${escapeRegExp(`${sdlc}/backlog.md`)}\\s.*\\bmerge=${driver}\\b`, "m");
+const backlogLine = (sdlc, driver) =>
+  new RegExp(`^\\s*("?)/?${escapeRegExp(backlogPath(sdlc))}\\1\\s.*\\bmerge=${driver}\\b`, "m");
 
 /**
  * `info/attributes` text with the backlog's `merge=text` line added, or null when it is there.
@@ -81,7 +96,7 @@ const backlogLine = (sdlc, driver) => new RegExp(`^\\s*/?${escapeRegExp(`${sdlc}
  */
 export function withTextMerge(text, sdlc) {
   if (backlogLine(sdlc, "text").test(text)) return null;
-  return `${text}${text && !text.endsWith("\n") ? "\n" : ""}${sdlc}/backlog.md merge=text\n`;
+  return `${text}${text && !text.endsWith("\n") ? "\n" : ""}${pattern(backlogPath(sdlc))} merge=text\n`;
 }
 
 /** Whether a `.gitattributes` text still merges the backlog by union. Pure. @param {string} text @param {string} sdlc */
@@ -91,7 +106,7 @@ export function hasUnionLine(text, sdlc) {
 
 /** The line `worktree-flow conflicts` prints while the union line is in `.gitattributes`. @param {string} sdlc */
 export const unionLineNote = (sdlc) =>
-  `backlog: .gitattributes still merges ${sdlc}/backlog.md by union, which brings removed rows back; delete that line (/backlog does on its next triage, pick or expire)`;
+  `backlog: .gitattributes still merges ${backlogPath(sdlc)} by union, which brings removed rows back; delete that line (/backlog does on its next triage, pick or expire)`;
 
 /**
  * In a project with a `kit.json`: make sure the clone's `info/attributes` merges the backlog as
@@ -113,7 +128,7 @@ export function ensureBacklogMerge(top) {
         writeFileSync(file, next);
       }
     } catch (caught) {
-      error = `backlog: could not set merge=text for ${sdlc}/backlog.md in ${file}: ${caught instanceof Error ? caught.message : caught}`;
+      error = `backlog: could not set merge=text for ${backlogPath(sdlc)} in ${file}: ${caught instanceof Error ? caught.message : caught}`;
     }
   }
   let union = false;

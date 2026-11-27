@@ -34,9 +34,9 @@ Deferred follow-ups. Rows enter through `/backlog triage` (or the triage of `/cl
 2. **Until** is **Added** plus 14 days. A row past it is expired.
 3. Two main sessions may change the file at once (two roots closing out). It merges as text, so
    that is a conflict, and `worktree-flow regenerate` settles it by the rows' Source: a row either
-   side removed stays removed, a row either side added lands once; it stages the file, or leaves
-   it conflicted and says why when both sides changed the text around the table. Never resolve
-   it by hand. Removing rows (`pick`, `expire`) is for one session at a time, normally the daily
+   side removed stays removed, a row either side added lands once, a row one side edited keeps
+   the edit; it stages the file, or leaves it conflicted and says why when both sides changed
+   the text around the table or one side deleted the file. Never resolve it by hand. Removing rows (`pick`, `expire`) is for one session at a time, normally the daily
    one.
 4. Never add `merge=union` for the file: a union merge brings removed rows back. Older versions
    of `/backlog` added `<sdlc>/backlog.md merge=union` to `.gitattributes`; `triage`, `pick` and

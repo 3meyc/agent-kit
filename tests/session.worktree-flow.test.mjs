@@ -992,8 +992,12 @@ describe("worktree-flow role and regenerate", () => {
     git(dir, "checkout", "-q", "dev");
     commit("docs/sdlc/backlog.md", text("Ours."));
     expect(git(dir, "merge", "--no-edit", "retitles").status).not.toBe(0);
+    // The dry run tells the same (review 6), and no kit.json rule takes a refused backlog (review 3).
+    expect(flow(dir, "regenerate", "--dry-run").stdout).toMatch(/would leave docs\/sdlc\/backlog\.md conflicted: both sides changed the text/);
+    writeFileSync(join(dir, "kit.json"), JSON.stringify({ project: "t", regenerate: [{ match: ["docs/**"], command: "node gen.mjs" }] }));
     const run = flow(dir, "regenerate");
     expect(run.stdout).toMatch(/docs\/sdlc\/backlog\.md left conflicted: both sides changed the text outside the table/);
+    expect(run.stdout).not.toMatch(/regenerated|no kit\.json regenerate rule/);
     expect(git(dir, "diff", "--name-only", "--diff-filter=U").stdout.trim()).toBe("docs/sdlc/backlog.md");
     git(dir, "merge", "--abort");
   });

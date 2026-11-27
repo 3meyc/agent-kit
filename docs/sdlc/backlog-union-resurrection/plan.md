@@ -139,6 +139,33 @@ Evidence (2026-11-27, on the step 5 commit plus K2's uncommitted #57 files):
    CHANGELOG entry; no text still says the backlog merges by union. No `sdlc-ext-plan` skill is
 listed in this session, so no extra gates.
 
+## Review
+
+Finish, 2026-11-27, at d58e77d (K2's uncommitted #57 files set aside so the tree was clean).
+
+1. Preflight: no `sdlc-ext-preflight` or `sdlc-ext-docs` skill listed; `npm run check` -> exit
+   0, 792 tests, docs parity and naming guard ok. Recipes: none in this repo; this one-off fix
+   needs none. Glossary: none in this repo; no new term. Nothing inherited was found.
+2. Security review not run: no trust boundary moves (a local write to the clone's
+   `info/attributes`; no credentials, network or permissions).
+3. Independent review (fresh read-only agent, host `code-review` scope), findings and
+   dispositions:
+   1. defect — a side ending without a newline glued two rows: fixed, every row ends with one.
+   2. defect — modify/delete read the deleted side as empty and staged a headerless file: fixed,
+      a missing ours or theirs is refused; only a missing base reads as empty.
+   3. defect — a refused backlog went on to a matching `kit.json` `regenerate` rule and was
+      resolved as ours: fixed, a refused backlog never enters the rules (C4).
+   4. defect (low) — an edit only theirs made was dropped: fixed, a row ours left as in base
+      takes theirs' text; `/backlog` § The file item 3 says so.
+   5. defect (low) — a `paths.sdlc` with a space wrote an unquoted pattern git misreads: fixed,
+      such a pattern is C-quoted (checked with `git check-attr`); `./` and a trailing `/` are
+      dropped by `backlogPath`; the conflicted list is read with `-z` so a non-ASCII path
+      compares as written.
+   6. nit — `regenerate --dry-run` claimed it would merge a backlog it would refuse: fixed.
+   7. test gaps — tests added for 1–6 and for the hook in a linked worktree.
+4. Follow-up from the intent's Scope (excluded there): making a sub-session's commit of a
+   top-level `<sdlc>/*.md` a refusal rather than the `parent-files:` line.
+
 ## Deviations
 
 - IMPROVED — `ensureBacklogMerge` returns `{ sdlc, error, union }` instead of lines to print,

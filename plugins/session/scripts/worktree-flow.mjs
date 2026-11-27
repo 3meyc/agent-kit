@@ -4,7 +4,7 @@ import { join, resolve } from "node:path";
 import { isDirectRun, parseWorktrees } from "../lib/hook-utils.mjs";
 import { matchesAny } from "../lib/globs.mjs";
 import { escapeRegExp, inLedger, readKit } from "../lib/kit-config.mjs";
-import { ensureBacklogMerge, mergeBacklog, unionLineNote } from "./backlog-merge.mjs";
+import { backlogPath, ensureBacklogMerge, mergeBacklog, unionLineNote } from "./backlog-merge.mjs";
 import { BASE_KEY, ROLE_KEY, sessionRole } from "./session-role.mjs";
 
 /**
@@ -898,39 +898,34 @@ export function regeneratePlan(unmerged, rules) {
 
 /**
  * Merge a conflicted `<paths.sdlc>/backlog.md` by its rows from git's three stages, write and
- * stage it; a refusal leaves it conflicted. Whether it was settled.
+ * stage it; a refusal leaves it conflicted and says why. `--dry-run` reports which of the two.
  * @param {string} top @param {string} path @param {boolean} dryRun
  */
 function regenerateBacklog(top, path, dryRun) {
-  if (dryRun) {
-    console.log(`would merge ${path} by its rows`);
-    return true;
-  }
-  // Untrimmed, and empty for a stage git lacks (no base in an add/add conflict).
+  // Untrimmed, and null for a stage git lacks (no base in add/add, no side in modify/delete).
   const stage = (n) => {
     const shown = spawnSync("git", ["show", `:${n}:${path}`], { cwd: top, encoding: "utf8" });
-    return shown.status === 0 ? shown.stdout : "";
+    return shown.status === 0 ? shown.stdout : null;
   };
   const merged = mergeBacklog({ base: stage(1), ours: stage(2), theirs: stage(3) });
-  if ("refused" in merged) {
-    console.log(`${path} left conflicted: ${merged.refused}`);
-    return false;
-  }
+  if ("refused" in merged) return console.log(`${dryRun ? `would leave ${path}` : `${path} left`} conflicted: ${merged.refused}`);
+  if (dryRun) return console.log(`would merge ${path} by its rows`);
   writeFileSync(join(top, ...path.split("/")), merged.text);
   const added = git(["add", "--", path], top);
   if (!added.ok) fail(added.err);
-  console.log(`merged ${path} by its rows; staged`);
-  return true;
+  return console.log(`merged ${path} by its rows; staged`);
 }
 
 function cmdRegenerate({ flags, cwd }) {
   const top = thisWorktree(cwd).path;
-  const conflicted = (gitOut(["diff", "--name-only", "--diff-filter=U"], top) ?? "").split("\n").filter(Boolean);
+  // NUL-separated, so a path git would quote (non-ASCII) compares as written.
+  const conflicted = (gitOut(["diff", "--name-only", "--diff-filter=U", "-z"], top) ?? "").split("\0").filter(Boolean);
   if (conflicted.length === 0) return console.log("no conflicted files");
   const kit = kitOf(top);
-  const backlog = `${kit.paths.sdlc}/backlog.md`;
+  const backlog = backlogPath(kit.paths.sdlc);
+  // A refused backlog stays conflicted: no kit.json rule may take it over (C4).
+  if (conflicted.includes(backlog)) regenerateBacklog(top, backlog, flags.has("--dry-run"));
   const unmerged = conflicted.filter((path) => path !== backlog);
-  if (conflicted.includes(backlog) && !regenerateBacklog(top, backlog, flags.has("--dry-run"))) unmerged.push(backlog);
   if (unmerged.length === 0) return undefined;
   const { steps, left } = regeneratePlan(unmerged, kit.regenerate);
   if (steps.length === 0) return console.log(`no kit.json regenerate rule matches the conflicted files: ${unmerged.join(", ")}`);
