@@ -100,6 +100,17 @@ unaffected). `grep -rn "merge=union\|union" plugins docs` lists every text to ch
 - [x] 7. Full check. `npm run check` -> exit 0. Commits: step 1–2 `fix(session): …` with
   `Fixes #56` in the last fix commit; docs with them or as `docs(session): …`.
 
+- [ ] 8. Correction after the finish verifier's FAIL at 9098115 (2026-11-27). D1 (defect, low):
+  `backlogLine` in `backlog-merge.mjs` matches across lines (`\s` and `.*` cross a newline) and
+  takes `!merge=`/`-merge=` as set: `hasUnionLine("docs/sdlc/backlog.md\n*.md merge=union\n",
+  "docs/sdlc")` is true, `withTextMerge("docs/sdlc/backlog.md\n*.md merge=text\n",
+  "docs/sdlc")` is null. Fix: one-line match (`[ \t]`, `[^\n]*`), a set `merge=<driver>` only,
+  and refuse to write a `paths.sdlc` holding a newline or `"`; tests for each, failing first.
+  With it, the nits: N1 rewrap `backlog.md` § The file item 3; N2 correct the step 5 check and
+  the grep Proof row to what the grep lists; N3 name "a side has no table" among the refusals;
+  N4 note that `Fixes #56` sits in the docs commit. Check: the three item test files and
+  `npm run check` pass.
+
 ## Proof
 
 | Check | Expected | Covers |
@@ -163,7 +174,9 @@ Finish, 2026-11-27, at d58e77d (K2's uncommitted #57 files set aside so the tree
       compares as written.
    6. nit — `regenerate --dry-run` claimed it would merge a backlog it would refuse: fixed.
    7. test gaps — tests added for 1–6 and for the hook in a linked worktree.
-4. Follow-up from the intent's Scope (excluded there): making a sub-session's commit of a
+4. Verifier pass 1 at 9098115: FAIL — D1 (defect, low) and nits N1–N4, all in step 8;
+   everything else passed (`npm run check` 797 tests, real-input reproduction, O1–O6, C1–C7).
+5. Follow-up from the intent's Scope (excluded there): making a sub-session's commit of a
    top-level `<sdlc>/*.md` a refusal rather than the `parent-files:` line.
 
 ## Deviations
