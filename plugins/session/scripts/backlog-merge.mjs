@@ -86,15 +86,21 @@ export function backlogPath(sdlc) {
 /** The path as a gitattributes pattern: C-quoted when it holds a space. @param {string} path */
 const pattern = (path) => (/\s/.test(path) ? `"${path}"` : path);
 
-/** An attributes line for the backlog that sets `merge=<driver>`. @param {string} sdlc @param {string} driver */
+/**
+ * One attributes line for the backlog that sets `merge=<driver>`: the pattern, then a separate
+ * `merge=<driver>` word on the same line (not `x-merge=`, never across a newline).
+ * @param {string} sdlc @param {string} driver
+ */
 const backlogLine = (sdlc, driver) =>
-  new RegExp(`^\\s*("?)/?${escapeRegExp(backlogPath(sdlc))}\\1\\s.*\\bmerge=${driver}\\b`, "m");
+  new RegExp(`^[ \\t]*("?)/?${escapeRegExp(backlogPath(sdlc))}\\1[ \\t](?:[^\\n]*[ \\t])?merge=${driver}(?=[ \\t\\r]|$)`, "m");
 
 /**
  * `info/attributes` text with the backlog's `merge=text` line added, or null when it is there.
- * Pure. @param {string} text @param {string} sdlc
+ * Throws for a `paths.sdlc` holding a newline or a quote, which would write a broken or extra
+ * attributes line. Pure. @param {string} text @param {string} sdlc
  */
 export function withTextMerge(text, sdlc) {
+  if (/[\r\n"]/.test(sdlc)) throw new Error(`paths.sdlc holds a newline or a quote; not writing an attributes line for it`);
   if (backlogLine(sdlc, "text").test(text)) return null;
   return `${text}${text && !text.endsWith("\n") ? "\n" : ""}${pattern(backlogPath(sdlc))} merge=text\n`;
 }

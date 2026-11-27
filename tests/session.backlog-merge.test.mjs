@@ -102,6 +102,18 @@ describe("withTextMerge", () => {
     expect(withTextMerge(written, "my docs/sdlc")).toBe(null);
     expect(hasUnionLine('"my docs/sdlc/backlog.md" merge=union\n', "my docs/sdlc")).toBe(true);
   });
+
+  it("reads one line at a time, and only a set merge=<driver> (verifier D1)", () => {
+    expect(hasUnionLine("docs/sdlc/backlog.md\n*.md merge=union\n", "docs/sdlc")).toBe(false);
+    expect(withTextMerge("docs/sdlc/backlog.md\n*.md merge=text\n", "docs/sdlc")).toBe("docs/sdlc/backlog.md\n*.md merge=text\ndocs/sdlc/backlog.md merge=text\n");
+    expect(withTextMerge("docs/sdlc/backlog.md x-merge=text\n", "docs/sdlc")).not.toBe(null);
+    expect(withTextMerge("docs/sdlc/backlog.md -diff merge=text\n", "docs/sdlc")).toBe(null);
+  });
+
+  it("refuses a paths.sdlc that would break the attributes line (verifier D1)", () => {
+    expect(() => withTextMerge("", "docs\nsdlc")).toThrow(/newline or a quote/);
+    expect(() => withTextMerge("", 'docs"sdlc')).toThrow(/newline or a quote/);
+  });
 });
 
 describe("hasUnionLine", () => {

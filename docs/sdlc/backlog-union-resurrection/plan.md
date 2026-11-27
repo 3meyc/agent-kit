@@ -100,7 +100,7 @@ unaffected). `grep -rn "merge=union\|union" plugins docs` lists every text to ch
 - [x] 7. Full check. `npm run check` -> exit 0. Commits: step 1–2 `fix(session): …` with
   `Fixes #56` in the last fix commit; docs with them or as `docs(session): …`.
 
-- [ ] 8. Correction after the finish verifier's FAIL at 9098115 (2026-11-27). D1 (defect, low):
+- [x] 8. Correction after the finish verifier's FAIL at 9098115 (2026-11-27). D1 (defect, low):
   `backlogLine` in `backlog-merge.mjs` matches across lines (`\s` and `.*` cross a newline) and
   takes `!merge=`/`-merge=` as set: `hasUnionLine("docs/sdlc/backlog.md\n*.md merge=union\n",
   "docs/sdlc")` is true, `withTextMerge("docs/sdlc/backlog.md\n*.md merge=text\n",
@@ -110,6 +110,13 @@ unaffected). `grep -rn "merge=union\|union" plugins docs` lists every text to ch
   the grep Proof row to what the grep lists; N3 name "a side has no table" among the refusals;
   N4 note that `Fixes #56` sits in the docs commit. Check: the three item test files and
   `npm run check` pass.
+  Done 2026-11-27: `backlogLine` matches one line and a separate `merge=<driver>` word;
+  `withTextMerge` throws for a `paths.sdlc` with a newline or `"` (caught by
+  `ensureBacklogMerge` as its one-line error); two tests failed first, then passed. N1 and N3
+  fixed in `backlog.md` § The file item 3. N2: step 5's check expected fewer hits than the grep
+  lists; the Proof row now states what it lists (step 5 stays as built). N4: `Fixes #56` is in
+  the 2026-11-27 commit `docs(session): the backlog merges by its rows, not by union`, not the
+  last fix commit as step 7 says; the issue closes when that commit reaches the default branch.
 
 ## Proof
 
@@ -122,7 +129,7 @@ unaffected). `grep -rn "merge=union\|union" plugins docs` lists every text to ch
 | Run `worktree-flow conflicts` in this repo (real input) | clone line written to the common dir's `info/attributes`, no `backlog:` line | O6 |
 | Run the built `worktree-flow regenerate` on the scratch repo of the reproduction (real input) | picked rows gone, `b 1` kept, staged | O1, O3 |
 | Read `/backlog` § The file and pick/expire/triage | union line removal step present; C6 named | O4, C6 |
-| `grep -rn "merge=union" plugins docs` | only the removal instruction and CHANGELOG | O5 |
+| `grep -rn "merge=union" plugins docs` | only text describing the new rule: the `/backlog` removal instruction, the README's history sentence, the `conflicts` description, this item's records; none says the backlog merges by union (corrected in step 8, N2) | O5 |
 | `npm run check` | exit 0 (schema, vendor, tests, docs parity, naming guard) | all |
 | `claude plugin validate .` | passes (missing `version` warning expected) | all |
 
