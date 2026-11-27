@@ -90,12 +90,13 @@ unaffected). `grep -rn "merge=union\|union" plugins docs` lists every text to ch
 - [x] 4. Leftover union line reported (O4). Files: `backlog-merge.mjs` (`hasUnionLine`),
   `worktree-flow.mjs`, `tests/session.worktree-flow.test.mjs`. Test: `.gitattributes` with the
   union line -> `conflicts` prints the `backlog:` line; without it -> no line. Check: pass.
-- [ ] 5. Docs (O4, O5, C6). Files: `backlog.md`, `close-out.md`, `close-siblings.md`, session
+- [x] 5. Docs (O4, O5, C6). Files: `backlog.md`, `close-out.md`, `close-siblings.md`, session
   README (both: conflict row 6, follow-ups item 3, hook row 5, script row 3 for `conflicts` and
   `regenerate`), CHANGELOG. Check: `grep -rn "merge=union" plugins docs` -> only the
   removal instruction, the `conflicts` line and the CHANGELOG; `node plugins/core/bin/kit-docs-parity` -> ok.
-- [ ] 6. Architecture page sentence on `regenerate`, if it names what it rebuilds. Check:
-  read `docs/architecture.md:146`; parity ok.
+- [x] 6. Architecture page sentence on `regenerate`, if it names what it rebuilds. Check:
+  read `docs/architecture.md:146`; parity ok. Result: no change; the sentence describes the
+  `kit.json` `regenerate` key, and the backlog merge is built in, not a key.
 - [ ] 7. Full check. `npm run check` -> exit 0. Commits: step 1–2 `fix(session): …` with
   `Fixes #56` in the last fix commit; docs with them or as `docs(session): …`.
 

@@ -32,10 +32,18 @@ Deferred follow-ups. Rows enter through `/backlog triage` (or the triage of `/cl
    The B-numbers (B1, B2 …) are the rows' order in the file, shown by `/backlog` and used by `pick`
    and `expire` in the same conversation; they are never written into the file.
 2. **Until** is **Added** plus 14 days. A row past it is expired.
-3. Two main sessions may append rows at once (two roots closing out). When it creates the file,
-   `/backlog` also adds `<sdlc>/backlog.md merge=union` to `.gitattributes`, so appended rows from
-   both sides merge without a conflict. Removing rows (`pick`, `expire`) is for one session at a
-   time, normally the daily one.
+3. Two main sessions may change the file at once (two roots closing out). It merges as text, so
+   that is a conflict, and `worktree-flow regenerate` settles it by the rows' Source: a row either
+   side removed stays removed, a row either side added lands once; it stages the file, or leaves
+   it conflicted and says why when both sides changed the text around the table. Never resolve
+   it by hand. Removing rows (`pick`, `expire`) is for one session at a time, normally the daily
+   one.
+4. Never add `merge=union` for the file: a union merge brings removed rows back. Older versions
+   of `/backlog` added `<sdlc>/backlog.md merge=union` to `.gitattributes`; `triage`, `pick` and
+   `expire` delete that line when they find it (and `.gitattributes` itself when the line was all
+   it held), in the commit of their own change. Until then `worktree-flow conflicts` names it,
+   and the clone's `.git/info/attributes` (set by the session plugin) keeps the file merging as
+   text either way.
 
 ## No argument: show
 
@@ -82,7 +90,8 @@ ones). A sub-session runs no triage: its follow-ups wait in its record for its p
    6. Every row: one line in this session's record's `## Decisions`:
       `F3 a1b2c3d4 2: defer`, `F5 a1b2c3d4 4: drop — <why>`, `F1 a1b2c3d4 1: keep — <done here | session title>`,
       `F2 a1b2c3d4 3: open — <the check>`.
-5. **Commit** the backlog and the records through `/git commit`.
+5. **Commit** the backlog and the records through `/git commit`, with an old union line deleted
+   (§ The file item 4).
 
 ## `pick B3 B7 …`: a new charter
 
@@ -97,11 +106,11 @@ Moves rows out of the backlog into one new session, whose charter they become.
    you started sub-sessions).` A charter of more than three rows asks the new session to write it
    as `<sdlc>/<slug>-roadmap.md`, one row per item with its Source.
 3. Only once the tool result says the session started: remove the rows from the backlog, write
-   `picked B3 B7 (<Sources>) into <session title>` in this session's `## Decisions`, and commit
-   through `/git commit`.
+   `picked B3 B7 (<Sources>) into <session title>` in this session's `## Decisions`, delete an
+   old union line (§ The file item 4), and commit through `/git commit`.
 
 ## `expire`
 
 List the rows past **Until** with their B-numbers. On the user's word remove them (git history
-keeps them), write `expired <Sources>` in this session's `## Decisions`, and commit through
-`/git commit`. An expired row nobody picked was not needed; it is not moved back to the inbox.
+keeps them), write `expired <Sources>` in this session's `## Decisions`, delete an old union
+line (§ The file item 4), and commit through `/git commit`. An expired row nobody picked was not needed; it is not moved back to the inbox.

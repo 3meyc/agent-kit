@@ -37,7 +37,7 @@ sub-session, where they repeat on overlapping diffs and conflict at the merge.
 | 3 | Whole `test` suite and `build` | `check`, `lint` and the tests that cover the changed files | `/close-siblings` § 3 on the merged tree |
 | 4 | Another session's ledger item done | Its own record's `## Next` says `mark done: <id8> <n> — <why>`; `session-ledger --done` refuses | `/close-siblings` § 2 step 4 runs `session-ledger --done` |
 | 5 | `kit.json` `parentFiles` and top-level `<paths.sdlc>/*.md` (changelog lines, roadmap and backlog ticks, release notes) | Its record's `## Next` says `for the parent: <file>: <edit>`; a commit of one prints `parent-files:` | `/close-siblings` § 2 step 4 writes them after the merges |
-| 6 | A conflict in a generated file | `worktree-flow regenerate` rebuilds the files a `kit.json` `regenerate` rule names | The same, when merging the sub-sessions |
+| 6 | A conflict in a generated file or in `<paths.sdlc>/backlog.md` | `worktree-flow regenerate` merges the backlog by its rows and rebuilds the files a `kit.json` `regenerate` rule names | The same, when merging the sub-sessions |
 | 7 | A follow-up found along the way | No session card and no triage: its record's `## Next` gets the item with its What and `— why:` | `/close-siblings` § 1 triages it against the main session's charter (`/backlog` § triage): Keep, Defer to `<paths.sdlc>/backlog.md`, or Drop |
 | 8 | Landing its branch | Its brief says who lands it: the sub-session at its `/close-out`, or the parent when notified | Whether a branch landed is read from git (`git log <base>`, `git reflog <base>`, the branch's existence, `git merge-base --is-ancestor`), never from a session's note or an archive notice |
 
@@ -85,8 +85,14 @@ flowchart TD
    and process tweaks. **Drop** an item whose Why does not hold up. The table lists Keep and Open
    first, then Defer, then Drop, each verdict marked `☑︎`, `□`, `↓` or `☒︎`.
 2. The user answers the table by ids (`F1 keep, F5–F7 drop`); unnamed rows keep the proposal.
-3. `<paths.sdlc>/backlog.md` is written by main sessions only, and `merge=union` lets two of them
-   add rows at once; one session at a time picks and expires rows, normally a daily one.
+3. `<paths.sdlc>/backlog.md` is written by main sessions only; one session at a time picks and
+   expires rows, normally a daily one. It merges as text: two sessions that change it at once
+   conflict, and `worktree-flow regenerate` settles the conflict by the rows' Source, so a row
+   either side removed stays removed and a row either side added lands once. The clone's
+   `.git/info/attributes` sets `merge=text` for it (written by the `worktree-setup` hook and by
+   `worktree-flow conflicts`), since a branch cut while `.gitattributes` still said
+   `merge=union` would otherwise bring picked rows back (#56); `conflicts` names such a line
+   until `/backlog` deletes it.
 
 ## Hook ids
 
@@ -100,7 +106,7 @@ quiet unless `kit.json` sets `"ledger": true`.
 | 2 | `ledger-brief` | SessionStart | yes | Prints the brief of recent records into the session's context, then the record rules (also with an empty ledger) |
 | 3 | `ledger-shell-deletions` | (none here: core's `shell-deletions`) | yes | Former copy of core's `shell-deletions` hook, which snapshots tracked files a script deletes so the record credits the deletion. Both ran and logged every snapshot twice, so only core's remains; listing this id still switches it off |
 | 4 | `ledger-summarize` | (spawned by `ledger-stop`) | yes | Fills a record nobody wrote with a cheap model through `claude -p`. Spends tokens; list it to turn it off, or set `LEDGER_NO_SUMMARY=1` |
-| 5 | `worktree-setup` | SessionStart | no | In a new linked worktree: installs dependencies (`commands.install`, else pnpm or npm from the lockfile), builds a CodeGraph index when the main checkout has one, trusts RTK filters already trusted elsewhere. Each step is skipped when its tool is not installed. A worktree the app cut from an older commit (no commits of its own, `baseBranch` moved past it) gets a line naming the `worktree-flow adopt <base>` that moves it to the current files |
+| 5 | `worktree-setup` | SessionStart | no | In a new linked worktree: installs dependencies (`commands.install`, else pnpm or npm from the lockfile), builds a CodeGraph index when the main checkout has one, trusts RTK filters already trusted elsewhere. Each step is skipped when its tool is not installed. A worktree the app cut from an older commit (no commits of its own, `baseBranch` moved past it) gets a line naming the `worktree-flow adopt <base>` that moves it to the current files. In every checkout of a project with a `kit.json`, the main one too, it quietly adds `<paths.sdlc>/backlog.md merge=text` to the clone's `.git/info/attributes` |
 
 ```json
 { "hooks": { "off": ["ledger-summarize", "worktree-setup"] } }
@@ -163,7 +169,7 @@ a project may allow them in `.claude/settings.json` (`Bash(session-ledger --file
 | --- | --- | --- |
 | 1 | `session-ledger` | `--files`, `--record`, `--refresh`, `--conflicts`, `--owed`, `--done`, `--sweep`, `--archive`, `--backfill`; `--help` lists them |
 | 2 | `git-commit-session` | Commit by path; `--help` lists flags and exit codes |
-| 3 | `worktree-flow` | `status`, `resolve`, `base`, `role`, `adopt`, `conflicts`, `land`, `regenerate`, `remove`, `stale-remote`, `issues`; `--help` lists them. `adopt <base>` moves a fresh worktree onto `<base>`, then, when a lockfile or package manifest differs between the two commits or `node_modules` is missing, runs `kit.json` `commands.install` (spawned without a shell; a command with shell syntax, or none set, gets a hint instead). A failed install is reported; the move stands |
+| 3 | `worktree-flow` | `status`, `resolve`, `base`, `role`, `adopt`, `conflicts`, `land`, `regenerate`, `remove`, `stale-remote`, `issues`; `--help` lists them. `adopt <base>` moves a fresh worktree onto `<base>`, then, when a lockfile or package manifest differs between the two commits or `node_modules` is missing, runs `kit.json` `commands.install` (spawned without a shell; a command with shell syntax, or none set, gets a hint instead). A failed install is reported; the move stands. `conflicts` first sets `merge=text` for the backlog in the clone's `.git/info/attributes` and names a `merge=union` line for it left in `.gitattributes`; `regenerate` merges a conflicted backlog by its rows |
 | 4 | `worktree-setup` | The set-up the `worktree-setup` hook runs |
 | 5 | `git-branch-context` | Branch, upstream, base branch and item prefix as JSON, for `/git` |
 | 6 | `ledger-export` | Renders a record as a hand-off file outside the repo (`/handoff --export`) |

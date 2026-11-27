@@ -155,9 +155,9 @@ a file a neighbour touched there is flagged here too.
    `base: <base>`, or `git merge --no-edit <base>` when the app refuses that base. Resolve, run the
    project's checks, conclude the merge with `/git commit` (a conflicted path resolved by hand is
    `git add`ed by the user first; exit 7 names any left), and dry-run again. A conflicted
-   generated file is never resolved by hand: `worktree-flow regenerate` rebuilds each one a
-   `kit.json` `regenerate` rule names and stages it; resolve its sources first when they
-   conflict too. When the session
+   generated file or `<sdlc>/backlog.md` is never resolved by hand: `worktree-flow regenerate`
+   merges the backlog by its rows and rebuilds each file a `kit.json` `regenerate` rule names,
+   staging each; resolve a generated file's sources first when they conflict too. When the session
    started in a worktree cut from an older commit (its SessionStart said `starts <n> commit(s)
    behind <base>` and it was not adopted), its work was done against older files: name that in
    the resume, and check the merged base's changes to the files this session touched
