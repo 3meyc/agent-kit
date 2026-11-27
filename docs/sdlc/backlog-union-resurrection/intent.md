@@ -39,6 +39,9 @@ removed; a row either side added is added. Projects that already carry the union
   next time `/backlog` runs in a main session, in the same commit as that run's change.
 - O5. `/backlog`, the session README (both languages) and the CHANGELOG describe the new
   behaviour; nothing in the kit still says rows merge by union.
+- O6. A branch cut before the union line was removed merges like O1 too: the session plugin
+  sets `<sdlc>/backlog.md merge=text` in the clone's `.git/info/attributes`, which outranks a
+  `.gitattributes` line on either side (found while planning, 2026-11-27; see C7).
 
 ## Scope
 
@@ -69,12 +72,22 @@ any change to triage, verdicts or the file's columns.
 - C5. The file has no table on one side (created on one branch only): git reports an add/add
   or no conflict; the command handles add/add as base = empty.
 - C6. The union line is the only line in `.gitattributes`: the file is deleted with it.
+- C7. The base dropped the union line and picked rows; a branch cut earlier still has the line
+  and appended a row. Merging the base into that branch uses the branch's own attributes, so
+  removing the line alone still brings the rows back (reproduced 2026-11-27); with `merge=text`
+  in `.git/info/attributes` the same merge conflicts and the row merge resolves it.
 - Q1. Command shape: a new `worktree-flow backlog-merge`, or `worktree-flow regenerate` taking
   a conflicted backlog as a built-in rule so the flows keep one command for conflicted files.
   Recommendation: built into `regenerate`, no `kit.json` rule needed. Does not block the plan.
+  (resolved 2026-11-27: built into `regenerate`)
 - Q2. Also flag a remaining union line from `kit doctor` (core plugin), for projects that never
   run `/backlog` again? Recommendation: no; `/backlog` is the only writer of the file, so a
   project that never runs it never removes rows. Does not block the plan.
+  (resolved 2026-11-27: no; O6 covers clones whatever their `.gitattributes` says)
+- Q3. A merge made on the forge (a pull request merged on GitHub) reads only `.gitattributes`,
+  not a clone's `.git/info/attributes`; whether GitHub honours `merge=union` there is
+  unverified. The kit lands by fast-forward (`worktree-flow land`), so this is outside its
+  flows; recorded, not handled. Does not block the plan.
 
 ## References
 
