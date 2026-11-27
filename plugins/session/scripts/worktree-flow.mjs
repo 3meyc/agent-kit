@@ -4,7 +4,7 @@ import { join, resolve } from "node:path";
 import { isDirectRun, parseWorktrees } from "../lib/hook-utils.mjs";
 import { matchesAny } from "../lib/globs.mjs";
 import { escapeRegExp, inLedger, readKit } from "../lib/kit-config.mjs";
-import { mergeBacklog } from "./backlog-merge.mjs";
+import { ensureBacklogMerge, mergeBacklog, unionLineNote } from "./backlog-merge.mjs";
 import { BASE_KEY, ROLE_KEY, sessionRole } from "./session-role.mjs";
 
 /**
@@ -557,6 +557,12 @@ function cmdAdopt({ args, cwd }) {
 
 function cmdConflicts({ flags, cwd }) {
   const { me, all } = current(cwd);
+  // Before any merge the landing flows make: the clone merges the backlog as text (#56).
+  const backlog = ensureBacklogMerge(me.path);
+  // On stderr under --json, so the report stays one JSON array.
+  const note = flags.has("--json") ? console.error : console.log;
+  if (backlog.error) note(backlog.error);
+  if (backlog.union) note(unionLineNote(backlog.sdlc));
   const report = conflictsOf(me, all, cwd);
   if (flags.has("--json")) return console.log(JSON.stringify(report, null, 2));
   if (report.length === 0) return console.log("no base and no other active worktree to compare with");

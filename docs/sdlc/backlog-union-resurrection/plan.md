@@ -80,14 +80,14 @@ unaffected). `grep -rn "merge=union\|union" plugins docs` lists every text to ch
   row present and no unmerged path; a C4 head clash stays conflicted and is named. Check:
   `node --test tests/session.worktree-flow.test.mjs` -> pass; the new test fails before the
   change.
-- [ ] 3. Per-clone `merge=text` (O6, C7) from both callers. Files: `backlog-merge.mjs`
+- [x] 3. Per-clone `merge=text` (O6, C7) from both callers. Files: `backlog-merge.mjs`
   (`withTextMerge`, `hasUnionLine`, `ensureBacklogMerge`), `worktree-setup-hook.mjs`,
   `worktree-flow.mjs` (`cmdConflicts`), `tests/session.worktree-setup-hook.test.mjs`,
   `tests/session.worktree-flow.test.mjs`. Tests: the hook run twice writes one line, then the C7
   reproduction conflicts instead of bringing rows back; with `worktree-setup` in `hooks.off`,
   `worktree-flow conflicts` writes the same line; a project without `kit.json` gets none.
   Check: both test files pass.
-- [ ] 4. Leftover union line reported (O4). Files: `backlog-merge.mjs` (`hasUnionLine`),
+- [x] 4. Leftover union line reported (O4). Files: `backlog-merge.mjs` (`hasUnionLine`),
   `worktree-flow.mjs`, `tests/session.worktree-flow.test.mjs`. Test: `.gitattributes` with the
   union line -> `conflicts` prints the `backlog:` line; without it -> no line. Check: pass.
 - [ ] 5. Docs (O4, O5, C6). Files: `backlog.md`, `close-out.md`, `close-siblings.md`, session
@@ -119,3 +119,10 @@ leftover line) is tested. No `sdlc-ext-plan` skill is
 listed in this session, so no extra gates.
 
 ## Deviations
+
+- IMPROVED — `ensureBacklogMerge` returns `{ sdlc, error, union }` instead of lines to print,
+  and each caller words its own output: the hook stays quiet (a write failure on stderr only;
+  the leftover union line is named at landing), and `conflicts --json` prints its `backlog:`
+  notes on stderr, so stdout stays one JSON array for its readers. Steps 3–4; tests in
+  `tests/session.worktree-flow.test.mjs` (conflicts case) and
+  `tests/session.worktree-setup-hook.test.mjs`.

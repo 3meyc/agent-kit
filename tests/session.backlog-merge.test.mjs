@@ -1,5 +1,5 @@
 import { describe, expect, it } from "./session/vitest-compat.mjs";
-import { mergeBacklog } from "../plugins/session/scripts/backlog-merge.mjs";
+import { hasUnionLine, mergeBacklog, withTextMerge } from "../plugins/session/scripts/backlog-merge.mjs";
 
 const HEAD = "# Backlog\n\nDeferred follow-ups.\n\n| Source | What | Why | Added | Until |\n| --- | --- | --- | --- | --- |\n";
 const row = (source, what = `do ${source}`, until = "2026-12-01") => `| ${source} | ${what} | why | 2026-11-17 | ${until} |\n`;
@@ -55,5 +55,24 @@ describe("mergeBacklog", () => {
 
   it("refuses a side with no table", () => {
     expect(mergeBacklog({ base: file(), ours: "# Backlog\n", theirs: file(row("b 1")) }).refused).toMatch(/no table/);
+  });
+});
+
+describe("withTextMerge", () => {
+  it("adds the backlog's merge=text line once, keeping what the file held", () => {
+    expect(withTextMerge("", "docs/sdlc")).toBe("docs/sdlc/backlog.md merge=text\n");
+    expect(withTextMerge("*.bin -diff", "work")).toBe("*.bin -diff\nwork/backlog.md merge=text\n");
+    expect(withTextMerge("work/backlog.md merge=text\n", "work")).toBe(null);
+    expect(withTextMerge("/work/backlog.md  merge=text\n", "work")).toBe(null);
+  });
+});
+
+describe("hasUnionLine", () => {
+  it("finds the union line /backlog used to add, and nothing else", () => {
+    expect(hasUnionLine("docs/sdlc/backlog.md merge=union\n", "docs/sdlc")).toBe(true);
+    expect(hasUnionLine("*.md text\n/docs/sdlc/backlog.md   merge=union\n", "docs/sdlc")).toBe(true);
+    expect(hasUnionLine("docs/sdlc/backlog.md merge=text\n", "docs/sdlc")).toBe(false);
+    expect(hasUnionLine("CHANGELOG.md merge=union\n", "docs/sdlc")).toBe(false);
+    expect(hasUnionLine("", "docs/sdlc")).toBe(false);
   });
 });

@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "./session/vitest-compat.mjs";
@@ -127,6 +127,42 @@ describe("worktree-setup-hook.mjs as a process", () => {
       expect(off.status).toBe(0);
       expect(off.stdout).toBe("");
       expect(existsSync(log)).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("makes the clone merge the backlog as text, so a branch still carrying merge=union conflicts (#56, C7)", () => {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), "worktree-setup-hook-")));
+    const git = (...args) => spawnSync("git", ["-c", "user.email=t@example.com", "-c", "user.name=T", ...args], { cwd: dir, encoding: "utf8" });
+    const table = (...rows) => `| Source | What |\n| --- | --- |\n${rows.map((s) => `| ${s} | w |\n`).join("")}`;
+    try {
+      git("init", "-q", "-b", "dev");
+      const run = () => spawnSync(process.execPath, [HOOK], { encoding: "utf8", input: JSON.stringify({ cwd: dir }) });
+      const attributes = join(dir, ".git", "info", "attributes");
+      expect(run().status).toBe(0);
+      expect(existsSync(attributes) && readFileSync(attributes, "utf8").includes("backlog.md")).toBe(false);
+
+      writeFileSync(join(dir, "kit.json"), JSON.stringify({ project: "t", paths: { sdlc: "work" } }));
+      expect(run().stdout).toBe("");
+      run();
+      expect(readFileSync(attributes, "utf8").match(/^work\/backlog\.md merge=text$/gm)).toHaveLength(1);
+
+      mkdirSync(join(dir, "work"));
+      writeFileSync(join(dir, ".gitattributes"), "work/backlog.md merge=union\n");
+      writeFileSync(join(dir, "work", "backlog.md"), table("a 1", "a 2"));
+      git("add", ".");
+      git("commit", "-q", "-m", "base");
+      git("checkout", "-q", "-b", "older");
+      writeFileSync(join(dir, "work", "backlog.md"), table("a 1", "a 2", "b 1"));
+      git("commit", "-q", "-am", "append");
+      git("checkout", "-q", "dev");
+      writeFileSync(join(dir, "work", "backlog.md"), table());
+      git("rm", "-q", ".gitattributes");
+      git("commit", "-q", "-am", "pick, drop union");
+      git("checkout", "-q", "older");
+      expect(git("merge", "--no-edit", "dev").status).not.toBe(0);
+      expect(git("diff", "--name-only", "--diff-filter=U").stdout.trim()).toBe("work/backlog.md");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

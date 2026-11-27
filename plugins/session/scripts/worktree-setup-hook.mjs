@@ -28,6 +28,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDirectRun, readHookInput } from "../lib/hook-utils.mjs";
 import { hookOff, readKit } from "../lib/kit-config.mjs";
+import { ensureBacklogMerge } from "./backlog-merge.mjs";
 import { codegraphStatus, planSetup, readFacts } from "./worktree-setup.mjs";
 
 /** This plugin's hook id, as `kit.json` `hooks.off` names it. */
@@ -138,6 +139,10 @@ async function main() {
   const read = readFacts(session.dir);
   if (!read) return;
   if (hookOff(HOOK_ID, readKit(read.top))) return;
+  // Every checkout, the main one too: the clone merges the backlog as text (#56). Quiet; a
+  // leftover union line is `worktree-flow conflicts`'s to name, at landing.
+  const backlog = ensureBacklogMerge(read.top);
+  if (backlog.error) console.error(backlog.error);
   const log = (outcome, steps = []) =>
     appendRunLog(
       read.commonDir,

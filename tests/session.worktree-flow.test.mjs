@@ -968,6 +968,22 @@ describe("worktree-flow role and regenerate", () => {
     git(dir, "merge", "--abort");
   });
 
+  it("conflicts sets the clone's merge=text line even with the hook off, and names a leftover union line (#56)", () => {
+    const attributes = join(dir, ".git", "info", "attributes");
+    rmSync(attributes, { force: true });
+    writeFileSync(join(dir, "kit.json"), JSON.stringify({ project: "t", hooks: { off: ["worktree-setup"] }, regenerate: [{ match: ["types.txt"], command: "node gen.mjs" }] }));
+    const quiet = flow(dir, "conflicts");
+    expect(quiet.status).toBe(0);
+    expect(quiet.stdout).not.toMatch(/^backlog:/m);
+    expect(readFileSync(attributes, "utf8")).toMatch(/^docs\/sdlc\/backlog\.md merge=text$/m);
+    writeFileSync(join(dir, ".gitattributes"), "docs/sdlc/backlog.md merge=union\n");
+    expect(flow(dir, "conflicts").stdout).toMatch(/^backlog: \.gitattributes still merges docs\/sdlc\/backlog\.md by union/m);
+    const json = flow(dir, "conflicts", "--json");
+    expect(Array.isArray(JSON.parse(json.stdout))).toBe(true);
+    expect(json.stderr).toMatch(/^backlog: \.gitattributes still merges/m);
+    rmSync(join(dir, ".gitattributes"));
+  });
+
   it("leaves a backlog conflicted when both sides changed the text around the table (C4)", () => {
     const text = (intro) => `# Backlog\n\n${intro}\n\n| Source | What |\n| --- | --- |\n| a 1 | w |\n`;
     commit("docs/sdlc/backlog.md", text("Base."));
