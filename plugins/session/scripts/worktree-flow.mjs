@@ -927,11 +927,12 @@ function cmdRegenerate({ flags, cwd }) {
   const top = thisWorktree(cwd).path;
   const conflicted = (gitOut(["diff", "--name-only", "--diff-filter=U"], top) ?? "").split("\n").filter(Boolean);
   if (conflicted.length === 0) return console.log("no conflicted files");
-  const backlog = `${kitOf(top).paths.sdlc}/backlog.md`;
+  const kit = kitOf(top);
+  const backlog = `${kit.paths.sdlc}/backlog.md`;
   const unmerged = conflicted.filter((path) => path !== backlog);
-  if (unmerged.length < conflicted.length && !regenerateBacklog(top, backlog, flags.has("--dry-run"))) unmerged.push(backlog);
+  if (conflicted.includes(backlog) && !regenerateBacklog(top, backlog, flags.has("--dry-run"))) unmerged.push(backlog);
   if (unmerged.length === 0) return undefined;
-  const { steps, left } = regeneratePlan(unmerged, kitOf(top).regenerate);
+  const { steps, left } = regeneratePlan(unmerged, kit.regenerate);
   if (steps.length === 0) return console.log(`no kit.json regenerate rule matches the conflicted files: ${unmerged.join(", ")}`);
   for (const step of steps) {
     if (flags.has("--dry-run")) {

@@ -113,4 +113,5 @@ Moves rows out of the backlog into one new session, whose charter they become.
 
 List the rows past **Until** with their B-numbers. On the user's word remove them (git history
 keeps them), write `expired <Sources>` in this session's `## Decisions`, delete an old union
-line (§ The file item 4), and commit through `/git commit`. An expired row nobody picked was not needed; it is not moved back to the inbox.
+line (§ The file item 4), and commit through `/git commit`. An expired row nobody picked was not
+needed; it is not moved back to the inbox.
