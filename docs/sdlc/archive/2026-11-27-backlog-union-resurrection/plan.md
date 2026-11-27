@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 ---
 
 # Plan: /backlog rows removed by pick or expire stay removed after a merge

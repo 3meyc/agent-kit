@@ -1,10 +1,11 @@
 ---
 type: fix
-status: accepted
+status: done
 ticket: none
 branch: claude/session-backlog-parentfiles-d2fb2c
 base: dev
 created: 2026-11-27
+completed: 2026-11-27
 ---
 
 # Intent: /backlog rows removed by pick or expire stay removed after a merge
