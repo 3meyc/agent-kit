@@ -37,8 +37,8 @@ Deferred follow-ups. Rows enter through `/backlog triage` (or the triage of `/cl
    side removed stays removed, a row either side added lands once, a row one side edited keeps
    the edit (edited on both sides, this branch's edit stands); it stages the file. Resolve it by
    hand only when `regenerate` leaves it conflicted and says why: both sides changed the text
-   around the table, one side deleted the file, or a side has no table. Removing rows (`pick`, `expire`) is for one session at a time, normally the
-   daily one.
+   around the table, one side deleted the file, or a side has no table. Removing rows (`pick`,
+   `expire`) is for one session at a time, normally the daily one.
 4. Never add `merge=union` for the file: a union merge brings removed rows back. Older versions
    of `/backlog` added `<sdlc>/backlog.md merge=union` to `.gitattributes`; `triage`, `pick` and
    `expire` delete that line when they find it (and `.gitattributes` itself when the line was all

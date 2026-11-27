@@ -59,9 +59,10 @@ below exist in the desktop app; elsewhere, ask the user which branches are the s
    `git merge --no-ff --no-edit refs/heads/<branch>`. Always the full `refs/heads/` ref.
 3. A conflict is resolved here only when both sides' intent is clear; otherwise
    `git merge --abort`, report the files and leave that branch out. A conflicted generated file
-   or `<sdlc>/backlog.md` is never resolved by hand: `worktree-flow regenerate` merges the
-   backlog by its rows and rebuilds each file a `kit.json` `regenerate` rule names (after its
-   sources are resolved), staging each.
+   or `<sdlc>/backlog.md` goes to `worktree-flow regenerate` first, never straight to a hand
+   edit: it merges the backlog by its rows and rebuilds each file a `kit.json` `regenerate` rule
+   names (after its sources are resolved), staging each. Only a backlog it leaves conflicted,
+   saying why, is resolved by hand.
 4. After the last merge, the main-session edits the sub-sessions left (§ 1 step 5), once, on the
    merged tree: `session-ledger --done <id8> <n>` for each `mark done:` item, the edit each
    `for the parent:` item names (a changelog line, a roadmap or `<sdlc>/*.md` tick, a release

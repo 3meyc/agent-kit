@@ -196,7 +196,16 @@ Finish, 2026-11-27, at d58e77d (K2's uncommitted #57 files set aside so the tree
    6. a row edited differently on both sides keeps ours silently — documented in `/backlog`
       § The file item 3 (this branch's edit stands, as git keeps the checked-out side);
    7. "Never resolve it by hand" read against the refusals' "resolve it by hand" — reworded.
-6. Follow-up from the intent's Scope (excluded there): making a sub-session's commit of a
+6. Verifier pass 2 at 68aa51a: FAIL, nits only, no defect; D1 and N2–N4 confirmed fixed, O1–O6
+   and C1–C7 hold, `npm run check` exit 0 (799 tests), C7 real-input run passed. Nits, fixed and
+   archived under the rerun cap (no third pass):
+   1. N1 back: `/backlog` § The file item 3 had one unwrapped line again — rewrapped;
+   2. `/close-out` and `/close-siblings` still said a backlog is never resolved by hand, against
+      `regenerate`'s refusal message — both now send it to `regenerate` first and by hand only
+      when it is left conflicted;
+   3. no test for `ensureBacklogMerge`'s one-line error — test added in
+      `tests/session.backlog-merge.test.mjs`.
+7. Follow-up from the intent's Scope (excluded there): making a sub-session's commit of a
    top-level `<sdlc>/*.md` a refusal rather than the `parent-files:` line.
 
 ## Deviations

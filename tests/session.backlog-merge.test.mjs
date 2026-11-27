@@ -1,5 +1,27 @@
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "./session/vitest-compat.mjs";
-import { backlogPath, hasUnionLine, mergeBacklog, withTextMerge } from "../plugins/session/scripts/backlog-merge.mjs";
+import { backlogPath, ensureBacklogMerge, hasUnionLine, mergeBacklog, withTextMerge } from "../plugins/session/scripts/backlog-merge.mjs";
+
+describe("ensureBacklogMerge", () => {
+  it("reports a paths.sdlc it cannot write as one line and writes nothing (finish review nit 5)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "backlog-merge-"));
+    try {
+      spawnSync("git", ["init", "-q"], { cwd: dir });
+      writeFileSync(join(dir, "kit.json"), JSON.stringify({ project: "t", paths: { sdlc: "docs\nsdlc" } }));
+      const { error, union } = ensureBacklogMerge(dir);
+      expect(error).toMatch(/^backlog: could not set merge=text for "docs\\nsdlc\/backlog\.md" in .*newline or a quote/);
+      expect(error.includes("\n")).toBe(false);
+      expect(union).toBe(false);
+      const attributes = join(dir, ".git", "info", "attributes");
+      expect(existsSync(attributes) ? readFileSync(attributes, "utf8") : "").not.toMatch(/merge=text/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
 
 const HEAD = "# Backlog\n\nDeferred follow-ups.\n\n| Source | What | Why | Added | Until |\n| --- | --- | --- | --- | --- |\n";
 const row = (source, what = `do ${source}`, until = "2026-12-01") => `| ${source} | ${what} | why | 2026-11-17 | ${until} |\n`;
