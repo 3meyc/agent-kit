@@ -19,30 +19,38 @@ Intent: [intent.md](intent.md).
   differently is a refusal (C4). Rows: ours in order, minus Sources base had and theirs lacks,
   plus theirs' rows whose Source is in neither base nor ours, in theirs' order. A missing stage
   (add/add, C5) reads as empty.
-- Per-clone override (O6, C7): the `worktree-setup` SessionStart hook, which already runs in
-  every checkout and writes to the git common dir, makes sure `$GIT_COMMON_DIR/info/attributes`
-  holds `<paths.sdlc>/backlog.md merge=text`, once, only when the project has a `kit.json`. A
-  project with the hook in `hooks.off` does not get it; the README says so.
+- Per-clone override (O6, C7): one function, `ensureBacklogMerge(top)`, makes sure
+  `$GIT_COMMON_DIR/info/attributes` holds `<paths.sdlc>/backlog.md merge=text`, once, only when
+  the project has a `kit.json`. Two callers: the `worktree-setup` SessionStart hook (early, every
+  checkout) and `worktree-flow conflicts`, which `/close-out` and `/close-siblings` preload before
+  any merge, so the line is in place even when the hook is in `hooks.off`. Idempotent; a write
+  failure is one line, never a stopped session or a failed command.
 - Existing `.gitattributes` (O4): `/backlog` `triage`, `pick` and `expire` delete the
   `<sdlc>/backlog.md merge=union` line (and the file when it held only that line) in the commit
-  of their own change. Prose, as the rest of `/backlog` is.
+  of their own change. Prose, as the rest of `/backlog` is; with the clone line in place the old
+  line is harmless in kit clones, so this is cleanup. The same function also reports it:
+  `worktree-flow conflicts` prints `backlog: .gitattributes still merges <sdlc>/backlog.md by
+  union; delete that line (/backlog does on its next triage, pick or expire)` while the line is
+  there, so it is removed or named on every landing.
 - Smallest solution: no git merge driver (it needs per-clone config naming a script path that
   moves with each plugin version, and a missing driver fails the merge); no tombstone list.
 
 ## Files that change
 
 - `plugins/session/scripts/backlog-merge.mjs` — new — session — `mergeBacklog({ base, ours, theirs })`
-  returning `{ text }` or `{ refused }`, and `withTextMerge(attributesText, sdlc)` returning the
-  new `info/attributes` text or null when the line is there.
+  returning `{ text }` or `{ refused }`; pure `withTextMerge(attributesText, sdlc)` (new
+  `info/attributes` text, or null when the line is there) and `hasUnionLine(gitattributesText,
+  sdlc)`; `ensureBacklogMerge(top)` doing the write and returning the lines to print.
 - `plugins/session/scripts/worktree-flow.mjs` — modified — `cmdRegenerate` resolves a
   conflicted `<sdlc>/backlog.md` from stages 1–3 (`git show :n:<path>`), writes and stages it,
-  then runs the rules on the rest; USAGE line for `regenerate`.
-- `plugins/session/scripts/worktree-setup-hook.mjs` — modified — writes the `info/attributes`
-  line through `withTextMerge`, before the main-checkout return; failure is one stderr line,
-  never a stopped session.
+  then runs the rules on the rest; `cmdConflicts` calls `ensureBacklogMerge` first and prints
+  its lines (plain and `--json` output both carry them); USAGE lines for both.
+- `plugins/session/scripts/worktree-setup-hook.mjs` — modified — calls `ensureBacklogMerge`
+  before the main-checkout return; failure is one stderr line, never a stopped session.
 - `tests/session.backlog-merge.test.mjs` — new — pure cases.
 - `tests/session.worktree-flow.test.mjs` — modified — a real merge that conflicts on the backlog
-  and `regenerate` resolving it.
+  and `regenerate` resolving it; `conflicts` writing the clone line with the hook off and naming
+  a leftover union line.
 - `tests/session.worktree-setup-hook.test.mjs` — modified — the line is written once; a branch
   carrying the union line then conflicts instead of resurrecting.
 - `plugins/session/commands/backlog.md` — modified — § The file item 3; `triage`/`pick`/`expire`
@@ -72,16 +80,23 @@ unaffected). `grep -rn "merge=union\|union" plugins docs` lists every text to ch
   row present and no unmerged path; a C4 head clash stays conflicted and is named. Check:
   `node --test tests/session.worktree-flow.test.mjs` -> pass; the new test fails before the
   change.
-- [ ] 3. Per-clone `merge=text` (O6, C7). Files: `worktree-setup-hook.mjs`, `backlog-merge.mjs`
-  (`withTextMerge`), `tests/session.worktree-setup-hook.test.mjs`. The test runs the hook twice
-  (one line written), then repeats the C7 reproduction: the merge conflicts instead of
-  bringing rows back. Check: `node --test tests/session.worktree-setup-hook.test.mjs` -> pass.
-- [ ] 4. Docs (O4, O5, C6). Files: `backlog.md`, `close-out.md`, `close-siblings.md`, session
-  README (both), CHANGELOG. Check: `grep -rn "merge=union" plugins docs` -> only the
-  removal instruction and the CHANGELOG; `node plugins/core/bin/kit-docs-parity` -> ok.
-- [ ] 5. Architecture page sentence on `regenerate`, if it names what it rebuilds. Check:
+- [ ] 3. Per-clone `merge=text` (O6, C7) from both callers. Files: `backlog-merge.mjs`
+  (`withTextMerge`, `hasUnionLine`, `ensureBacklogMerge`), `worktree-setup-hook.mjs`,
+  `worktree-flow.mjs` (`cmdConflicts`), `tests/session.worktree-setup-hook.test.mjs`,
+  `tests/session.worktree-flow.test.mjs`. Tests: the hook run twice writes one line, then the C7
+  reproduction conflicts instead of bringing rows back; with `worktree-setup` in `hooks.off`,
+  `worktree-flow conflicts` writes the same line; a project without `kit.json` gets none.
+  Check: both test files pass.
+- [ ] 4. Leftover union line reported (O4). Files: `backlog-merge.mjs` (`hasUnionLine`),
+  `worktree-flow.mjs`, `tests/session.worktree-flow.test.mjs`. Test: `.gitattributes` with the
+  union line -> `conflicts` prints the `backlog:` line; without it -> no line. Check: pass.
+- [ ] 5. Docs (O4, O5, C6). Files: `backlog.md`, `close-out.md`, `close-siblings.md`, session
+  README (both: conflict row 6, follow-ups item 3, hook row 5, script row 3 for `conflicts` and
+  `regenerate`), CHANGELOG. Check: `grep -rn "merge=union" plugins docs` -> only the
+  removal instruction, the `conflicts` line and the CHANGELOG; `node plugins/core/bin/kit-docs-parity` -> ok.
+- [ ] 6. Architecture page sentence on `regenerate`, if it names what it rebuilds. Check:
   read `docs/architecture.md:146`; parity ok.
-- [ ] 6. Full check. `npm run check` -> exit 0. Commits: step 1–2 `fix(session): …` with
+- [ ] 7. Full check. `npm run check` -> exit 0. Commits: step 1–2 `fix(session): …` with
   `Fixes #56` in the last fix commit; docs with them or as `docs(session): …`.
 
 ## Proof
@@ -91,13 +106,16 @@ unaffected). `grep -rn "merge=union\|union" plugins docs` lists every text to ch
 | `node --test tests/session.backlog-merge.test.mjs` | pass; failed before step 1 | O2, C1–C5 |
 | `node --test tests/session.worktree-flow.test.mjs` (backlog regenerate case) | conflict, then resolved and staged, picked rows gone | O1, O3, C4 |
 | `node --test tests/session.worktree-setup-hook.test.mjs` | line written once; union branch now conflicts | O6, C7 |
+| `node --test tests/session.worktree-flow.test.mjs` (conflicts cases) | hook off: `conflicts` writes the line; no `kit.json`: none; leftover union line named, absent line silent | O4, O6 |
+| Run `worktree-flow conflicts` in this repo (real input) | clone line written to the common dir's `info/attributes`, no `backlog:` line | O6 |
 | Run the built `worktree-flow regenerate` on the scratch repo of the reproduction (real input) | picked rows gone, `b 1` kept, staged | O1, O3 |
 | Read `/backlog` § The file and pick/expire/triage | union line removal step present; C6 named | O4, C6 |
 | `grep -rn "merge=union" plugins docs` | only the removal instruction and CHANGELOG | O5 |
 | `npm run check` | exit 0 (schema, vendor, tests, docs parity, naming guard) | all |
 | `claude plugin validate .` | passes (missing `version` warning expected) | all |
 
-O4's removal is agent-run prose: proved by reading, not by a test. No `sdlc-ext-plan` skill is
+O4's removal is agent-run prose, proved by reading; its detection (`conflicts` naming a
+leftover line) is tested. No `sdlc-ext-plan` skill is
 listed in this session, so no extra gates.
 
 ## Deviations
