@@ -97,7 +97,7 @@ unaffected). `grep -rn "merge=union\|union" plugins docs` lists every text to ch
 - [x] 6. Architecture page sentence on `regenerate`, if it names what it rebuilds. Check:
   read `docs/architecture.md:146`; parity ok. Result: no change; the sentence describes the
   `kit.json` `regenerate` key, and the backlog merge is built in, not a key.
-- [ ] 7. Full check. `npm run check` -> exit 0. Commits: step 1–2 `fix(session): …` with
+- [x] 7. Full check. `npm run check` -> exit 0. Commits: step 1–2 `fix(session): …` with
   `Fixes #56` in the last fix commit; docs with them or as `docs(session): …`.
 
 ## Proof
@@ -116,7 +116,27 @@ unaffected). `grep -rn "merge=union\|union" plugins docs` lists every text to ch
 | `claude plugin validate .` | passes (missing `version` warning expected) | all |
 
 O4's removal is agent-run prose, proved by reading; its detection (`conflicts` naming a
-leftover line) is tested. No `sdlc-ext-plan` skill is
+leftover line) is tested.
+
+Evidence (2026-11-27, on the step 5 commit plus K2's uncommitted #57 files):
+
+1. Red: `tests/session.backlog-merge.test.mjs` failed with `ERR_MODULE_NOT_FOUND`; the two
+   backlog `regenerate` tests failed; the `conflicts` and hook C7 tests failed on the missing
+   exports. Each passed after its step.
+2. `npm run check` -> exit 0: 793 tests pass, docs parity 14 pairs ok, naming guard ok.
+3. `claude plugin validate .` -> passed with warnings: the missing `version` field (expected)
+   and no install line in `plugins/session/README.md`, a line this change does not touch.
+4. Real input, scratch repo shaped like the reported case (kit.json, `docs/sdlc/backlog.md`
+   with three rows and the union line; `dev` picks them and drops the line; `older` appended
+   one row): on `older`, `worktree-flow conflicts` printed the `backlog:` note and wrote
+   `docs/sdlc/backlog.md merge=text` to `info/attributes`; `git merge dev` conflicted;
+   `worktree-flow regenerate` printed `merged docs/sdlc/backlog.md by its rows; staged`, and the
+   file held only the appended row, nothing left unmerged.
+5. `worktree-flow conflicts` in this repo: no `backlog:` line; the common dir's
+   `info/attributes` now holds `docs/sdlc/backlog.md merge=text`.
+6. `grep -rn "merge=union" plugins docs`: the `/backlog` removal instruction, the README's
+   history sentence, the `conflicts` description, this item's records, and a released
+   CHANGELOG entry; no text still says the backlog merges by union. No `sdlc-ext-plan` skill is
 listed in this session, so no extra gates.
 
 ## Deviations
